@@ -1,0 +1,228 @@
+{
+  "schema": 1,
+  "sources": {
+    "engine": {
+      "url": "https://codeload.github.com/andrakis/TRELLIS.2-stableprojectorz/zip/1481f4995870460b6442be50b6265307b6d6d07f",
+      "sha256": "d49d0bf4fdd42c9eff0324779df5919a3277c59583d4e37cd406492bc470e8ac",
+      "bytes": 46754366,
+      "commit": "1481f4995870460b6442be50b6265307b6d6d07f",
+      "destination": "engine"
+    },
+    "unirig": {
+      "url": "https://codeload.github.com/VAST-AI-Research/UniRig/zip/6793c6640ff01c8fb389f3993434124bb43d2933",
+      "sha256": "a8a59be5b7afa9be2da47fc0ac01423c9288cbb1f614eb63a2343d798a569ba3",
+      "bytes": 22897461,
+      "commit": "6793c6640ff01c8fb389f3993434124bb43d2933",
+      "destination": "UniRig/source"
+    },
+    "uv": {
+      "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-pc-windows-msvc.zip",
+      "sha256": "0cdc5b38fe5a8168ed6a25814f5ba43c21d313dd3187314fccb37b7cec46e021",
+      "version": "0.13.7"
+    },
+    "uv_linux": {
+      "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83"
+    }
+  },
+  "assets": [
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS-image-large/resolve/25e0d31ffbebe4b5a97464dd851910efc3002d96/ckpts/ss_dec_conv3d_16l8_fp16.json",
+      "sha256": "646781293f1cda74720de85d1cef50a957fb4aebd9a4bd014e454e32f2330ac5",
+      "bytes": 245,
+      "path": "models/trellis2/ckpts/ss_dec_conv3d_16l8_fp16.json",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS-image-large/resolve/25e0d31ffbebe4b5a97464dd851910efc3002d96/ckpts/ss_dec_conv3d_16l8_fp16.safetensors",
+      "sha256": "1c76d4a40519aa2d711cc263a8404105231ac26db31d946bed48b84fee79009a",
+      "bytes": 147591972,
+      "path": "models/trellis2/ckpts/ss_dec_conv3d_16l8_fp16.safetensors",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/ss_flow_img_dit_1_3B_64_bf16.json",
+      "sha256": "6cdfb636854f60ffcadd8c49244169cd449f34c5ccdb55b5ff7c04678f9c399e",
+      "bytes": 467,
+      "path": "models/trellis2/ckpts/ss_flow_img_dit_1_3B_64_bf16.json",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/ss_flow_img_dit_1_3B_64_bf16.safetensors",
+      "sha256": "ca01377c485bec418076d38ee80166d32dc776d744f2553b835cba1e97a7abf6",
+      "bytes": 2584426920,
+      "path": "models/trellis2/ckpts/ss_flow_img_dit_1_3B_64_bf16.safetensors",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/shape_dec_next_dc_f16c32_fp16.json",
+      "sha256": "5f1b856dffce79466fb18f5f0eefc08f08c673b24b3c05b20359c0b6d318a209",
+      "bytes": 678,
+      "path": "models/trellis2/ckpts/shape_dec_next_dc_f16c32_fp16.json",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/shape_dec_next_dc_f16c32_fp16.safetensors",
+      "sha256": "e3b718d3e43e4f8780e9a24ac6fff231811a67e3b058e336e10fe654c911d581",
+      "bytes": 948490494,
+      "path": "models/trellis2/ckpts/shape_dec_next_dc_f16c32_fp16.safetensors",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/slat_flow_img2shape_dit_1_3B_512_bf16.json",
+      "sha256": "ddbd7a1d34ce9a8e7af2f6ef9ae686d9ab49f69e62dacb98d8409b511cdbd5e2",
+      "bytes": 458,
+      "path": "models/trellis2/ckpts/slat_flow_img2shape_dit_1_3B_512_bf16.json",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/slat_flow_img2shape_dit_1_3B_512_bf16.safetensors",
+      "sha256": "ec5e0917ef9b7e25ad51dffc7d19687a42019871f94239f2fa7f86264c55b70f",
+      "bytes": 2584574424,
+      "path": "models/trellis2/ckpts/slat_flow_img2shape_dit_1_3B_512_bf16.safetensors",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/slat_flow_img2shape_dit_1_3B_1024_bf16.json",
+      "sha256": "7ebd6d367393f52fee9e92c2b3d727a9026a338549c6a6fa84c7ea122140ffdd",
+      "bytes": 458,
+      "path": "models/trellis2/ckpts/slat_flow_img2shape_dit_1_3B_1024_bf16.json",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/slat_flow_img2shape_dit_1_3B_1024_bf16.safetensors",
+      "sha256": "07cd0596f634c5adc1890023d16023afc5eed02fb84b22bb23aff5bf0030fbbd",
+      "bytes": 2584574424,
+      "path": "models/trellis2/ckpts/slat_flow_img2shape_dit_1_3B_1024_bf16.safetensors",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/tex_dec_next_dc_f16c32_fp16.json",
+      "sha256": "22074e4ab5b28e2b72d33a3fe61bf416134b89e12d0fc5c729f37da75da0c4d1",
+      "bytes": 705,
+      "path": "models/trellis2/ckpts/tex_dec_next_dc_f16c32_fp16.json",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/tex_dec_next_dc_f16c32_fp16.safetensors",
+      "sha256": "97ea69addea2ecd9312910f5f548234665eef51c088386180b7cd5b258645e3c",
+      "bytes": 948458812,
+      "path": "models/trellis2/ckpts/tex_dec_next_dc_f16c32_fp16.safetensors",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/slat_flow_imgshape2tex_dit_1_3B_512_bf16.json",
+      "sha256": "3093796257a62f838d2e5578ac4580ca3b7d88d10b87d348065d3fdfcc4c2077",
+      "bytes": 458,
+      "path": "models/trellis2/ckpts/slat_flow_imgshape2tex_dit_1_3B_512_bf16.json",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/slat_flow_imgshape2tex_dit_1_3B_512_bf16.safetensors",
+      "sha256": "8371aa1c5d13be79dcd5ddfd2cf3835e902e204dc34427169a1c702828e1a94d",
+      "bytes": 2584672728,
+      "path": "models/trellis2/ckpts/slat_flow_imgshape2tex_dit_1_3B_512_bf16.safetensors",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/slat_flow_imgshape2tex_dit_1_3B_1024_bf16.json",
+      "sha256": "31f4fdad9974930e5e9324ac9dfb6ef7de6b30cea51854ba515ef827a8d353b2",
+      "bytes": 458,
+      "path": "models/trellis2/ckpts/slat_flow_imgshape2tex_dit_1_3B_1024_bf16.json",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/microsoft/TRELLIS.2-4B/resolve/af44b45f2e35a493886929c6d786e563ec68364d/ckpts/slat_flow_imgshape2tex_dit_1_3B_1024_bf16.safetensors",
+      "sha256": "580401269059a339b8318ab9ced459a13ba63391721c83a6c383198c29e77686",
+      "bytes": 2584672728,
+      "path": "models/trellis2/ckpts/slat_flow_imgshape2tex_dit_1_3B_1024_bf16.safetensors",
+      "group": "generation"
+    },
+    {
+      "url": "https://huggingface.co/VAST-AI/UniRig/resolve/36842e2b5947e9e60f89275b83208c8e74071c63/skeleton/articulation-xl_quantization_256/model.ckpt",
+      "sha256": "d8cf9b42d56e7bc316d293597ecf8c4c39a8631cdd44a261ecf388242fabd0f4",
+      "bytes": 1439617174,
+      "path": "UniRig/models/skeleton.ckpt",
+      "group": "rig"
+    },
+    {
+      "url": "https://huggingface.co/VAST-AI/UniRig/resolve/36842e2b5947e9e60f89275b83208c8e74071c63/skin/articulation-xl/model.ckpt",
+      "sha256": "9d40cf42fb9d4c10d8b373d9f4f557c6fbbc5ebacae7ae6b3dce5a0d8a18bc33",
+      "bytes": 4375464854,
+      "path": "UniRig/models/skin.ckpt",
+      "group": "rig"
+    },
+    {
+      "url": "https://github.com/IgorAherne/TRELLIS.2-stableprojectorz/releases/download/extra-models/dinov3.zip",
+      "path": ".downloads/dinov3.zip",
+      "sha256": "1b6d24ef5f5e70435160eb7ac318426cf7a6ba20d3f159d17b0dd168fc7de672",
+      "bytes": 1126258307,
+      "group": "generation"
+    },
+    {
+      "url": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx",
+      "path": "models/rembg/u2net.onnx",
+      "sha256": "8d10d2f3bb75ae3b6d527c77944fc5e7dcd94b29809d47a739a7a728a912b491",
+      "bytes": 175997641,
+      "group": "generation"
+    },
+    {
+      "url": "https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip",
+      "path": "animations/quaternius/UAL1-Standard.zip",
+      "sha256": "18ff1a7215f4852b320203e8aaf02a1578b5c8eef9027fbaedfcedc7b85a3ac2",
+      "bytes": 14541205,
+      "group": "animations"
+    },
+    {
+      "url": "https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip",
+      "path": "animations/quaternius/UAL2-Standard.zip",
+      "sha256": "ec0e40d6d78fe9aaad59e322f40865a8675c22f0745e291622e54520391a9217",
+      "bytes": 10257419,
+      "group": "animations"
+    }
+  ],
+  "extracted_files": [
+    {
+      "path": "engine/MODELS/dinov3/config.json",
+      "bytes": 745,
+      "sha256": "135ecd23e34a70b6fbed8b083fdecb319b7e3a54e3d849258bbe4ddcf1783bb5",
+      "archive": ".downloads/dinov3.zip",
+      "destination": "engine/MODELS"
+    },
+    {
+      "path": "engine/MODELS/dinov3/model.safetensors",
+      "bytes": 1212559808,
+      "sha256": "dcb2e45127cccbf1601e5f42fef165eea275c8e5213197e8dcf3f48822718179",
+      "archive": ".downloads/dinov3.zip",
+      "destination": "engine/MODELS"
+    },
+    {
+      "path": "engine/MODELS/dinov3/preprocessor_config.json",
+      "bytes": 585,
+      "sha256": "960c41d1f3a7778b936365769a2d90550b318a6c0a53a0296957adacfe5e0dd7",
+      "archive": ".downloads/dinov3.zip",
+      "destination": "engine/MODELS"
+    },
+    {
+      "path": "engine/MODELS/dinov3/LICENSE.md",
+      "bytes": 7503,
+      "sha256": "25d122eb8f5b880fd23c736fb6ea8018ee45c12237e00b8a86d14c653904999e",
+      "archive": ".downloads/dinov3.zip",
+      "destination": "engine/MODELS"
+    },
+    {
+      "path": "animations/quaternius/UAL1/Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb",
+      "bytes": 6671104,
+      "sha256": "1b7bf67866360665426bb99e4c71bd619f19b408453c24e30f0c3071601eee5c",
+      "archive": "animations/quaternius/UAL1-Standard.zip",
+      "destination": "animations/quaternius/UAL1"
+    },
+    {
+      "path": "animations/quaternius/UAL2/Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb",
+      "bytes": 8061600,
+      "sha256": "0815dd05531cae9bc313fc9c0ba81330bc72f8e19ec45f73738e74ddc5796a43",
+      "archive": "animations/quaternius/UAL2-Standard.zip",
+      "destination": "animations/quaternius/UAL2"
+    }
+  ]
+}

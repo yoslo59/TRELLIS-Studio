@@ -1,0 +1,2778 @@
+{
+  "scope": "Pinned Python package metadata; upstream distribution notices remain authoritative",
+  "packages": [
+    {
+      "name": "accelerate",
+      "version": "1.15.0",
+      "license": "Apache",
+      "links": {
+        "Homepage": "https://github.com/huggingface/accelerate"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "annotated-doc",
+      "version": "0.0.5",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://github.com/fastapi/annotated-doc/release-notes.md",
+        "Documentation": "https://github.com/fastapi/annotated-doc",
+        "Homepage": "https://github.com/fastapi/annotated-doc",
+        "Issues": "https://github.com/fastapi/annotated-doc/issues",
+        "Repository": "https://github.com/fastapi/annotated-doc"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://github.com/annotated-types/annotated-types/releases",
+        "Homepage": "https://github.com/annotated-types/annotated-types",
+        "Source": "https://github.com/annotated-types/annotated-types"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "anyio",
+      "version": "4.15.1",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://anyio.readthedocs.io/en/stable/versionhistory.html",
+        "Documentation": "https://anyio.readthedocs.io/en/latest/",
+        "Issue tracker": "https://github.com/agronholm/anyio/issues",
+        "Source code": "https://github.com/agronholm/anyio"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://www.attrs.org/en/stable/changelog.html",
+        "Documentation": "https://www.attrs.org/",
+        "Funding": "https://github.com/sponsors/hynek",
+        "GitHub": "https://github.com/python-attrs/attrs",
+        "Tidelift": "https://tidelift.com/subscription/pkg/pypi-attrs?utm_source=pypi-attrs&utm_medium=pypi"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "license": "MPL-2.0",
+      "links": {
+        "Homepage": "https://github.com/certifi/python-certifi",
+        "Source": "https://github.com/certifi/python-certifi"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md",
+        "Code": "https://github.com/jawah/charset_normalizer",
+        "Documentation": "https://charset-normalizer.readthedocs.io/",
+        "Issue tracker": "https://github.com/jawah/charset_normalizer/issues"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "click",
+      "version": "8.5.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changes": "https://click.palletsprojects.com/page/changes/",
+        "Chat": "https://discord.gg/pallets",
+        "Documentation": "https://click.palletsprojects.com/",
+        "Donate": "https://palletsprojects.com/donate",
+        "Source": "https://github.com/pallets/click/"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/tartley/colorama"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "easydict",
+      "version": "1.13",
+      "license": "LGPL-3.0",
+      "links": {
+        "Download": "http://pypi.python.org/pypi/easydict/",
+        "Homepage": "https://github.com/makinacorpus/easydict"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "fastapi",
+      "version": "0.143.2",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://fastapi.tiangolo.com/release-notes/",
+        "Documentation": "https://fastapi.tiangolo.com/",
+        "Homepage": "https://github.com/fastapi/fastapi",
+        "Issues": "https://github.com/fastapi/fastapi/issues",
+        "Repository": "https://github.com/fastapi/fastapi"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "filelock",
+      "version": "3.32.3",
+      "license": "MIT",
+      "links": {
+        "Documentation": "https://py-filelock.readthedocs.io",
+        "Homepage": "https://github.com/tox-dev/py-filelock",
+        "Source": "https://github.com/tox-dev/py-filelock",
+        "Tracker": "https://github.com/tox-dev/py-filelock/issues"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "flatbuffers",
+      "version": "25.12.19",
+      "license": "Apache 2.0",
+      "links": {
+        "Documentation": "https://google.github.io/flatbuffers/",
+        "Homepage": "https://google.github.io/flatbuffers/",
+        "Source": "https://github.com/google/flatbuffers"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.7.0",
+      "license": "See upstream distribution",
+      "links": {
+        "Changelog": "https://filesystem-spec.readthedocs.io/en/latest/changelog.html",
+        "Documentation": "https://filesystem-spec.readthedocs.io/en/latest/",
+        "Homepage": "https://github.com/fsspec/filesystem_spec"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "glcontext",
+      "version": "3.1.0",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/moderngl/glcontext"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/python-hyper/h11"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "huggingface_hub",
+      "version": "0.36.2",
+      "license": "Apache",
+      "links": {
+        "Homepage": "https://github.com/huggingface/huggingface_hub"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changelog": "https://github.com/kjd/idna/blob/master/HISTORY.md",
+        "Issue tracker": "https://github.com/kjd/idna/issues",
+        "Source": "https://github.com/kjd/idna"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "ImageIO",
+      "version": "2.38.1",
+      "license": "BSD-2-Clause",
+      "links": {
+        "documentation": "https://imageio.readthedocs.io",
+        "download": "http://pypi.python.org/pypi/imageio",
+        "homepage": "https://github.com/imageio/imageio",
+        "source": "https://github.com/imageio/imageio"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "imageio-ffmpeg",
+      "version": "0.6.0",
+      "license": "BSD-2-Clause",
+      "links": {
+        "Download": "http://pypi.python.org/pypi/imageio-ffmpeg",
+        "Homepage": "https://github.com/imageio/imageio-ffmpeg"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "Jinja2",
+      "version": "3.1.6",
+      "license": "See upstream distribution",
+      "links": {
+        "Changes": "https://jinja.palletsprojects.com/changes/",
+        "Chat": "https://discord.gg/pallets",
+        "Documentation": "https://jinja.palletsprojects.com/",
+        "Donate": "https://palletsprojects.com/donate",
+        "Source": "https://github.com/pallets/jinja/"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.26.0",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://github.com/python-jsonschema/jsonschema/blob/main/CHANGELOG.rst",
+        "Documentation": "https://python-jsonschema.readthedocs.io/",
+        "Funding": "https://github.com/sponsors/Julian",
+        "Homepage": "https://github.com/python-jsonschema/jsonschema",
+        "Issues": "https://github.com/python-jsonschema/jsonschema/issues/",
+        "Source": "https://github.com/python-jsonschema/jsonschema",
+        "Tidelift": "https://tidelift.com/subscription/pkg/pypi-jsonschema?utm_source=pypi-jsonschema&utm_medium=referral&utm_campaign=pypi-link"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "license": "MIT",
+      "links": {
+        "Documentation": "https://jsonschema-specifications.readthedocs.io/",
+        "Funding": "https://github.com/sponsors/Julian",
+        "Homepage": "https://github.com/python-jsonschema/jsonschema-specifications",
+        "Issues": "https://github.com/python-jsonschema/jsonschema-specifications/issues/",
+        "Source": "https://github.com/python-jsonschema/jsonschema-specifications",
+        "Tidelift": "https://tidelift.com/subscription/pkg/pypi-jsonschema-specifications?utm_source=pypi-jsonschema-specifications&utm_medium=referral&utm_campaign=pypi-link"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "kornia",
+      "version": "0.8.3",
+      "license": "Apache-2.0",
+      "links": {
+        "Bug Tracker": "https://github.com/kornia/kornia/issues",
+        "Documentation": "https://kornia.readthedocs.io/en/latest",
+        "Download": "https://github.com/kornia/kornia",
+        "Homepage": "https://kornia.github.io/",
+        "Issues": "https://github.com/kornia/kornia/issues",
+        "Source Code": "https://github.com/kornia/kornia"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "kornia_rs",
+      "version": "0.2.0",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "http://kornia.org",
+        "documentation": "https://kornia.readthedocs.io",
+        "homepage": "http://www.kornia.org",
+        "repository": "https://github.com/kornia/kornia-rs"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "lazy-loader",
+      "version": "0.6",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Home": "https://scientific-python.org/specs/spec-0001/",
+        "Source": "https://github.com/scientific-python/lazy-loader"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "llvmlite",
+      "version": "0.50.0",
+      "license": "BSD-2-Clause AND Apache-2.0 WITH LLVM-exception",
+      "links": {
+        "Homepage": "http://llvmlite.readthedocs.io",
+        "Source": "https://github.com/numba/llvmlite"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "MarkupSafe",
+      "version": "3.0.3",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changes": "https://markupsafe.palletsprojects.com/page/changes/",
+        "Chat": "https://discord.gg/pallets",
+        "Documentation": "https://markupsafe.palletsprojects.com/",
+        "Donate": "https://palletsprojects.com/donate",
+        "Source": "https://github.com/pallets/markupsafe/"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "moderngl",
+      "version": "5.13.0",
+      "license": "MIT",
+      "links": {
+        "Bug Tracker": "https://github.com/moderngl/moderngl/issues/",
+        "Documentation": "https://moderngl.readthedocs.io/",
+        "Homepage": "https://github.com/moderngl/moderngl",
+        "Source": "https://github.com/moderngl/moderngl/"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0",
+      "license": "BSD",
+      "links": {
+        "Documentation": "http://mpmath.org/doc/current/",
+        "Homepage": "http://mpmath.org/",
+        "Source": "https://github.com/fredrik-johansson/mpmath",
+        "Tracker": "https://github.com/fredrik-johansson/mpmath/issues"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "networkx",
+      "version": "3.6.1",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Bug Tracker": "https://github.com/networkx/networkx/issues",
+        "Documentation": "https://networkx.org/documentation/stable/",
+        "Homepage": "https://networkx.org/",
+        "Source Code": "https://github.com/networkx/networkx"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "ninja",
+      "version": "1.13.2",
+      "license": "Apache-2.0",
+      "links": {
+        "Bug Tracker": "https://github.com/scikit-build/ninja-python-distributions/issues",
+        "Documentation": "https://github.com/scikit-build/ninja-python-distributions#readme",
+        "Download": "https://github.com/ninja-build/ninja/releases",
+        "Homepage": "http://ninja-build.org/",
+        "Mailing list": "https://groups.google.com/forum/#!forum/scikit-build",
+        "Source Code": "https://github.com/scikit-build/ninja-python-distributions"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "numba",
+      "version": "0.68.0",
+      "license": "BSD",
+      "links": {
+        "Homepage": "https://numba.pydata.org"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "numpy",
+      "version": "2.2.6",
+      "license": "Copyright (c) 2005-2024, NumPy Developers.",
+      "links": {
+        "documentation": "https://numpy.org/doc/",
+        "download": "https://pypi.org/project/numpy/#files",
+        "homepage": "https://numpy.org",
+        "release notes": "https://numpy.org/doc/stable/release",
+        "source": "https://github.com/numpy/numpy",
+        "tracker": "https://github.com/numpy/numpy/issues"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "onnxruntime",
+      "version": "1.31.0",
+      "license": "MIT License",
+      "links": {
+        "Download": "https://github.com/microsoft/onnxruntime/tags",
+        "Homepage": "https://onnxruntime.ai"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "opencv-python-headless",
+      "version": "4.12.0.88",
+      "license": "Apache 2.0",
+      "links": {
+        "Homepage": "https://github.com/opencv/opencv-python"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-api",
+      "version": "1.45.1",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-api",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "license": "Apache-2.0 OR BSD-2-Clause",
+      "links": {
+        "Documentation": "https://packaging.pypa.io/",
+        "Source": "https://github.com/pypa/packaging"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pillow",
+      "version": "12.3.0",
+      "license": "MIT-CMU",
+      "links": {
+        "Changelog": "https://github.com/python-pillow/Pillow/releases",
+        "Documentation": "https://pillow.readthedocs.io",
+        "Funding": "https://tidelift.com/subscription/pkg/pypi-pillow?utm_source=pypi-pillow&utm_medium=pypi",
+        "Homepage": "https://python-pillow.github.io",
+        "Mastodon": "https://fosstodon.org/@pillow",
+        "Release notes": "https://pillow.readthedocs.io/en/stable/releasenotes/index.html",
+        "Source": "https://github.com/python-pillow/Pillow"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "platformdirs",
+      "version": "4.13.0",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://platformdirs.readthedocs.io/en/latest/changelog.html",
+        "Documentation": "https://platformdirs.readthedocs.io",
+        "Homepage": "https://github.com/tox-dev/platformdirs",
+        "Source": "https://github.com/tox-dev/platformdirs",
+        "Tracker": "https://github.com/tox-dev/platformdirs/issues"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "plyfile",
+      "version": "1.1.5",
+      "license": "GNU GENERAL PUBLIC LICENSE                                Version 3, 29 June 2007                   Copyright (C) 2007 F",
+      "links": {
+        "Documentation": "https://python-plyfile.readthedocs.io",
+        "Homepage": "https://github.com/dranjan/python-plyfile",
+        "Repository": "https://github.com/dranjan/python-plyfile"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "pooch",
+      "version": "1.9.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Bug Tracker": "https://github.com/fatiando/pooch/issues",
+        "Changelog": "https://www.fatiando.org/pooch/latest/changes.html",
+        "Documentation": "https://www.fatiando.org/pooch",
+        "Source Code": "https://github.com/fatiando/pooch"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "protobuf",
+      "version": "7.36.2",
+      "license": "3-Clause BSD License",
+      "links": {
+        "Homepage": "https://developers.google.com/protocol-buffers/"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Homepage": "https://github.com/giampaolo/psutil"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pydantic",
+      "version": "2.14.1",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://pydantic.dev/docs/validation/latest/get-started/changelog/",
+        "Documentation": "https://pydantic.dev/docs/validation/latest/get-started/",
+        "Funding": "https://github.com/sponsors/samuelcolvin",
+        "Homepage": "https://github.com/pydantic/pydantic",
+        "Source": "https://github.com/pydantic/pydantic"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.50.1",
+      "license": "MIT",
+      "links": {
+        "Funding": "https://github.com/sponsors/samuelcolvin",
+        "Homepage": "https://github.com/pydantic",
+        "Source": "https://github.com/pydantic/pydantic/tree/main/pydantic-core"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "PyMatting",
+      "version": "1.1.16",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://pymatting.github.io",
+        "Source": "https://github.com/pymatting/pymatting"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "python-multipart",
+      "version": "0.0.32",
+      "license": "Apache-2.0",
+      "links": {
+        "Changelog": "https://github.com/Kludex/python-multipart/blob/master/CHANGELOG.md",
+        "Documentation": "https://kludex.github.io/python-multipart/",
+        "Homepage": "https://github.com/Kludex/python-multipart",
+        "Source": "https://github.com/Kludex/python-multipart"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "license": "MIT",
+      "links": {
+        "Bug Tracker": "https://github.com/yaml/pyyaml/issues",
+        "CI": "https://github.com/yaml/pyyaml/actions",
+        "Documentation": "https://pyyaml.org/wiki/PyYAMLDocumentation",
+        "Download": "https://pypi.org/project/PyYAML/",
+        "Homepage": "https://pyyaml.org/",
+        "Mailing lists": "http://lists.sourceforge.net/lists/listinfo/yaml-core",
+        "Source Code": "https://github.com/yaml/pyyaml"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://referencing.readthedocs.io/en/stable/changes/",
+        "Documentation": "https://referencing.readthedocs.io/",
+        "Funding": "https://github.com/sponsors/Julian",
+        "Homepage": "https://github.com/python-jsonschema/referencing",
+        "Issues": "https://github.com/python-jsonschema/referencing/issues/",
+        "Source": "https://github.com/python-jsonschema/referencing",
+        "Tidelift": "https://tidelift.com/subscription/pkg/pypi-referencing?utm_source=pypi-referencing&utm_medium=referral&utm_campaign=pypi-link"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "regex",
+      "version": "2026.9.29",
+      "license": "Apache-2.0 AND CNRI-Python",
+      "links": {
+        "Homepage": "https://github.com/mrabarnett/mrab-regex"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "rembg",
+      "version": "2.0.69",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/danielgatis/rembg"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "license": "Apache-2.0",
+      "links": {
+        "Documentation": "https://requests.readthedocs.io",
+        "Source": "https://github.com/psf/requests"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.9.1",
+      "license": "MIT",
+      "links": {
+        "Documentation": "https://rpds.readthedocs.io/",
+        "Funding": "https://github.com/sponsors/Julian",
+        "Homepage": "https://github.com/crate-py/rpds",
+        "Issues": "https://github.com/crate-py/rpds/issues/",
+        "Source": "https://github.com/crate-py/rpds",
+        "Tidelift": "https://tidelift.com/subscription/pkg/pypi-rpds-py?utm_source=pypi-rpds-py&utm_medium=referral&utm_campaign=pypi-link",
+        "Upstream": "https://github.com/orium/rpds"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "safetensors",
+      "version": "0.8.0",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/huggingface/safetensors",
+        "Source": "https://github.com/huggingface/safetensors"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "scikit-image",
+      "version": "0.26.0",
+      "license": "Files: *",
+      "links": {
+        "documentation": "https://scikit-image.org/docs/stable",
+        "download": "https://pypi.org/project/scikit-image/#files",
+        "homepage": "https://scikit-image.org",
+        "source": "https://github.com/scikit-image/scikit-image",
+        "tracker": "https://github.com/scikit-image/scikit-image/issues"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "scipy",
+      "version": "1.17.1",
+      "license": "Copyright (c) 2001-2002 Enthought, Inc. 2003, SciPy Developers.",
+      "links": {
+        "documentation": "https://docs.scipy.org/doc/scipy/",
+        "download": "https://github.com/scipy/scipy/releases",
+        "homepage": "https://scipy.org/",
+        "source": "https://github.com/scipy/scipy",
+        "tracker": "https://github.com/scipy/scipy/issues"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "starlette",
+      "version": "1.8.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changelog": "https://starlette.dev/release-notes/",
+        "Documentation": "https://starlette.dev/",
+        "Funding": "https://github.com/sponsors/Kludex",
+        "Homepage": "https://github.com/Kludex/starlette",
+        "Source": "https://github.com/Kludex/starlette"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0",
+      "license": "BSD",
+      "links": {
+        "Homepage": "https://sympy.org",
+        "Source": "https://github.com/sympy/sympy"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "tifffile",
+      "version": "2026.3.3",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Bug Tracker": "https://github.com/cgohlke/tifffile/issues",
+        "Homepage": "https://www.cgohlke.com",
+        "Source Code": "https://github.com/cgohlke/tifffile"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "timm",
+      "version": "1.0.30",
+      "license": "Apache-2.0",
+      "links": {
+        "documentation": "https://huggingface.co/docs/timm/en/index",
+        "homepage": "https://github.com/huggingface/pytorch-image-models",
+        "repository": "https://github.com/huggingface/pytorch-image-models"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "tokenizers",
+      "version": "0.22.2",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/huggingface/tokenizers",
+        "Source": "https://github.com/huggingface/tokenizers"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "tqdm",
+      "version": "4.70.1",
+      "license": "MPL-2.0 AND MIT",
+      "links": {
+        "changelog": "https://tqdm.github.io/releases",
+        "homepage": "https://tqdm.github.io",
+        "repository": "https://github.com/tqdm/tqdm",
+        "wiki": "https://github.com/tqdm/tqdm/wiki"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "transformers",
+      "version": "4.57.3",
+      "license": "Apache 2.0 License",
+      "links": {
+        "Homepage": "https://github.com/huggingface/transformers"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "trimesh",
+      "version": "4.12.2",
+      "license": "The MIT License (MIT)",
+      "links": {
+        "documentation": "https://trimesh.org",
+        "homepage": "https://github.com/mikedh/trimesh"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "triton-windows",
+      "version": "3.4.0.post21",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/woct0rdho/triton-windows"
+      },
+      "used_by": [
+        "requirements-windows.txt"
+      ]
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://github.com/pydantic/typing-inspection/blob/main/HISTORY.md",
+        "Documentation": "https://pydantic.github.io/typing-inspection/dev/",
+        "Homepage": "https://github.com/pydantic/typing-inspection",
+        "Source": "https://github.com/pydantic/typing-inspection"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "license": "PSF-2.0",
+      "links": {
+        "Bug Tracker": "https://github.com/python/typing_extensions/issues",
+        "Changes": "https://github.com/python/typing_extensions/blob/main/CHANGELOG.md",
+        "Documentation": "https://typing-extensions.readthedocs.io/",
+        "Home": "https://github.com/python/typing_extensions",
+        "Q & A": "https://github.com/python/typing/discussions",
+        "Repository": "https://github.com/python/typing_extensions"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://github.com/urllib3/urllib3/blob/main/CHANGES.rst",
+        "Code": "https://github.com/urllib3/urllib3",
+        "Documentation": "https://urllib3.readthedocs.io",
+        "Issue tracker": "https://github.com/urllib3/urllib3/issues",
+        "Security policy": "https://urllib3.readthedocs.io/en/latest/security.html"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "uvicorn",
+      "version": "0.54.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changelog": "https://uvicorn.dev/release-notes",
+        "Funding": "https://github.com/sponsors/Kludex",
+        "Homepage": "https://uvicorn.dev/",
+        "Source": "https://github.com/Kludex/uvicorn"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "zstandard",
+      "version": "0.25.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Documentation": "https://python-zstandard.readthedocs.io/en/latest/",
+        "Homepage": "https://github.com/indygreg/python-zstandard"
+      },
+      "used_by": [
+        "requirements-windows.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "anyio",
+      "version": "4.16.0",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://anyio.readthedocs.io/en/stable/versionhistory.html",
+        "Documentation": "https://anyio.readthedocs.io/en/latest/",
+        "Issue tracker": "https://github.com/agronholm/anyio/issues",
+        "Source code": "https://github.com/agronholm/anyio"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "certifi",
+      "version": "2026.10.23",
+      "license": "MPL-2.0",
+      "links": {
+        "Homepage": "https://github.com/certifi/python-certifi",
+        "Source": "https://github.com/certifi/python-certifi"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "cffi",
+      "version": "2.1.1",
+      "license": "MIT-0",
+      "links": {
+        "Changelog": "https://cffi.readthedocs.io/en/latest/whatsnew.html",
+        "Contact": "https://groups.google.com/forum/#!forum/python-cffi",
+        "Documentation": "https://cffi.readthedocs.io/",
+        "Download": "https://github.com/python-cffi/cffi/releases",
+        "Issue Tracker": "https://github.com/python-cffi/cffi/issues",
+        "Source Code": "https://github.com/python-cffi/cffi"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "cryptography",
+      "version": "50.0.2",
+      "license": "Apache-2.0 OR BSD-3-Clause",
+      "links": {
+        "changelog": "https://cryptography.io/en/latest/changelog/",
+        "documentation": "https://cryptography.io/",
+        "homepage": "https://github.com/pyca/cryptography",
+        "issues": "https://github.com/pyca/cryptography/issues",
+        "source": "https://github.com/pyca/cryptography/"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Documentation": "https://www.encode.io/httpcore",
+        "Homepage": "https://www.encode.io/httpcore/",
+        "Source": "https://github.com/encode/httpcore"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "httpcore2",
+      "version": "2.16.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changelog": "https://github.com/pydantic/httpx2/blob/main/src/httpcore2/CHANGELOG.md",
+        "Homepage": "https://github.com/pydantic/httpx2",
+        "Source": "https://github.com/pydantic/httpx2/blob/main/src/httpcore2"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changelog": "https://github.com/encode/httpx/blob/master/CHANGELOG.md",
+        "Documentation": "https://www.python-httpx.org",
+        "Homepage": "https://github.com/encode/httpx",
+        "Source": "https://github.com/encode/httpx"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "httpx2",
+      "version": "2.16.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changelog": "https://github.com/pydantic/httpx2/blob/main/src/httpx2/CHANGELOG.md",
+        "Homepage": "https://github.com/pydantic/httpx2",
+        "Source": "https://github.com/pydantic/httpx2"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "mcp",
+      "version": "2.3.0",
+      "license": "MIT",
+      "links": {
+        "Documentation": "https://py.sdk.modelcontextprotocol.io/",
+        "Homepage": "https://modelcontextprotocol.io",
+        "Issues": "https://github.com/modelcontextprotocol/python-sdk/issues",
+        "Repository": "https://github.com/modelcontextprotocol/python-sdk"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "mcp-types",
+      "version": "2.3.0",
+      "license": "MIT",
+      "links": {
+        "Documentation": "https://py.sdk.modelcontextprotocol.io/",
+        "Homepage": "https://modelcontextprotocol.io",
+        "Issues": "https://github.com/modelcontextprotocol/python-sdk/issues",
+        "Repository": "https://github.com/modelcontextprotocol/python-sdk"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-api",
+      "version": "1.45.2",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-api",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pycparser",
+      "version": "3.12",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Homepage": "https://github.com/eliben/pycparser"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "pydantic",
+      "version": "2.14.2",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://pydantic.dev/docs/validation/latest/get-started/changelog/",
+        "Documentation": "https://pydantic.dev/docs/validation/latest/get-started/",
+        "Funding": "https://github.com/sponsors/samuelcolvin",
+        "Homepage": "https://github.com/pydantic/pydantic",
+        "Source": "https://github.com/pydantic/pydantic"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt",
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.50.2",
+      "license": "MIT",
+      "links": {
+        "Funding": "https://github.com/sponsors/samuelcolvin",
+        "Homepage": "https://github.com/pydantic",
+        "Source": "https://github.com/pydantic/pydantic/tree/main/pydantic-core"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "PyJWT",
+      "version": "2.15.1",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/jpadilla/pyjwt"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "python-multipart",
+      "version": "0.0.33",
+      "license": "Apache-2.0",
+      "links": {
+        "Changelog": "https://github.com/Kludex/python-multipart/blob/master/CHANGELOG.md",
+        "Documentation": "https://kludex.github.io/python-multipart/",
+        "Homepage": "https://github.com/Kludex/python-multipart",
+        "Source": "https://github.com/Kludex/python-multipart"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "pywin32",
+      "version": "312",
+      "license": "PSF",
+      "links": {
+        "Bugs": "https://github.com/mhammond/pywin32/issues",
+        "Changes": "https://github.com/mhammond/pywin32/blob/main/CHANGES.md",
+        "Docs": "https://mhammond.github.io/pywin32/",
+        "Homepage": "https://github.com/mhammond/pywin32",
+        "Mailing List": "https://mail.python.org/mailman/listinfo/python-win32",
+        "Support Requests": "https://github.com/mhammond/pywin32/discussions"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "sse-starlette",
+      "version": "3.6.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Homepage": "https://github.com/sysid/sse-starlette",
+        "Issues": "https://github.com/sysid/sse-starlette/issues",
+        "Repository": "https://github.com/sysid/sse-starlette",
+        "Source": "https://github.com/sysid/sse-starlette"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "starlette",
+      "version": "1.10.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changelog": "https://starlette.dev/release-notes/",
+        "Documentation": "https://starlette.dev/",
+        "Funding": "https://github.com/sponsors/Kludex",
+        "Homepage": "https://github.com/Kludex/starlette",
+        "Source": "https://github.com/Kludex/starlette"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "truststore",
+      "version": "0.10.5",
+      "license": "MIT",
+      "links": {
+        "Documentation": "https://truststore.readthedocs.io",
+        "Source": "https://github.com/sethmlarson/truststore"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.5",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://github.com/pydantic/typing-inspection/blob/main/HISTORY.md",
+        "Documentation": "https://pydantic.github.io/typing-inspection/dev/",
+        "Homepage": "https://github.com/pydantic/typing-inspection",
+        "Source": "https://github.com/pydantic/typing-inspection"
+      },
+      "used_by": [
+        "requirements-mcp-lock.txt"
+      ]
+    },
+    {
+      "name": "addict",
+      "version": "2.4.0",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/mewwts/addict"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "aiohappyeyeballs",
+      "version": "2.7.1",
+      "license": "PSF-2.0",
+      "links": {
+        "Bug Tracker": "https://github.com/aio-libs/aiohappyeyeballs/issues",
+        "Changelog": "https://github.com/aio-libs/aiohappyeyeballs/blob/main/CHANGELOG.md",
+        "Documentation": "https://aiohappyeyeballs.readthedocs.io",
+        "Repository": "https://github.com/aio-libs/aiohappyeyeballs"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.14.5",
+      "license": "Apache-2.0 AND MIT",
+      "links": {
+        "CI: GitHub Actions": "https://github.com/aio-libs/aiohttp/actions?query=workflow%3ACI",
+        "Chat: Matrix": "https://matrix.to/#/#aio-libs:matrix.org",
+        "Chat: Matrix Space": "https://matrix.to/#/#aio-libs-space:matrix.org",
+        "Coverage: codecov": "https://codecov.io/github/aio-libs/aiohttp",
+        "Docs: Changelog": "https://docs.aiohttp.org/en/stable/changes.html",
+        "Docs: RTD": "https://docs.aiohttp.org",
+        "GitHub: issues": "https://github.com/aio-libs/aiohttp/issues",
+        "GitHub: repo": "https://github.com/aio-libs/aiohttp",
+        "Homepage": "https://github.com/aio-libs/aiohttp"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "aiosignal",
+      "version": "1.4.0",
+      "license": "Apache 2.0",
+      "links": {
+        "CI: GitHub Actions": "https://github.com/aio-libs/aiosignal/actions",
+        "Chat: Gitter": "https://gitter.im/aio-libs/Lobby",
+        "Coverage: codecov": "https://codecov.io/github/aio-libs/aiosignal",
+        "Docs: RTD": "https://docs.aiosignal.org",
+        "GitHub: issues": "https://github.com/aio-libs/aiosignal/issues",
+        "GitHub: repo": "https://github.com/aio-libs/aiosignal",
+        "Homepage": "https://github.com/aio-libs/aiosignal"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "asttokens",
+      "version": "3.0.2",
+      "license": "Apache 2.0",
+      "links": {
+        "Documentation": "https://asttokens.readthedocs.io/en/latest/index.html",
+        "Homepage": "https://github.com/gristlabs/asttokens",
+        "Issue Tracker": "https://github.com/gristlabs/asttokens/issues"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "blinker",
+      "version": "1.9.0",
+      "license": "See upstream distribution",
+      "links": {
+        "Chat": "https://discord.gg/pallets",
+        "Documentation": "https://blinker.readthedocs.io",
+        "Source": "https://github.com/pallets-eco/blinker/"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "bpy",
+      "version": "4.2.0",
+      "license": "GPL-3.0",
+      "links": {
+        "Homepage": "https://www.blender.org"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "ccimport",
+      "version": "0.4.4",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/FindDefinition/ccimport"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "comm",
+      "version": "0.2.3",
+      "license": "BSD 3-Clause License",
+      "links": {
+        "Homepage": "https://github.com/ipython/comm"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "configargparse",
+      "version": "1.9.0",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/bw2/ConfigArgParse"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "cumm-cu120",
+      "version": "0.4.11",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/FindDefinition/cumm"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "cwevals",
+      "version": "0.0.1b1",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/wandb/core",
+        "Repository": "https://github.com/wandb/core"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "cython",
+      "version": "3.3.1",
+      "license": "Apache-2.0",
+      "links": {
+        "Bug Tracker": "https://github.com/cython/cython/issues/",
+        "Documentation": "https://cython.readthedocs.io/",
+        "Donate": "https://cython.readthedocs.io/en/latest/src/donating.html",
+        "Homepage": "https://cython.org/",
+        "Source Code": "https://github.com/cython/cython",
+        "User Group": "https://groups.google.com/g/cython-users"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "dash",
+      "version": "4.5.0",
+      "license": "MIT",
+      "links": {
+        "Documentation": "https://dash.plotly.com",
+        "Homepage": "https://plotly.com/dash",
+        "Issue Tracker": "https://github.com/plotly/dash/issues",
+        "Source": "https://github.com/plotly/dash"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "distro",
+      "version": "1.9.0",
+      "license": "Apache License, Version 2.0",
+      "links": {
+        "Homepage": "https://github.com/python-distro/distro"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "einops",
+      "version": "0.8.2",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/arogozhnikov/einops"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "executing",
+      "version": "2.3.0",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/alexmojaki/executing",
+        "Repository": "https://github.com/alexmojaki/executing"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "fast-simplification",
+      "version": "0.2.0",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/pyvista/fast-simplification",
+        "Issues": "https://github.com/pyvista/fast-simplification/issues",
+        "Repository": "https://github.com/pyvista/fast-simplification"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "fastjsonschema",
+      "version": "2.22.3",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Homepage": "https://github.com/horejsek/python-fastjsonschema"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "filelock",
+      "version": "4.2.4",
+      "license": "MIT",
+      "links": {
+        "Documentation": "https://py-filelock.readthedocs.io",
+        "Homepage": "https://github.com/tox-dev/py-filelock",
+        "Source": "https://github.com/tox-dev/py-filelock",
+        "Tracker": "https://github.com/tox-dev/py-filelock/issues"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "fire",
+      "version": "0.7.1",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/google/python-fire",
+        "Repository": "https://github.com/google/python-fire"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "flask",
+      "version": "3.1.3",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changes": "https://flask.palletsprojects.com/page/changes/",
+        "Chat": "https://discord.gg/pallets",
+        "Documentation": "https://flask.palletsprojects.com/",
+        "Donate": "https://palletsprojects.com/donate",
+        "Source": "https://github.com/pallets/flask/"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "freetype-py",
+      "version": "2.5.1",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/rougier/freetype-py"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "frozenlist",
+      "version": "1.8.0",
+      "license": "Apache-2.0",
+      "links": {
+        "CI: Github Actions": "https://github.com/aio-libs/frozenlist/actions",
+        "Chat: Matrix": "https://matrix.to/#/#aio-libs:matrix.org",
+        "Chat: Matrix Space": "https://matrix.to/#/#aio-libs-space:matrix.org",
+        "Code of Conduct": "https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+        "Coverage: codecov": "https://codecov.io/github/aio-libs/frozenlist",
+        "Docs: Changelog": "https://github.com/aio-libs/frozenlist/blob/master/CHANGES.rst#changelog",
+        "Docs: RTD": "https://frozenlist.aio-libs.org",
+        "GitHub: issues": "https://github.com/aio-libs/frozenlist/issues",
+        "GitHub: repo": "https://github.com/aio-libs/frozenlist",
+        "Homepage": "https://github.com/aio-libs/frozenlist"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.9.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changelog": "https://filesystem-spec.readthedocs.io/en/latest/changelog.html",
+        "Documentation": "https://filesystem-spec.readthedocs.io/en/latest/",
+        "Homepage": "https://github.com/fsspec/filesystem_spec"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "googleapis-common-protos",
+      "version": "1.76.0",
+      "license": "Apache-2.0",
+      "links": {
+        "Repository": "https://github.com/googleapis/google-cloud-python/tree/main/packages/googleapis-common-protos"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "hf-xet",
+      "version": "1.8.0",
+      "license": "Apache-2.0",
+      "links": {
+        "Documentation": "https://huggingface.co/docs/hub/xet/index",
+        "Homepage": "https://github.com/huggingface/xet-core",
+        "Issues": "https://github.com/huggingface/xet-core/issues",
+        "Repository": "https://github.com/huggingface/xet-core.git"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "huggingface-hub",
+      "version": "0.36.2",
+      "license": "Apache",
+      "links": {
+        "Homepage": "https://github.com/huggingface/huggingface_hub"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "imageio",
+      "version": "2.38.1",
+      "license": "BSD-2-Clause",
+      "links": {
+        "documentation": "https://imageio.readthedocs.io",
+        "download": "http://pypi.python.org/pypi/imageio",
+        "homepage": "https://github.com/imageio/imageio",
+        "source": "https://github.com/imageio/imageio"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "importlib-metadata",
+      "version": "10.1.0",
+      "license": "Apache-2.0",
+      "links": {
+        "Source": "https://github.com/python/importlib_metadata"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "ipython",
+      "version": "9.18.1",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Documentation": "https://ipython.readthedocs.io/",
+        "Funding": "https://jupyter.org/about#donate",
+        "Homepage": "https://ipython.org",
+        "Source": "https://github.com/ipython/ipython",
+        "Tracker": "https://github.com/ipython/ipython/issues"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "ipython-pygments-lexers",
+      "version": "1.1.1",
+      "license": "See upstream distribution",
+      "links": {
+        "Source": "https://github.com/ipython/ipython-pygments-lexers"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "ipywidgets",
+      "version": "8.1.9",
+      "license": "BSD 3-Clause License",
+      "links": {
+        "Homepage": "http://jupyter.org"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "itsdangerous",
+      "version": "2.2.0",
+      "license": "See upstream distribution",
+      "links": {
+        "Changes": "https://itsdangerous.palletsprojects.com/changes/",
+        "Chat": "https://discord.gg/pallets",
+        "Documentation": "https://itsdangerous.palletsprojects.com/",
+        "Donate": "https://palletsprojects.com/donate",
+        "Source": "https://github.com/pallets/itsdangerous/"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "janus",
+      "version": "2.0.0",
+      "license": "Apache 2",
+      "links": {
+        "CI: GitHub Actions": "https://github.com/aio-libs/janus/actions/workflows/ci.yml",
+        "Chat: Gitter": "https://gitter.im/aio-libs/Lobby",
+        "Coverage: codecov": "https://codecov.io/github/aio-libs/janus",
+        "GitHub: issues": "https://github.com/aio-libs/janus/issues",
+        "GitHub: repo": "https://github.com/aio-libs/janus",
+        "Homepage": "https://github.com/aio-libs/janus"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "jedi",
+      "version": "0.20.1",
+      "license": "MIT",
+      "links": {
+        "Documentation": "https://jedi.readthedocs.io/en/latest/",
+        "Homepage": "https://github.com/davidhalter/jedi"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "jinja2",
+      "version": "3.1.6",
+      "license": "See upstream distribution",
+      "links": {
+        "Changes": "https://jinja.palletsprojects.com/changes/",
+        "Chat": "https://discord.gg/pallets",
+        "Documentation": "https://jinja.palletsprojects.com/",
+        "Donate": "https://palletsprojects.com/donate",
+        "Source": "https://github.com/pallets/jinja/"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "jupyter-core",
+      "version": "5.9.1",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Documentation": "https://jupyter-core.readthedocs.io/",
+        "Homepage": "https://jupyter.org",
+        "Source": "https://github.com/jupyter/jupyter_core",
+        "Tracker": "https://github.com/jupyter/jupyter_core/issues"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "jupyterlab-widgets",
+      "version": "3.0.17",
+      "license": "Copyright (c) 2015 Project Jupyter Contributors",
+      "links": {
+        "Homepage": "https://github.com/jupyter-widgets/ipywidgets"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "lark",
+      "version": "1.3.1",
+      "license": "MIT",
+      "links": {
+        "Download": "https://github.com/lark-parser/lark/tarball/master",
+        "Homepage": "https://github.com/lark-parser/lark"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "lightning",
+      "version": "2.6.6",
+      "license": "Apache-2.0",
+      "links": {
+        "Bug Tracker": "https://github.com/Lightning-AI/pytorch-lightning/issues",
+        "Documentation": "https://lightning.ai/lightning-docs",
+        "Download": "https://github.com/Lightning-AI/lightning",
+        "Homepage": "https://github.com/Lightning-AI/lightning",
+        "Source Code": "https://github.com/Lightning-AI/lightning"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "lightning-utilities",
+      "version": "0.15.3",
+      "license": "Apache-2.0",
+      "links": {
+        "Bug Tracker": "https://github.com/Lightning-AI/utilities/issues",
+        "Documentation": "https://dev-toolbox.rtfd.io/en/latest/",
+        "Download": "https://github.com/Lightning-AI/utilities",
+        "Homepage": "https://github.com/Lightning-AI/utilities",
+        "Source Code": "https://github.com/Lightning-AI/utilities"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "markupsafe",
+      "version": "3.0.3",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changes": "https://markupsafe.palletsprojects.com/page/changes/",
+        "Chat": "https://discord.gg/pallets",
+        "Documentation": "https://markupsafe.palletsprojects.com/",
+        "Donate": "https://palletsprojects.com/donate",
+        "Source": "https://github.com/pallets/markupsafe/"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "matplotlib-inline",
+      "version": "0.2.2",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Homepage": "https://github.com/ipython/matplotlib-inline"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "multidict",
+      "version": "7.2.1",
+      "license": "Apache-2.0",
+      "links": {
+        "CI: GitHub": "https://github.com/aio-libs/multidict/actions",
+        "Chat: Matrix": "https://matrix.to/#/#aio-libs:matrix.org",
+        "Chat: Matrix Space": "https://matrix.to/#/#aio-libs-space:matrix.org",
+        "Code of Conduct": "https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+        "Coverage: codecov": "https://codecov.io/github/aio-libs/multidict",
+        "Docs: Changelog": "https://multidict.aio-libs.org/en/latest/changes/",
+        "Docs: RTD": "https://multidict.aio-libs.org",
+        "GitHub: issues": "https://github.com/aio-libs/multidict/issues",
+        "GitHub: repo": "https://github.com/aio-libs/multidict",
+        "Homepage": "https://github.com/aio-libs/multidict"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "narwhals",
+      "version": "2.28.0",
+      "license": "MIT",
+      "links": {
+        "Bug Tracker": "https://github.com/narwhals-dev/narwhals/issues",
+        "Documentation": "https://narwhals-dev.github.io/narwhals/",
+        "Homepage": "https://github.com/narwhals-dev/narwhals",
+        "Repository": "https://github.com/narwhals-dev/narwhals"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nbformat",
+      "version": "5.11.1",
+      "license": "BSD 3-Clause License",
+      "links": {
+        "Changelog": "https://github.com/jupyter/nbformat/blob/main/CHANGELOG.md",
+        "Documentation": "https://nbformat.readthedocs.io/",
+        "Homepage": "https://jupyter.org",
+        "Repository": "https://github.com/jupyter/nbformat.git"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nest-asyncio",
+      "version": "1.6.0",
+      "license": "BSD",
+      "links": {
+        "Homepage": "https://github.com/erdewit/nest_asyncio"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "numpy",
+      "version": "1.26.4",
+      "license": "Copyright (c) 2005-2023, NumPy Developers. All rights reserved.  Redistribution and use in source and binary forms, with",
+      "links": {
+        "Documentation": "https://numpy.org/doc/",
+        "Download": "https://pypi.org/project/numpy/#files",
+        "Homepage": "https://numpy.org",
+        "Release notes": "https://numpy.org/doc/stable/release",
+        "Source": "https://github.com/numpy/numpy",
+        "Tracker": "https://github.com/numpy/numpy/issues"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-cublas-cu12",
+      "version": "12.4.5.8",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-cuda-cupti-cu12",
+      "version": "12.4.127",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-cuda-nvrtc-cu12",
+      "version": "12.4.127",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-cuda-runtime-cu12",
+      "version": "12.4.127",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-cudnn-cu12",
+      "version": "9.1.0.70",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-cufft-cu12",
+      "version": "11.2.1.3",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-curand-cu12",
+      "version": "10.3.5.147",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-cusolver-cu12",
+      "version": "11.6.1.9",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-cusparse-cu12",
+      "version": "12.3.1.170",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-nccl-cu12",
+      "version": "2.21.5",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-nvjitlink-cu12",
+      "version": "12.4.127",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "nvidia-nvtx-cu12",
+      "version": "12.4.127",
+      "license": "NVIDIA Proprietary Software",
+      "links": {
+        "Homepage": "https://developer.nvidia.com/cuda-zone"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "omegaconf",
+      "version": "2.4.0",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/hydra-ecosystem/omegaconf"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "open3d",
+      "version": "0.20.0",
+      "license": "MIT",
+      "links": {
+        "Documentation": "https://www.open3d.org/docs",
+        "Homepage": "https://www.open3d.org",
+        "Issues": "https://github.com/isl-org/Open3D/issues",
+        "Source code": "https://github.com/isl-org/Open3D"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-exporter-http-transport",
+      "version": "0.66b2",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-http-transport",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-exporter-otlp-common",
+      "version": "0.66b2",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-otlp-common",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-exporter-otlp-proto-common",
+      "version": "1.45.2",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-otlp-proto-common",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-exporter-otlp-proto-http",
+      "version": "1.45.2",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-otlp-proto-http",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-proto",
+      "version": "1.45.2",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-proto",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-sdk",
+      "version": "1.45.2",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-sdk",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-semantic-conventions",
+      "version": "0.66b2",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-semantic-conventions",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "parso",
+      "version": "0.8.7",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/davidhalter/parso"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pccm",
+      "version": "0.4.16",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/FindDefinition/PCCM"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pexpect",
+      "version": "4.9.0",
+      "license": "ISC license",
+      "links": {
+        "Bug Tracker": "https://github.com/pexpect/pexpect/issues",
+        "Documentation": "https://pexpect.readthedocs.io/",
+        "History": "https://pexpect.readthedocs.io/en/stable/history.html",
+        "Homepage": "https://pexpect.readthedocs.io/",
+        "Source Code": "https://github.com/pexpect/pexpect"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pillow",
+      "version": "13.0.0",
+      "license": "MIT-CMU",
+      "links": {
+        "Changelog": "https://github.com/python-pillow/Pillow/releases",
+        "Documentation": "https://pillow.readthedocs.io",
+        "Funding": "https://tidelift.com/lifter/search/pypi/pillow",
+        "Homepage": "https://python-pillow.org",
+        "Mastodon": "https://fosstodon.org/@pillow",
+        "Release notes": "https://pillow.readthedocs.io/en/stable/releasenotes/index.html",
+        "Security": "https://pillow.readthedocs.io/en/stable/handbook/security.html",
+        "Source": "https://github.com/python-pillow/Pillow"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "platformdirs",
+      "version": "4.14.3",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://platformdirs.readthedocs.io/en/latest/changelog.html",
+        "Documentation": "https://platformdirs.readthedocs.io",
+        "Homepage": "https://github.com/tox-dev/platformdirs",
+        "Source": "https://github.com/tox-dev/platformdirs",
+        "Tracker": "https://github.com/tox-dev/platformdirs/issues"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "plotly",
+      "version": "7.1.0",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://github.com/plotly/plotly.py/blob/main/CHANGELOG.md",
+        "Documentation": "https://plotly.com/python/",
+        "GitHub": "https://github.com/plotly/plotly.py",
+        "Homepage": "https://plotly.com/python/"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "portalocker",
+      "version": "4.4.2",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Funding": "https://github.com/sponsors/wolph",
+        "documentation": "https://portalocker.readthedocs.io/en/latest/",
+        "homepage": "https://github.com/wolph/portalocker/",
+        "repository": "https://github.com/wolph/portalocker/"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "prompt-toolkit",
+      "version": "3.0.53",
+      "license": "See upstream distribution",
+      "links": {
+        "Documentation": "https://python-prompt-toolkit.readthedocs.io/en/stable/",
+        "Homepage": "https://github.com/prompt-toolkit/python-prompt-toolkit"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "propcache",
+      "version": "0.5.4",
+      "license": "Apache-2.0",
+      "links": {
+        "CI: GitHub Workflows": "https://github.com/aio-libs/propcache/actions?query=branch:master",
+        "Chat: Matrix": "https://matrix.to/#/#aio-libs:matrix.org",
+        "Chat: Matrix Space": "https://matrix.to/#/#aio-libs-space:matrix.org",
+        "Code of Conduct": "https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+        "Coverage: codecov": "https://codecov.io/github/aio-libs/propcache",
+        "Docs: Changelog": "https://propcache.readthedocs.io/en/latest/changes/",
+        "Docs: RTD": "https://propcache.readthedocs.io",
+        "GitHub: issues": "https://github.com/aio-libs/propcache/issues",
+        "GitHub: repo": "https://github.com/aio-libs/propcache",
+        "Homepage": "https://github.com/aio-libs/propcache"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "ptyprocess",
+      "version": "0.7.0",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/pexpect/ptyprocess"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pure-eval",
+      "version": "0.2.4",
+      "license": "MIT",
+      "links": {
+        "Homepage": "http://github.com/alexmojaki/pure_eval"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pybind11",
+      "version": "3.1.0",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changelog": "https://pybind11.readthedocs.io/en/latest/changelog.html",
+        "Chat": "https://gitter.im/pybind/Lobby",
+        "Discussions": "https://github.com/pybind/pybind11/discussions",
+        "Documentation": "https://pybind11.readthedocs.io/",
+        "Homepage": "https://github.com/pybind/pybind11",
+        "Issue Tracker": "https://github.com/pybind/pybind11/issues"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pydantic-core",
+      "version": "2.50.2",
+      "license": "MIT",
+      "links": {
+        "Funding": "https://github.com/sponsors/samuelcolvin",
+        "Homepage": "https://github.com/pydantic",
+        "Source": "https://github.com/pydantic/pydantic/tree/main/pydantic-core"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pyglet",
+      "version": "2.1.19",
+      "license": "See upstream distribution",
+      "links": {
+        "Home": "https://pyglet.org"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pygments",
+      "version": "2.21.0",
+      "license": "BSD-2-Clause",
+      "links": {
+        "Bug Tracker": "https://github.com/pygments/pygments/issues",
+        "Changelog": "https://github.com/pygments/pygments/blob/master/CHANGES",
+        "Documentation": "https://pygments.org/docs",
+        "Homepage": "https://pygments.org",
+        "Source": "https://github.com/pygments/pygments"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pyopengl",
+      "version": "3.1.0",
+      "license": "BSD",
+      "links": {
+        "Download": "http://sourceforge.net/projects/pyopengl/files/PyOpenGL/",
+        "Homepage": "http://pyopengl.sourceforge.net"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pyrender",
+      "version": "0.1.45",
+      "license": "MIT License",
+      "links": {
+        "Homepage": "https://github.com/mmatl/pyrender"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "python-box",
+      "version": "7.4.1",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/cdgriffith/Box"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pytorch-lightning",
+      "version": "2.6.6",
+      "license": "Apache-2.0",
+      "links": {
+        "Bug Tracker": "https://github.com/Lightning-AI/pytorch-lightning/issues",
+        "Documentation": "https://pytorch-lightning.rtfd.io/en/latest/",
+        "Download": "https://github.com/Lightning-AI/lightning",
+        "Homepage": "https://github.com/Lightning-AI/lightning",
+        "Source Code": "https://github.com/Lightning-AI/lightning"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3",
+      "license": "MIT",
+      "links": {
+        "Bug Tracker": "https://github.com/yaml/pyyaml/issues",
+        "CI": "https://github.com/yaml/pyyaml/actions",
+        "Documentation": "https://pyyaml.org/wiki/PyYAMLDocumentation",
+        "Download": "https://pypi.org/project/PyYAML/",
+        "Homepage": "https://pyyaml.org/",
+        "Mailing lists": "http://lists.sourceforge.net/lists/listinfo/yaml-core",
+        "Source Code": "https://github.com/yaml/pyyaml"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "retrying",
+      "version": "1.4.2",
+      "license": "Apache-2.0",
+      "links": {
+        "Homepage": "https://github.com/groodt/retrying",
+        "Repository": "https://github.com/groodt/retrying"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "setuptools",
+      "version": "84.2.1",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://setuptools.pypa.io/en/stable/history.html",
+        "Documentation": "https://setuptools.pypa.io/",
+        "Source": "https://github.com/pypa/setuptools"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "six",
+      "version": "1.17.0",
+      "license": "MIT",
+      "links": {
+        "Homepage": "https://github.com/benjaminp/six"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "sniffio",
+      "version": "1.3.1",
+      "license": "MIT OR Apache-2.0",
+      "links": {
+        "Changelog": "https://sniffio.readthedocs.io/en/latest/history.html",
+        "Documentation": "https://sniffio.readthedocs.io/",
+        "Homepage": "https://github.com/python-trio/sniffio"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "spconv-cu120",
+      "version": "2.3.6",
+      "license": "Apache License 2.0",
+      "links": {
+        "Homepage": "https://github.com/traveller59/spconv"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "stack-data",
+      "version": "0.6.3",
+      "license": "MIT",
+      "links": {
+        "Homepage": "http://github.com/alexmojaki/stack_data"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "sympy",
+      "version": "1.13.1",
+      "license": "BSD",
+      "links": {
+        "Homepage": "https://sympy.org",
+        "Source": "https://github.com/sympy/sympy"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "termcolor",
+      "version": "3.3.0",
+      "license": "MIT",
+      "links": {
+        "Changelog": "https://github.com/termcolor/termcolor/releases",
+        "Homepage": "https://github.com/termcolor/termcolor",
+        "Source": "https://github.com/termcolor/termcolor"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "timm",
+      "version": "1.0.31",
+      "license": "Apache-2.0",
+      "links": {
+        "documentation": "https://huggingface.co/docs/timm/en/index",
+        "homepage": "https://github.com/huggingface/pytorch-image-models",
+        "repository": "https://github.com/huggingface/pytorch-image-models"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "tokenizers",
+      "version": "0.21.4",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/huggingface/tokenizers",
+        "Source": "https://github.com/huggingface/tokenizers"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "torch",
+      "version": "2.5.1+cu124",
+      "license": "See upstream distribution",
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ],
+      "metadata_error": "HTTP Error 404: Not Found"
+    },
+    {
+      "name": "torch-cluster",
+      "version": "1.6.3+pt25cu124",
+      "license": "See upstream distribution",
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ],
+      "metadata_error": "HTTP Error 404: Not Found"
+    },
+    {
+      "name": "torch-scatter",
+      "version": "2.1.2+pt25cu124",
+      "license": "See upstream distribution",
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ],
+      "metadata_error": "HTTP Error 404: Not Found"
+    },
+    {
+      "name": "torchmetrics",
+      "version": "1.9.0",
+      "license": "Apache-2.0",
+      "links": {
+        "Bug Tracker": "https://github.com/Lightning-AI/torchmetrics/issues",
+        "Documentation": "https://torchmetrics.rtfd.io/en/latest/",
+        "Download": "https://github.com/Lightning-AI/torchmetrics/archive/master.zip",
+        "Homepage": "https://github.com/Lightning-AI/torchmetrics",
+        "Source Code": "https://github.com/Lightning-AI/torchmetrics"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "torchvision",
+      "version": "0.20.1+cu124",
+      "license": "See upstream distribution",
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ],
+      "metadata_error": "HTTP Error 404: Not Found"
+    },
+    {
+      "name": "traitlets",
+      "version": "5.16.1",
+      "license": "BSD 3-Clause License",
+      "links": {
+        "Documentation": "https://traitlets.readthedocs.io",
+        "Homepage": "https://github.com/ipython/traitlets",
+        "Source": "https://github.com/ipython/traitlets",
+        "Tracker": "https://github.com/ipython/traitlets/issues"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "transformers",
+      "version": "4.51.3",
+      "license": "Apache 2.0 License",
+      "links": {
+        "Homepage": "https://github.com/huggingface/transformers"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "trimesh",
+      "version": "5.2.0",
+      "license": "The MIT License (MIT)",
+      "links": {
+        "documentation": "https://trimesh.org",
+        "homepage": "https://github.com/mikedh/trimesh"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "triton",
+      "version": "3.1.0",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/triton-lang/triton/"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "license": "PSF-2.0",
+      "links": {
+        "Bug Tracker": "https://github.com/python/typing_extensions/issues",
+        "Changes": "https://github.com/python/typing_extensions/blob/main/CHANGELOG.md",
+        "Documentation": "https://typing-extensions.readthedocs.io/",
+        "Home": "https://github.com/python/typing_extensions",
+        "Q & A": "https://github.com/python/typing/discussions",
+        "Repository": "https://github.com/python/typing_extensions"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "wandb",
+      "version": "0.31.0",
+      "license": "MIT License",
+      "links": {
+        "Bug Reports": "https://github.com/wandb/wandb/issues",
+        "Documentation": "https://docs.wandb.ai",
+        "Source": "https://github.com/wandb/wandb"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "wcwidth",
+      "version": "0.9.4",
+      "license": "See upstream distribution",
+      "links": {
+        "Homepage": "https://github.com/jquast/wcwidth"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "werkzeug",
+      "version": "3.1.9",
+      "license": "BSD-3-Clause",
+      "links": {
+        "Changes": "https://werkzeug.palletsprojects.com/page/changes/",
+        "Chat": "https://discord.gg/pallets",
+        "Documentation": "https://werkzeug.palletsprojects.com/",
+        "Donate": "https://palletsprojects.com/donate",
+        "Source": "https://github.com/pallets/werkzeug/"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "widgetsnbextension",
+      "version": "4.0.16",
+      "license": "BSD 3-Clause License",
+      "links": {
+        "Homepage": "http://jupyter.org"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "xxhash",
+      "version": "4.0.2",
+      "license": "BSD-2-Clause",
+      "links": {
+        "Homepage": "https://github.com/ifduyue/python-xxhash"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "yarl",
+      "version": "1.25.1",
+      "license": "Apache-2.0",
+      "links": {
+        "CI: GitHub Workflows": "https://github.com/aio-libs/yarl/actions?query=branch:master",
+        "Chat: Matrix": "https://matrix.to/#/#aio-libs:matrix.org",
+        "Chat: Matrix Space": "https://matrix.to/#/#aio-libs-space:matrix.org",
+        "Code of Conduct": "https://github.com/aio-libs/.github/blob/master/CODE_OF_CONDUCT.md",
+        "Coverage: codecov": "https://codecov.io/github/aio-libs/yarl",
+        "Docs: Changelog": "https://yarl.aio-libs.org/en/latest/changes/",
+        "Docs: RTD": "https://yarl.aio-libs.org",
+        "GitHub: issues": "https://github.com/aio-libs/yarl/issues",
+        "GitHub: repo": "https://github.com/aio-libs/yarl",
+        "Homepage": "https://github.com/aio-libs/yarl"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    },
+    {
+      "name": "zipp",
+      "version": "4.1.2",
+      "license": "MIT",
+      "links": {
+        "Source": "https://github.com/jaraco/zipp"
+      },
+      "used_by": [
+        "installer/requirements-unirig.txt"
+      ]
+    }
+  ]
+}
