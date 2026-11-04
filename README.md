@@ -121,8 +121,7 @@ ChatGPT web access needs a separately configured reachable/private connection; i
 | `engine/`, `UniRig/source/` | Pinned third-party engines downloaded during setup |
 | `.venv/`, `.mcp-venv/`, `.tools/`, `.downloads/`, `node_modules/` | Private environments, tools and caches |
 
-These locations are excluded from Git. This repository contains application code, necessary runtime adapters/patches, install manifests, public documentation, license notices and demonstration screenshots. It contains no personal models, old QA reports, test scripts, work logs or developer scratch files.
-
+These locations are excluded from Git. This repository contains application code, necessary runtime adapters/patches, install manifests, public documentation, license notices and demonstration screenshots. It contains no personal models.
 Back up a collection through the application before upgrading. Updating source code is separate from replacing a user library. Re-run the installer to restore missing prerequisites or verified downloads. It preserves unrecognised files instead of deleting them. Keep the application at its installed path; moving Python virtual environments requires recreating them.
 
 ## Credits and licenses
