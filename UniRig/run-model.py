@@ -2,6 +2,7 @@
 from pathlib import Path
 import json, os, subprocess, sys, time
 import yaml
+from model_config import prepare_skeleton_config
 
 root=Path(__file__).resolve().parent
 job=Path(sys.argv[1]).resolve();work=job/'rig-work';work.mkdir(exist_ok=True)
@@ -16,16 +17,18 @@ for name,recipe,checkpoint in [('skeleton','quick_inference_skeleton_articulatio
     task=yaml.safe_load((root/'source/configs/task'/recipe).read_text())
     task['resume_from_checkpoint']=str(root/'models'/checkpoint)
     task['experiment_name']='studio_'+job.name+'_'+name
+    if name=='skeleton':
+        task['components']['model']=str(prepare_skeleton_config(root/'source',work))
     (work/(name+'.yaml')).write_text(yaml.safe_dump(task))
 def extract(source,suffix):
     run('-m','src.data.extract','--config=configs/data/quick_inference.yaml','--input='+str(source),'--require_suffix='+suffix,'--output_dir='+str(work/'intermediate'),'--force_override=true','--num_runs=1','--id=0','--time=studio','--faces_target_count=50000')
 source=work/'input.glb' if (work/'input.glb').exists() else job/'source.glb'
-stage('Analyse du personnage',8);extract(source,'glb')
-stage('UniRig · prédiction du squelette',22)
+stage('Analysing character',8);extract(source,'glb')
+stage('UniRig · predicting skeleton',22)
 run('run.py','--task='+str(work/'skeleton.yaml'),'--seed=12345','--input='+str(source),'--output='+str(work/'skeleton.fbx'),'--npz_dir='+str(work/'intermediate'))
 run(root/'skeleton-preview.py',job)
-stage('Préparation des articulations',45);extract(work/'skeleton.fbx','fbx')
-stage('UniRig · calcul des poids',58)
+stage('Preparing joints',45);extract(work/'skeleton.fbx','fbx')
+stage('UniRig · calculating skin weights',58)
 run('run.py','--task='+str(work/'skin.yaml'),'--seed=12345','--input='+str(work/'skeleton.fbx'),'--output='+str(work/'skin.fbx'),'--npz_dir='+str(work/'intermediate'),'--data_name=raw_data.npz')
-stage('Transfert du rig sur le modèle texturé',80)
+stage('Transferring rig to the textured model',80)
 run('-m','src.inference.merge','--require_suffix=glb,fbx','--num_runs=1','--id=0','--source='+str(work/'skin.fbx'),'--target='+str(source),'--output='+str(work/'rigged.glb'))

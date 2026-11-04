@@ -112,6 +112,10 @@ run the checked-out script; it does not change the machine's execution policy.
    Required Linux shared libraries are extracted into that private runtime.
 8. Checks native CUDA/imports, Blender, the animation catalogue, MCP and UniRig.
 
+UniRig's transformer architecture configuration is created locally. Inference
+loads UniRig's own checkpoint; it does not download pretrained OPT language-model
+weights, a text tokenizer or an extra Hugging Face configuration on first use.
+
 The installer does not run the upstream all-purpose installer. Background removal
 uses **rembg/U2-Net**, and the Studio UV baking path uses its **MIT PyTorch
 rasteriser**. Optional research-only upstream render packages and RMBG-2.0 weights

@@ -120,6 +120,7 @@
 !/UniRig/runtime.sh
 !/UniRig/run-model.sh
 !/UniRig/run-model.py
+!/UniRig/model_config.py
 !/UniRig/check-runtime.sh
 !/UniRig/check-runtime.py
 !/UniRig/skeleton-preview.py

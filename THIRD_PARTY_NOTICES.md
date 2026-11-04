@@ -69,6 +69,11 @@ Quaternius distributes these asset packs through the author website/OpenGameArt 
 
 ## Distribution boundaries
 
+Studio builds UniRig's OPT-shaped transformer configuration locally using the
+Apache-2.0 Transformers implementation. UniRig's own checkpoint supplies its
+learned parameters; Studio does not download or redistribute pretrained OPT
+language-model weights or its tokenizer.
+
 The repository includes Studio runtime source/adapters and local notices, not engine archives, model weights, Python environments, native wheels or personal model libraries. The installer downloads pinned upstream source archives and retains their original license files. The original Microsoft/Windows-port MIT notices accompany the modified O-Voxel files. The three mesh wheels are fetched with that archive; their included upstream/transitive notices remain applicable.
 
 Native NVIDIA drivers, CUDA runtime components and other vendor binaries retain their vendor terms. They are not relicensed as open source by this repository. Blender/GPL and DINOv3/custom terms are independent from the MIT license on Studio. Commercial-use suitability must be assessed against the relevant component/model and the rights to each input.
