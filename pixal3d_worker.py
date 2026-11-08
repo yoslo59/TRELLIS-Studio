@@ -76,13 +76,16 @@ def prepared_views(job, views):
         yield rgba[..., :3] * rgba[..., 3:4]
 
 
-def sampling_options(options, seed):
+def sampling_options(options, seed, settings_version=2):
     # Match the tested structure/shape seed split, with independent materials.
+    # Recipes through v2 used 12 high-resolution steps regardless of shape_steps.
+    # Preserve those recipes; new jobs apply the shape control to both passes.
+    high_steps = options['shape_steps'] if settings_version >= 3 else 12
     texture_seed = options['texture_seed']
     return {
         'structure': {'seed': (seed + 14) % (2**31), 'steps': options['structure_steps']},
         'shape_low': {'seed': seed, 'steps': options['shape_steps']},
-        'shape_high': {'seed': seed, 'steps': 12},
+        'shape_high': {'seed': seed, 'steps': high_steps},
         'texture': {'seed': texture_seed if texture_seed >= 0 else (seed + 1) % (2**31),
                     'steps': options['texture_steps']},
     }
@@ -216,7 +219,8 @@ def run_job():
         if not torch.cuda.is_available():
             raise RuntimeError('CUDA is unavailable in this environment.')
         torch.cuda.reset_peak_memory_stats()
-        sampling = sampling_options(options, settings['seed'])
+        settings_version = settings.get('settings_version', 2)
+        sampling = sampling_options(options, settings['seed'], settings_version)
         with torch.inference_mode():
             source = generate_source(torch, JOB, views, options, sampling, status)
         mm.unload_all_models()
@@ -233,7 +237,7 @@ def run_job():
             dimensions_m=result.extents.tolist(), resolution=source['resolution'],
             requested_resolution=1024, pipeline_type='pixal3d_1024_multiview',
             texture_size=settings['texture_size'], generation_options=options, sampler_options=sampling,
-            settings_version=2, neural_inferences=1, raw_triangles=len(source['faces']),
+            settings_version=settings_version, neural_inferences=1, raw_triangles=len(source['faces']),
             view_count=len(views), views=views,
             peak_vram_gib=round(torch.cuda.max_memory_allocated()/1024**3, 2),
             peak_reserved_gib=round(torch.cuda.max_memory_reserved()/1024**3, 2),

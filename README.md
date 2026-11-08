@@ -9,8 +9,8 @@ Inference runs on your computer. Models and dependency packages are downloaded d
 
 > **First public preview · Windows x64.** The validated generation setup uses an RTX 4070 Ti with 12 GB VRAM and 32 GB RAM. Installation verifies components, but output quality, deformation and target-engine suitability still need visual review. The Studio code is MIT; model and dependency licenses are separate, particularly DINOv3.
 
-![TRELLIS Studio workspace](docs/screenshots/workspace.jpg)
-*An isolated demonstration collection. No personal library is included in this repository.*
+![Create workspace with a textured desk, Game - Default profile and local collection](docs/screenshots/new/01.jpg)
+*The Create workspace combines the generation profile, reference image card, PBR preview and local collection. The pictured assets are not included in this repository.*
 
 ## Get started
 
@@ -58,6 +58,8 @@ Run **Install Pixal3D.cmd** once after the main Studio installation. In the **Re
 
 The separate **Character · Pixal3D** recipe uses the 1024 cascade, a target of 10,600 triangles and 2K materials. The mesh and materials are generated in successive stages. Actual triangle counts are approximate. Jobs share Studio's queue and retain their input views, angles and recipe. The source cache for **Refinish model** is optional. The standard Create mode continues to use **Game - Default**.
 
+New Pixal3D jobs use 12 structure steps, 20 steps in each geometry pass and 12 material steps, with guidance 7.5 / 7.5 / 1. Recipe version 3 makes the geometry step count apply to both passes. Replaying a saved version 1 or 2 job retains its historical 12-step high-resolution pass. Increasing steps does not guarantee finer anatomy. Keep the references, seed and finishing settings fixed when comparing recipes.
+
 Enable **Reproject the original face photo** to transfer the visible face from the original front photo into the generated base color. Use a sharp, unobstructed front view with the face large enough to see the eyes, nose and mouth. The pass runs locally after generation and keeps the existing mesh and other material maps. Check its status in the model details. If the faces cannot be aligned reliably, Studio keeps the generated texture.
 
 The optional runtime uses about 8.25 GiB of pinned downloads before Python dependencies. The tested configuration used three views on an RTX 4070 Ti with 12 GB VRAM. Review the face, fingers and silhouette before use. [Optional setup](INSTALLATION.md#optional-pixal3d-multi-view)
@@ -72,7 +74,8 @@ Diagnostics report measured topology, UV presence/collapse, normals, textures, d
 
 ### Rigging and animation
 
-![Animation studio](docs/screenshots/animation.jpg)
+![Animate workspace with an imported character, skeleton overlay and animation library](docs/screenshots/new/02.jpg)
+*An imported character with its skeleton visible, animation timeline and clip library. Studio supports both generated and imported models.*
 
 1. Select a completed model and open **Animation**.
 2. Use **Add rig** for an unrigged character. Set its orientation, target height and vertical offset. UniRig runs in its separate WSL environment and produces a linked rigged copy.

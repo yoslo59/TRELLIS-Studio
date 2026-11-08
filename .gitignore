@@ -46,6 +46,10 @@
 !/Install Pixal3D.cmd
 !/work_blender.py
 !/README.md
+!/tests/
+/tests/*
+!/tests/pixal3d_sampling.py
+!/tests/pixal3d_generation.py
 !/INSTALLATION.md
 !/THIRD_PARTY_NOTICES.md
 !/SECURITY.md
@@ -171,3 +175,7 @@
 !/docs/screenshots/workspace.jpg
 !/docs/screenshots/animation.jpg
 !/docs/screenshots/export.jpg
+!/docs/screenshots/new/
+/docs/screenshots/new/*
+!/docs/screenshots/new/01.jpg
+!/docs/screenshots/new/02.jpg

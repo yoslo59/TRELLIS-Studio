@@ -714,7 +714,7 @@ async def generate_multiview(
                     triangles=triangles or profile['triangles'],
                     texture_size=texture_size or profile['texture_size'],
                     resolution=profile['resolution'], pipeline_type='pixal3d_1024_multiview',
-                    generation_options=PIXAL_CHARACTER_OPTIONS, settings_version=2, created=time.time(),
+                    generation_options=PIXAL_CHARACTER_OPTIONS, settings_version=3, created=time.time(),
                     views=views, side_angle=side_angle, keep_finishing_source=keep_finishing_source)
     if reproject_face:
         settings['reproject_face'] = True
