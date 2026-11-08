@@ -17,6 +17,23 @@ class Generation(Contract):
     priority:int=Field(default=0,ge=-2,le=2)
     overrides:dict=Field(default_factory=dict,examples=[{}],description='Optional recipe overrides: triangles, texture_size, resolution, remove_bg, advanced_settings, asset_type, reference_prompt, parent_id, keep_finishing_source.')
 
+class MultiViewGeneration(Contract):
+    upload_id: Identifier = Field(description='Front-view upload ID.')
+    left_upload_id: Identifier | None = None
+    back_upload_id: Identifier | None = None
+    right_upload_id: Identifier | None = None
+    side_angle: Literal[40, 90] = 40
+    name: str = Field(default='Character', min_length=1, max_length=80)
+    height_m: float = Field(default=1.7, ge=.01, le=100)
+    seed: int = Field(default=42, ge=0, le=2147483647)
+    triangles: int | None = Field(default=None, ge=1000, le=500000)
+    texture_size: Literal[1024, 2048] | None = None
+    parent_id: Identifier | None = None
+    reference_prompt: str = Field(default='', max_length=6000)
+    keep_finishing_source: bool = False
+    priority: int = Field(default=0, ge=-2, le=2)
+
+
 class ImportModel(Contract):
     upload_id:Identifier
     name:str=Field(default='',max_length=80)

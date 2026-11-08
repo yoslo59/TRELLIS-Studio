@@ -67,8 +67,15 @@ class Workspace:
         self.save();return current
     def enqueue(self,identifier,priority=0,held=False):
         if type(priority) is not int or not -2<=priority<=2:raise ValueError('Priority must be between -2 and 2.')
-        if len(self.queue['items'])>=2000:self.queue['items']=self.queue['items'][-1000:]
-        self.queue['items'].append(dict(id=identifier,priority=priority,held=held,created=time.time()));self.save_queue()
+        previous = self.queue['items']
+        items = previous[-1000:] if len(previous) >= 2000 else previous.copy()
+        items.append(dict(id=identifier, priority=priority, held=held, created=time.time()))
+        self.queue['items'] = items
+        try:
+            self.save_queue()
+        except OSError:
+            self.queue['items'] = previous
+            raise
     def pending(self,identifier):return any(i['id']==identifier and not i.get('cancelled') for i in self.queue['items'])
     def ordered(self):return sorted(self.queue['items'],key=lambda i:(-i['priority'],i['created']))
 

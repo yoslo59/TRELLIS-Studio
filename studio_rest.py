@@ -1,5 +1,6 @@
 """Documented JSON API over the same transactional services used by Studio's UI."""
 from pathlib import Path
+from contextlib import ExitStack
 import inspect,io,json,time,uuid,hashlib
 from fastapi import APIRouter,UploadFile,File,HTTPException,Query
 from fastapi.responses import FileResponse,HTMLResponse,RedirectResponse
@@ -90,6 +91,24 @@ def install(app,g):
         with source.open('rb') as stream:
             result=await legacy('POST','/api/queue/batch',images=[UploadFile(file=stream,filename=entry['name'])],specifications=json.dumps([spec]))
         return accepted(dict(id=result['ids'][0]))
+
+    @router.post('/generations/multiview', tags=['Generation'], status_code=202,
+                 response_model=JobAccepted, summary='Queue a Pixal3D character from posed images')
+    async def generate_multiview(data: MultiViewGeneration):
+        recipe = data.model_dump(exclude={'upload_id', 'left_upload_id', 'back_upload_id',
+                                          'right_upload_id', 'priority'}, exclude_none=True)
+        recipe['queue_priority'] = data.priority
+        references = {
+            'image': data.upload_id, 'left_image': data.left_upload_id,
+            'back_image': data.back_upload_id, 'right_image': data.right_upload_id,
+        }
+        with ExitStack() as stack:
+            for field, identifier in references.items():
+                if identifier:
+                    path, entry = upload(identifier, 'image')
+                    stream = stack.enter_context(path.open('rb'))
+                    recipe[field] = UploadFile(file=stream, filename=entry['name'])
+            return accepted(await legacy('POST', '/api/generate-multiview', **recipe))
 
     @router.post('/imports',tags=['Sources'],status_code=202,response_model=JobAccepted,summary='Import an uploaded model into the library')
     async def import_model(data:ImportModel):

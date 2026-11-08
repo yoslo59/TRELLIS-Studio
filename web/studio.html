@@ -4,7 +4,7 @@
 <title>TRELLIS Studio — Local 3D workspace</title>
 <link rel="icon" type="image/svg+xml" href="/web/trellis-mark.svg">
 <link rel="stylesheet" href="/web/studio.css?v=2.3">
-<link rel="stylesheet" href="/web/workspace.css?v=3.1.0"><link rel="stylesheet" href="/web/polish.css?v=3.1.0">
+<link rel="stylesheet" href="/web/workspace.css?v=3.1.0"><link rel="stylesheet" href="/web/polish.css?v=3.1.0-pixal">
 <script type="importmap">{"imports":{"three":"/vendor/build/three.module.js","three/addons/":"/vendor/examples/jsm/"}}</script>
 <link rel="stylesheet" href="/web/animation-studio.css?v=3.1.0"><link rel="stylesheet" href="/web/details.css?v=3.1.0"><link rel="stylesheet" href="/web/studio-tools.css?v=3.1.0"><link rel="stylesheet" href="/web/lighting.css?v=3.1.0"><link rel="stylesheet" href="/web/workbench.css?v=3.1.0"></head><body>
 <header class="topbar"><a class="brand" href="/"><img class="brand-logo" src="/web/trellis-mark.svg" alt=""><strong>TRELLIS <em>Studio</em></strong><span class="version">LOCAL / 03.1</span></a><span class="top-context">IMAGE → MATERIAL → VOLUME</span><div class="top-status"><span class="online-dot"></span><span id="runtime">Connecting to the engine…</span><a class="developer-link" href="/developers" title="API & MCP documentation" aria-label="API and MCP documentation"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#details"/></svg></a><button id="shutdown" class="quiet" type="button" title="Stop the local server">Stop</button></div></header>
@@ -14,31 +14,89 @@
 <aside class="creation" id="creationPanel">
 <div class="panel-heading"><span class="eyebrow">CREATE A MODEL</span><h1>Image to 3D</h1><p class="intro">Give your reference a new dimension.</p></div>
 <form id="form">
-<div class="profile-box"><div class="section-label"><span>Generation profile</span><span id="profileState" class="profile-state">REFERENCE</span></div>
+<div class="profile-box" id="monoProfile"><div class="section-label"><span>Generation profile</span><span id="profileState" class="profile-state">REFERENCE</span></div>
 <label class="sr-only" for="profileChoice">Generation profile</label><select id="profileChoice" disabled><option>Loading profiles…</option></select>
 <p id="profileSummary" class="hint">Game - Default · 1024³ · 28 000 triangles · texture 2K</p>
 <div class="profile-actions"><button id="saveProfileAs" type="button" disabled>＋ Save a copy</button><button id="updateProfile" type="button" hidden>Edit this profile</button></div><p id="profileNotice" role="status" aria-live="polite"></p></div>
+<div class="profile-box" id="pixalProfile" hidden>
+  <div class="section-label"><span>Character profile</span><span id="pixalRuntimeState" class="profile-state">OPTIONAL</span></div>
+  <strong id="pixalProfileName">Character · Pixal3D</strong>
+  <p id="pixalProfileSummary" class="hint">Dedicated recipe for characters.</p>
+  <p id="pixalRuntimeNotice" class="hint" role="status">Checking the optional Pixal3D runtime…</p>
+</div>
 <input id="parentId" name="parent_id" type="hidden" value=""><input id="preset" name="preset" type="hidden" value="game_d"><input id="profileId" name="profile_id" type="hidden" value="game_d">
-<div class="section-label source-label"><span>01 / Reference image</span><span>SINGLE IMAGE</span></div>
-<label id="drop" class="drop"><input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp" required><img id="inputPreview" alt="Reference to convert" hidden><span id="dropText"><span class="drop-symbol">↥</span><strong>Drop your reference image</strong><small>Click, drag or paste<br>PNG, JPG, WebP · up to 25 MB</small></span></label>
-<label class="field">Asset type<select id="assetType" name="asset_type"><option value="object">Static prop</option></select></label><p id="assetHint" class="hint">One complete object, in a three-quarter view on a plain grey background.</p>
+<div class="section-label source-label"><span>01 / Reference image</span><span id="referenceMode">SINGLE IMAGE</span></div>
+<div class="reference-slot reference-slot-main" data-reference-slot="front">
+  <label id="drop" class="drop"><input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Reference image" required><img id="inputPreview" alt="Main reference preview" hidden><span id="dropText" data-slot-prompt><span class="drop-symbol">↥</span><strong id="frontDropTitle">Drop your reference image</strong><small>Click, drag or paste<br>PNG, JPG, WebP · up to 25 MB</small></span></label>
+  <span id="mainViewBadge" class="reference-slot-badge" hidden>Main view · front</span>
+  <button type="button" class="reference-slot-remove" aria-label="Remove main reference" title="Remove main reference" hidden><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#close"/></svg></button>
+</div>
+<div class="multiview-block">
+  <fieldset id="supplementalViews" class="mode-fields" hidden disabled>
+    <legend class="sr-only">Complementary character views</legend>
+    <div class="multiview-slots">
+      <div class="reference-slot reference-slot-extra" data-reference-slot="left">
+        <label class="reference-slot-picker"><input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Add left reference"><img alt="Left reference preview" hidden><span class="reference-slot-placeholder" data-slot-prompt><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#camera"/></svg></span><strong>Left</strong></label>
+        <button type="button" class="reference-slot-remove" aria-label="Remove left reference" title="Remove left reference" hidden><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#close"/></svg></button>
+      </div>
+      <div class="reference-slot reference-slot-extra" data-reference-slot="back">
+        <label class="reference-slot-picker"><input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Add back reference"><img alt="Back reference preview" hidden><span class="reference-slot-placeholder" data-slot-prompt><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#camera"/></svg></span><strong>Back</strong></label>
+        <button type="button" class="reference-slot-remove" aria-label="Remove back reference" title="Remove back reference" hidden><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#close"/></svg></button>
+      </div>
+      <div class="reference-slot reference-slot-extra" data-reference-slot="right">
+        <label class="reference-slot-picker"><input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Add right reference"><img alt="Right reference preview" hidden><span class="reference-slot-placeholder" data-slot-prompt><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#camera"/></svg></span><strong>Right</strong></label>
+        <button type="button" class="reference-slot-remove" aria-label="Remove right reference" title="Remove right reference" hidden><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#close"/></svg></button>
+      </div>
+    </div>
+  </fieldset>
+  <label class="multiview-switch"><span><strong>Multi-view</strong><small>Pixal3D for characters</small></span><input id="pixalMode" type="checkbox" role="switch" aria-controls="supplementalViews pixalViewAngles" aria-label="Multi-view Pixal3D for characters"></label>
+</div>
+<fieldset id="pixalViewAngles" class="mode-fields" hidden disabled>
+  <label class="field">Side view angle<select id="sideAngle"><option value="40">Three-quarter · ±40°</option><option value="90">Profile · ±90°</option></select></label>
+  <p class="hint">Left and right refer to the character’s own sides. Back is 180°. Show the full character at a similar scale and in the same pose.</p>
+  <p class="hint" id="viewRequirements" aria-live="polite"></p>
+</fieldset>
+<fieldset id="monoAssetType" class="mode-fields">
+  <label class="field">Asset type<select id="assetType" name="asset_type"><option value="object">Static prop</option></select></label><p id="assetHint" class="hint">One complete object, in a three-quarter view on a plain grey background.</p>
+</fieldset>
 
 <label class="field">Name<input id="name" name="name" maxlength="80" value="New model" required></label>
-<div class="reference-tools"><button id="copyReferencePrompt" type="button" class="text-button">Copy an image brief ↗</button><span>Prepare a reference image before generation.</span></div>
+<div id="monoBrief" class="reference-tools"><button id="copyReferencePrompt" type="button" class="text-button">Copy an image brief ↗</button><span>Prepare a reference image before generation.</span></div>
 
-<div class="section-label quality-label"><span>02 / Quality & scale</span></div><label class="field">3D resolution<select id="resolution" name="resolution"><option value="512">512³ · Fast</option><option value="1024" selected>1024³ · Quality</option><option value="1536" disabled>1536³ · Fine detail</option></select></label>
-<div class="two-fields"><label class="field">Real-world height<input id="height" name="height_m" type="number" value="1" min="0.01" max="100" step="0.01"><small>metres · origin at ground level</small></label><label class="field">Texture<select id="textureSize" name="texture_size"><option value="0">Use profile default</option><option value="1024">1K · 1 024 px</option><option value="2048" selected>2K · 2 048 px</option><option value="4096" disabled>4K · 4 096 px</option></select></label></div>
-<p id="qualityHint" class="hint" hidden></p>
-<label class="check"><input id="removeBg" name="remove_bg" type="checkbox" checked><span>Remove image background</span></label>
+<div class="section-label quality-label"><span>02 / Quality & scale</span></div>
+<fieldset id="monoResolution" class="mode-fields">
+  <label class="field">3D resolution<select id="resolution" name="resolution"><option value="512">512³ · Fast</option><option value="1024" selected>1024³ · Quality</option><option value="1536" disabled>1536³ · Fine detail</option></select></label>
+</fieldset>
+<div class="two-fields">
+  <label class="field">Real-world height<input id="height" name="height_m" type="number" value="1" min="0.01" max="100" step="0.01"><small>metres · origin at ground level</small></label>
+  <fieldset id="monoTexture" class="mode-fields">
+    <label class="field">Texture<select id="textureSize" name="texture_size"><option value="0">Use profile default</option><option value="1024">1K · 1 024 px</option><option value="2048" selected>2K · 2 048 px</option><option value="4096" disabled>4K · 4 096 px</option></select></label>
+  </fieldset>
+  <fieldset id="pixalTexture" class="mode-fields" hidden disabled>
+    <label class="field">Texture<select id="pixalTextureSize"><option value="">Use profile default</option><option value="1024">1K · 1 024 px</option><option value="2048">2K · 2 048 px</option></select></label>
+  </fieldset>
+</div>
+<fieldset id="monoBackground" class="mode-fields">
+  <p id="qualityHint" class="hint" hidden></p>
+  <label class="check"><input id="removeBg" name="remove_bg" type="checkbox" checked><span>Remove image background</span></label>
+</fieldset>
+<fieldset id="pixalQuality" class="mode-fields" hidden disabled>
+  <div class="two-fields">
+    <label class="field">Target triangles<input id="pixalTriangles" type="number" min="1000" max="500000" step="1" placeholder="Profile default"><small>Leave blank for the character profile</small></label>
+    <label class="field">3D seed<input id="pixalSeed" type="number" value="42" min="0" max="2147483647" step="1"></label>
+  </div>
+</fieldset>
 <label class="check"><input id="keepFinishingSource" name="keep_finishing_source" type="checkbox" value="true"><span>Keep source for finishing variants</span></label>
 <p class="hint">Optional. Stores the dense geometry and materials locally so finishing can be repeated without generation.</p>
-<details class="advanced" id="advancedSettings"><summary>Advanced settings · 3D, textures & UV</summary>
-<label class="field">Base preset<select id="profileBase"><option value="game_d">Game - Default · 20 steps</option><option value="high_detail">High Detail · 20 steps</option></select></label><div class="advanced-actions"><button id="resetAdvanced" type="button" class="secondary">Reset to Game - Default</button></div>
-<p class="hint">Hover over a label or field for help. Each result stores its settings for reuse with New version.</p>
-<div class="two-fields"><label class="field">Target triangles<input id="triangles" name="triangles" type="number" min="0" max="500000" step="1" value="28000"><small>0 = profile · 1,000 to 500,000</small></label><label class="field">3D seed<input id="seed" name="seed" type="number" value="42" min="0" max="2147483647" step="1"></label></div>
-<div id="advancedControls"></div>
-<label class="field">Reference context / prompt<textarea id="referencePrompt" name="reference_prompt" rows="4" maxlength="6000" placeholder="Object function, setting, materials…"></textarea></label>
-<p class="hint">Context is stored with the object; generation uses the reference image. This form supports a single image.</p></details>
+<fieldset id="monoAdvanced" class="mode-fields">
+  <details class="advanced" id="advancedSettings"><summary>Advanced settings · 3D, textures & UV</summary>
+  <label class="field">Base preset<select id="profileBase"><option value="game_d">Game - Default · 20 steps</option><option value="high_detail">High Detail · 20 steps</option></select></label><div class="advanced-actions"><button id="resetAdvanced" type="button" class="secondary">Reset to Game - Default</button></div>
+  <p class="hint">Hover over a label or field for help. Each result stores its settings for reuse with New version.</p>
+  <div class="two-fields"><label class="field">Target triangles<input id="triangles" name="triangles" type="number" min="0" max="500000" step="1" value="28000"><small>0 = profile · 1,000 to 500,000</small></label><label class="field">3D seed<input id="seed" name="seed" type="number" value="42" min="0" max="2147483647" step="1"></label></div>
+  <div id="advancedControls"></div>
+  <label class="field">Reference context / prompt<textarea id="referencePrompt" name="reference_prompt" rows="4" maxlength="6000" placeholder="Object function, setting, materials…"></textarea></label>
+  <p class="hint">Context is stored with the object; generation uses the reference image. This form supports a single image.</p></details>
+</fieldset>
 <div class="generation-dock"><p id="generationSummary">GAME - DEFAULT · LOCAL COMPUTE</p><button id="generate" class="primary generate-button" type="submit" disabled><span>Generate model</span></button><button id="cancel" class="cancel" type="button" hidden>Cancel generation</button></div>
 </form>
 <form id="terrainForm" hidden><p class="hint">Procedural terrain, independent of the image-to-3D engine.</p><label class="field">Name<input id="terrainName" value="Terrain-Blackwater" maxlength="50" required></label><label class="field">Terrain<select id="terrainStyle"><option value="hills">Hills</option><option value="mountains">Rocky terrain</option><option value="basin">Basin</option><option value="plateau">Plateaus</option></select></label><div class="two-fields"><label class="field">Side length<select id="terrainSize"><option value="64">64 m</option><option value="128">128 m</option><option value="256" selected>256 m</option><option value="512">512 m</option><option value="1024">1 024 m</option></select></label><label class="field">Maximum elevation<input id="terrainHeight" type="number" min="1" max="250" value="32"></label></div><label class="field">Palette<select id="terrainPalette"><option value="blackwater">Blackwater</option><option value="dry">Dry ground</option><option value="ash">Ash</option></select></label><label class="field">Detail <output id="roughnessValue">55 %</output><input id="roughness" type="range" min=".1" max=".9" step=".05" value=".55"></label><label class="field">Flat area <output id="flatValue">15 %</output><input id="flatZone" type="range" min="0" max=".4" step=".05" value=".15"></label><div class="two-fields"><label class="field">Heightmap<select id="terrainResolution"><option>129</option><option selected>257</option><option>513</option></select></label><label class="field">Seed<input id="terrainSeed" type="number" min="0" max="2147483647" value="42"></label></div><p class="hint">No caves, overhangs or roads are generated. Materials remain editable.</p><button id="createTerrain" class="primary generate-button">Create terrain <span>↗</span></button></form>
@@ -74,7 +132,7 @@
 <dialog id="deleteDialog"><form method="dialog"><span class="eyebrow">TRASH</span><h2>Remove this model?</h2><p id="deleteName"></p><p>The model and its files will move to the local trash. You can restore them later.</p><div class="dialog-actions"><button value="cancel" class="secondary">Keep</button><button id="confirmDelete" type="button" class="danger">Move to trash</button></div></form></dialog>
 <dialog id="imageDialog"><button class="dialog-close" id="closeImage">Close ×</button><img id="largeImage" alt="Full-size texture or UV layout"></dialog>
 <footer><span>TRELLIS STUDIO</span><span>Reference → generation → review → Blender</span><span>UV & PBR · local compute</span></footer>
-<script type="module" src="/web/studio.js?v=3.1.0"></script><script type="module" src="/web/validation-en.js?v=3.1.0"></script>
+<script type="module" src="/web/studio.js?v=3.1.0-pixal"></script><script type="module" src="/web/validation-en.js?v=3.1.0"></script>
 <dialog id="refinishDialog" class="studio-dialog" aria-labelledby="refinishTitle">
 <form id="refinishForm">
 <header class="studio-dialog-head"><div><span class="eyebrow">FINISHING</span><h2 id="refinishTitle">Refinish model</h2><p id="refinishSource"></p></div><button id="closeRefinish" type="button" class="dialog-x" aria-label="Close finishing"></button></header>

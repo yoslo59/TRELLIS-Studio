@@ -134,6 +134,9 @@ def finish_mesh(torch, source):
         aabb=[[-0.5]*3, [0.5]*3], decimation_target=settings['triangles'],
         texture_size=settings['texture_size'], **export_options(options), verbose=True,
     )
+    if source.get('coordinate_system') == 'y_up':
+        # Pixal3D is already Y-up. Undo O-Voxel's Z-up to Y-up export conversion.
+        result.apply_transform([[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
     bounds = result.bounds
     height = max(float(bounds[1,1]-bounds[0,1]), 1e-6)
     result.vertices -= [(bounds[0,0]+bounds[1,0])/2, bounds[0,1], (bounds[0,2]+bounds[1,2])/2]
@@ -163,7 +166,8 @@ def main():
     resolution = source['resolution']
     result = finish_mesh(torch, source)
     stats = dict(name=settings['name'], height_m=settings['height_m'], seed=settings['seed'],
-                 triangles=len(result.faces), vertices=len(result.vertices), engine='TRELLIS.2',
+                 triangles=len(result.faces), vertices=len(result.vertices),
+                 engine='Pixal3D' if settings.get('engine') == 'pixal3d' else 'TRELLIS.2',
                  dimensions_m=result.extents.tolist(), resolution=resolution,
                  requested_resolution=requested_resolution, pipeline_type=pipeline_kind,
                  texture_size=settings['texture_size'], generation_options=options,

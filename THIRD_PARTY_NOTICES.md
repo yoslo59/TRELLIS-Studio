@@ -86,6 +86,10 @@ The native background-removal selection is rembg/U2-Net. Studio uses its own pur
 
 Additional runtime packages, such as image/HTTP/serialization utilities and transitive dependencies, retain the notices supplied by their authors. Web dependency licenses are also preserved in the npm packages installed through package-lock.json.
 
+## Optional Pixal3D runtime
+
+**Install Pixal3D.cmd** downloads pinned [ComfyUI](https://github.com/Comfy-Org/ComfyUI) source, preserving its GPL-3.0 license, and model packages from [Comfy-Org/Pixal3D](https://huggingface.co/Comfy-Org/Pixal3D) and [Comfy-Org/TRELLIS.2](https://huggingface.co/Comfy-Org/TRELLIS.2). [Pixal3D](https://github.com/TencentARC/Pixal3D) credits Tencent ARC and its collaborators and provides its own license and notices. The vision weights use DINOv3, with the separate terms linked above. The optional source, model packages and environment are downloaded locally. Pins and hashes are in `installer/pixal3d-manifest.json`.
+
 ## Local license copies
 
 The `licenses/` directory preserves the TRELLIS, UniRig, Three.js, U2-Net, Quaternius and DINOv3 notices used by this installation. The exact downloaded files, revisions and SHA-256 hashes are recorded in `installer/manifest.json`.

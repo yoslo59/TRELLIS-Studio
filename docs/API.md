@@ -53,6 +53,7 @@ overrides are documented in the `Generation` schema; unknown fields are rejected
 | --- | --- |
 | Studio | `GET /status`, `/profiles`, `/taxonomy`, `/animations`, `/client-config` |
 | Sources | `POST /uploads`, `/imports`, `/generations` |
+| Pixal3D multi-view | `POST /generations/multiview` with uploaded front and supplemental image IDs |
 | Library | `GET /models`, `GET /jobs/{id}`, `PATCH /models/{id}/metadata`, `GET /models/{id}/files/{filename}` |
 | Queue | `GET/PATCH /queue`, `PATCH /queue/{id}`, `POST /jobs/{id}/cancel` |
 | Preparation | `GET /models/{id}/diagnostics`, `POST /models/{id}/lods`, `/game-copy`, `/print-copy` |
@@ -83,6 +84,16 @@ no permanent-purge operation is exposed in v1 or MCP.
 `POST /models/{id}/versions` duplicates imported, rigged and printing models.
 For a generated variant, reuse its source image and stored recipe in `/generations`,
 with `overrides.parent_id` set to the original ID. This schedules a new computation.
+
+## Pixal3D multi-view generation
+
+Use `GET /status` to inspect `pixal3d.ready` and the optional character recipe. Upload the front and complementary images individually with `POST /uploads`, then submit their returned IDs with `POST /generations/multiview`.
+
+- `upload_id` is the front image. Supply at least one of `left_upload_id`, `back_upload_id` and `right_upload_id`.
+- `side_angle` is 40 for three-quarter views or 90 for profiles. Left is positive azimuth, right is negative azimuth and back is 180°. Use the same full-body pose and framing.
+- Optional fields include `name`, `height_m`, `seed`, `triangles`, `texture_size` (1024 or 2048), `parent_id`, `keep_finishing_source` and queue `priority`. Defaults come from **Character · Pixal3D**.
+
+The response uses the usual job ID, state and status URL. Inspect the completed job's settings for the saved camera roles. The source views can be downloaded via the regular model files route. The optional runtime must be installed before submission.
 
 ## Files, limits and errors
 

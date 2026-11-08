@@ -155,6 +155,14 @@ must not be supplied by another agent as a substitute for your decision.
 when changing distributions. `TRELLIS_UNIRIG_ENV` can select a different Linux
 runtime directory; set it within the selected WSL user's environment.
 
+## Optional Pixal3D multi-view
+
+After installing the standard Studio, double-click **Install Pixal3D.cmd**. The installer downloads pinned ComfyUI source and Pixal3D checkpoints, verifies their sizes and SHA-256 hashes and installs dependencies separately under `models/pixal3d/`. Allow about **8.25 GiB** for those downloads plus the Python dependencies. Read the DINOv3 terms shown by the installer. The existing TRELLIS.2 environment, collection and profiles are used in place.
+
+Open Studio and enable **Multi-view (Pixal3D)** in Create. Upload the same character from the front and one to three additional angles. Choose **40°** for three-quarter side views or **90°** for side profiles. Use a consistent pose and show the whole body in each view. Generation runs locally in the usual queue. If GPU memory runs short, retry with fewer views or close other GPU workloads.
+
+Re-running the optional installer verifies existing downloads and repairs the setup without replacing your collection. The normal Studio installer and **Game - Default** remain the single-image entry point.
+
 ## Starting, stopping and connections
 
 Double-click **Open TRELLIS.cmd** or **Ouvrir TRELLIS.cmd**. The launcher checks

@@ -27,7 +27,7 @@ Read the [detailed installation, repair and troubleshooting guide](INSTALLATION.
 
 | Workspace | Features |
 | --- | --- |
-| **Create** | Single-image TRELLIS.2 generation; drag/drop/paste; background removal; independent size and seed; profiles; detailed geometry, material, simplification and UV controls. |
+| **Create** | Local TRELLIS.2 single-image generation, plus optional Pixal3D multi-view characters. Drag, drop or paste references and adjust the recipe, size and seed. |
 | **Queue** | Prepare batches of up to 30 images with individual recipes and priorities; schedule sequentially; pause, cancel or explicitly retry a task. Progress appears on its collection card. |
 | **Collection** | Search, category/type/review filters, favourites, tags, notes, nested folders, saved views, multiple selection, restorable trash and per-card action menus. |
 | **Review** | PBR/clay/normals/wireframe views, camera presets, adjustable preview lighting, synchronised before/after comparison, topology/UV/material/dimension diagnostics. |
@@ -50,7 +50,15 @@ The source cache can take hundreds of megabytes per model. Studio stores it once
 
 **High Detail** retains the 1024/20-step/2K sampling setup, targets 250,000 triangles and uses direct simplification to preserve more surface detail. Create custom profiles when you need another recipe; the built-in profiles remain protected. Historical recipes remain readable.
 
-512 and 1024 generation are provided by the standard installer. Higher-resolution controls require separate local capability validation and sufficient memory. Texture resolution is independent of geometry resolution. **Multi-view generation and text-to-3D are not implemented.** The interface does not generate missing views or invent unsupported engine capabilities.
+512 and 1024 generation are provided by the standard installer. Higher-resolution controls require separate local capability validation and sufficient memory. Texture resolution is independent of geometry resolution.
+
+### Optional multi-view characters
+
+Run **Install Pixal3D.cmd** once after the main Studio installation. In **Create**, enable **Multi-view (Pixal3D)**, add a full-body front image and at least one complementary view, then choose the side angle that matches the images. The left and right slots are relative to the character. The back is a 180° view. Use the same character, scale and A-pose or T-pose in each image, with hands and feet visible. The slots accept PNG, JPEG and WebP up to 25 MB each. Studio prepares the cutouts and framing locally. Supply the views yourself.
+
+The separate **Character · Pixal3D** recipe uses the 1024 cascade, a target of 10,600 triangles and 2K materials. The mesh and materials are generated in successive stages. Actual triangle counts are approximate. Jobs share Studio's queue and retain their input views, angles and recipe. The source cache for **Refinish model** is optional. The standard Create mode continues to use **Game - Default**.
+
+The optional runtime uses about 8.25 GiB of pinned downloads before Python dependencies. The tested configuration used three views on an RTX 4070 Ti with 12 GB VRAM. Review the face, fingers and silhouette before use. [Optional setup](INSTALLATION.md#optional-pixal3d-multi-view)
 
 ### Import and review
 

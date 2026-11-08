@@ -2,6 +2,7 @@
 from pathlib import Path
 from studio_workspace import finishing_source
 from contextlib import asynccontextmanager
+from tempfile import TemporaryDirectory
 import asyncio, hashlib, io, json, os, re, shutil, subprocess, sys, time, uuid
 from urllib.parse import urlparse
 from typing import Annotated
@@ -17,8 +18,15 @@ from studio_import import FORMATS, MAX_BYTES, find_blender, validate_glb, copy_v
 from animation_edits import recover as recover_animation
 from glb_data import media as model_media
 from library_actions import validate_metadata,validate_ids
+from pixal3d_runtime import VIEW_FILES, runtime_status as pixal3d_runtime_status
 
 ROOT = Path(__file__).resolve().parent
+PIXAL_CHARACTER_PROFILE = dict(id='character_pixal', name='Character · Pixal3D',
+                               resolution=1024, triangles=10600, texture_size=2048)
+PIXAL_TEXTURE_SIZES = (1024, 2048)
+PIXAL_CHARACTER_OPTIONS = dict(GAME_D_ADVANCED, structure_steps=12, shape_steps=20,
+                               texture_steps=12, texture_guidance=1.0)
+REFERENCE_FILES = tuple(VIEW_FILES.values())
 # Studio 3.1 adds typed agent access and a self-hosted developer reference.
 SOURCE_REVISION=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 def gpu_description():
@@ -154,15 +162,21 @@ def generation_capabilities():
         except (ValueError,OSError,AttributeError):pass
     return resolutions,textures
 
+def pixal3d_capabilities():
+    return {**pixal3d_runtime_status(ROOT), 'profile': PIXAL_CHARACTER_PROFILE,
+            'texture_sizes': PIXAL_TEXTURE_SIZES}
+
+
 @app.get('/api/status')
 def status():
     import psutil
     ready = (ROOT / 'models' / 'trellis2' / 'pipeline.json').exists() and (ROOT / 'engine' / 'MODELS' / 'dinov3' / 'model.safetensors').exists()
     resolutions,textures=generation_capabilities()
+    pixal3d=pixal3d_capabilities()
     return dict(ready=ready, gpu=GPU_DESCRIPTION, ram_free_gib=round(psutil.virtual_memory().available/1024**3,1),
                 active=ACTIVE if PROCESS is not None and PROCESS.poll() is None else TERRAIN_ACTIVE,
-                resolution=DEFAULT_GENERATION['resolution'], default_profile=DEFAULT_PROFILE, local=True, studio_version='3.1.0',source_revision=SOURCE_REVISION,multi_view=False,
-                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','collection_transfer','rest_api_v1','mcp','refinish'], texture_sizes=textures,supported_resolutions=resolutions)
+                resolution=DEFAULT_GENERATION['resolution'], default_profile=DEFAULT_PROFILE, local=True, studio_version='3.1.0',source_revision=SOURCE_REVISION,multi_view=pixal3d['ready'],pixal3d=pixal3d,
+                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','collection_transfer','rest_api_v1','mcp','refinish','pixal3d_multiview'], texture_sizes=textures,supported_resolutions=resolutions)
 
 @app.get('/api/components')
 def components():
@@ -627,6 +641,103 @@ def rig_preview_model(identifier: str):
     if not path.is_file():raise HTTPException(404)
     return FileResponse(path,media_type='model/gltf-binary')
 
+async def read_generation_image(upload, label='Image', restrict_formats=False):
+    content = await upload.read(25 * 1024 * 1024 + 1)
+    if len(content) > 25 * 1024 * 1024:
+        raise HTTPException(413, f'{label} exceeds the 25 MB limit.')
+    try:
+        with Image.open(io.BytesIO(content)) as original:
+            if restrict_formats and original.format not in ('PNG', 'JPEG', 'WEBP'):
+                raise ValueError('Use PNG, JPEG or WebP.')
+            if original.width * original.height > 40_000_000:
+                raise ValueError('Image too large (40 megapixels maximum).')
+            source = ImageOps.exif_transpose(original).convert('RGBA')
+            source.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
+            return source
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as error:
+        raise HTTPException(400, f'{label} could not be read: {error}') from error
+
+
+@app.post('/api/generate-multiview', status_code=202)
+async def generate_multiview(
+    image: Annotated[UploadFile, File()],
+    left_image: Annotated[UploadFile | None, File()] = None,
+    back_image: Annotated[UploadFile | None, File()] = None,
+    right_image: Annotated[UploadFile | None, File()] = None,
+    side_angle: Annotated[int, Form()] = 40,
+    name: Annotated[str, Form()] = 'Character',
+    height_m: Annotated[float, Form()] = 1.7,
+    seed: Annotated[int, Form()] = 42,
+    triangles: Annotated[int, Form()] = 0,
+    texture_size: Annotated[int, Form()] = 0,
+    parent_id: Annotated[str, Form()] = '',
+    reference_prompt: Annotated[str, Form()] = '',
+    keep_finishing_source: Annotated[bool, Form()] = False,
+    queue_priority: Annotated[int, Form()] = 0,
+):
+    if (side_angle not in (40, 90) or not 0.01 <= height_m <= 100
+        or not 0 <= seed <= 2147483647 or not -2 <= queue_priority <= 2
+        or (triangles and not 1000 <= triangles <= 500000)
+        or (texture_size and texture_size not in PIXAL_TEXTURE_SIZES)
+        or len(name) > 80 or len(reference_prompt) > 6000):
+        raise HTTPException(400, 'Invalid character generation settings.')
+    if not any((left_image, back_image, right_image)):
+        raise HTTPException(400, 'Add at least one side or back image to the front view.')
+    runtime = pixal3d_capabilities()
+    if not runtime['ready']:
+        raise HTTPException(503, runtime['message'])
+    view_uploads = (
+        ('front', 0, image),
+        ('left', side_angle, left_image),
+        ('back', 180, back_image),
+        ('right', -side_angle, right_image),
+    )
+    views, sources = [], []
+    for role, azimuth, upload in view_uploads:
+        if upload is None:
+            continue
+        source = await read_generation_image(upload, f'{role.title()} view', restrict_formats=True)
+        if source.getchannel('A').getextrema()[1] == 0:
+            raise HTTPException(400, f'{role.title()} view is fully transparent.')
+        filename = VIEW_FILES[role]
+        views.append(dict(role=role, azimuth=azimuth, file=filename))
+        sources.append((filename, source))
+    profile = PIXAL_CHARACTER_PROFILE
+    safe_name = re.sub(r'[^A-Za-z0-9_-]+', '-', name.strip()).strip('-')[:50] or 'Character'
+    settings = dict(name=safe_name, engine='pixal3d', preset=profile['id'],
+                    profile=dict(id=profile['id'], name=profile['name']),
+                    asset_type='humanoid', height_m=height_m, seed=seed,
+                    triangles=triangles or profile['triangles'],
+                    texture_size=texture_size or profile['texture_size'],
+                    resolution=profile['resolution'], pipeline_type='pixal3d_1024_multiview',
+                    generation_options=PIXAL_CHARACTER_OPTIONS, settings_version=2, created=time.time(),
+                    views=views, side_angle=side_angle, keep_finishing_source=keep_finishing_source)
+    if parent_id:
+        settings['parent_id'] = parent_id
+    identifier = uuid.uuid4().hex
+    folder = OUTPUT / identifier
+    async with LOCK:
+        if parent_id:
+            job_path(parent_id)
+        with TemporaryDirectory(prefix='.pixal3d-', dir=OUTPUT) as staging:
+            staged = Path(staging)
+            for filename, source in sources:
+                source.save(staged / filename)
+            write_json(staged / 'settings.json', settings)
+            write_json(staged / 'metadata.json', dict(
+                display_name=name.strip() or safe_name, category='Characters',
+                reference_prompt=reference_prompt.strip(), review_state='review', favorite=False, tags=[]))
+            write_json(staged / 'status.json', dict(state='queued', stage='Waiting in queue', progress=0))
+            staged.rename(folder)
+        try:
+            STUDIO.workspace.enqueue(identifier, queue_priority)
+        except OSError as error:
+            write_json(folder / 'status.json', dict(state='error', stage='Unable to save queue',
+                                                    progress=0, error=str(error)))
+            raise HTTPException(503, 'Unable to save the generation queue.') from error
+    return {'id': identifier, 'queued': True}
+
+
 @app.post('/api/generate')
 async def generate(image: UploadFile = File(...), name: str = Form('Object'), preset: str = Form(DEFAULT_PROFILE),
                    height_m: float = Form(1), seed: int = Form(42), remove_bg: bool = Form(True),
@@ -659,15 +770,7 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
         supported,textures=generation_capabilities()
         if resolution not in supported:raise HTTPException(400,'This 3D resolution is not available or validated in this installation.')
         if texture_size and texture_size not in textures:raise HTTPException(400,'This texture size is not validated in this installation.')
-        content = await image.read(25 * 1024 * 1024 + 1)
-        if len(content) > 25*1024*1024: raise HTTPException(413, 'Images are limited to 25 MB.')
-        try:
-            source = Image.open(io.BytesIO(content))
-            if source.width*source.height > 40_000_000: raise ValueError('Image too large (40 megapixels maximum).')
-            source = ImageOps.exif_transpose(source).convert('RGBA')
-            source.thumbnail((2048,2048), Image.Resampling.LANCZOS)
-        except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as error:
-            raise HTTPException(400, f'Image illisible : {error}')
+        source = await read_generation_image(image)
         identifier = uuid.uuid4().hex
         folder = OUTPUT / identifier
         folder.mkdir()
@@ -778,7 +881,7 @@ async def files(identifier: str, filename: str):
         name=json.loads((folder/'settings.json').read_text(encoding='utf-8'))['name']
         return FileResponse(folder/'Blender.zip',filename='TRELLIS-'+name+'-Blender.zip',media_type='application/zip',
                             background=BackgroundTask(EXPORTING.discard,identifier))
-    if filename not in ('input.png','prepared.png','conditioning.png','model.glb','model.stl','print-report.json','Unity.zip','Blender.zip','settings.json','result.json','heightmap.png','heightmap.raw','original.glb','original.fbx','original.obj','original.stl','original.ply') or not (folder / filename).exists():
+    if filename not in (*REFERENCE_FILES,'prepared.png','conditioning.png','model.glb','model.stl','print-report.json','Unity.zip','Blender.zip','settings.json','result.json','heightmap.png','heightmap.raw','original.glb','original.fbx','original.obj','original.stl','original.ply') or not (folder / filename).exists():
         raise HTTPException(404)
     download_name = 'TRELLIS-' + json.loads((folder/'settings.json').read_text(encoding='utf-8'))['name']
     if filename == 'model.glb': download_name += '.glb'

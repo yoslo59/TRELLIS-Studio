@@ -47,8 +47,17 @@ class StudioServices:
                 for item in self.workspace.ordered():
                     folder=self.output/item['id'];state=read(folder/'status.json',{})
                     if item.get('cancelled') or item.get('held') or state.get('state')!='queued':continue
+                    try:
+                        settings = read(folder / 'settings.json', {})
+                        if not isinstance(settings, dict):
+                            raise ValueError('Generation settings must be an object.')
+                    except (OSError, ValueError) as error:
+                        write(folder/'status.json',dict(state='error',stage='Invalid saved generation settings',
+                                                        progress=0,error=str(error)))
+                        continue
                     write(folder/'status.json',dict(state='running',stage='Starting queued generation',progress=1))
-                    try:self.g['launch_worker'](folder,'worker.py')
+                    script = 'pixal3d_worker.py' if settings.get('engine') == 'pixal3d' else 'worker.py'
+                    try:self.g['launch_worker'](folder,script)
                     except OSError as error:write(folder/'status.json',dict(state='error',stage='Unable to launch generation',progress=0,error=str(error)))
                     break
     def available(self,identifier):
@@ -195,7 +204,7 @@ class StudioServices:
                                 finish_source_id=source_id, triangles=triangles, texture_size=texture_size,
                                 generation_options={**options, 'mesh_mode': mesh_mode, 'repair_holes': repair})
                 write(variant / 'settings.json', settings)
-                for filename in ('input.png', 'prepared.png', 'conditioning.png'):
+                for filename in (*self.g['REFERENCE_FILES'], 'prepared.png', 'conditioning.png'):
                     if (folder / filename).is_file():
                         shutil.copy2(folder / filename, variant / filename)
                 metadata = dict(record['metadata'])
@@ -289,7 +298,9 @@ class StudioServices:
                     if (source/file).is_file():shutil.copy2(source/file,destination/file)
                 for dirname in SNAPSHOT_DIRS:
                     if (source/dirname).is_dir():shutil.copytree(source/dirname,destination/dirname)
-                if (folder/'input.png').is_file():shutil.copy2(folder/'input.png',destination/'input.png')
+                for file in self.g['REFERENCE_FILES']:
+                    if (folder / file).is_file():
+                        shutil.copy2(folder / file, destination / file)
                 settings=read(destination/'settings.json');settings.update(parent_id=identifier,created=time.time(),restored_revision=revision,source_kind='restored');write(destination/'settings.json',settings)
                 metadata=read(destination/'metadata.json',{});metadata['display_name']=(metadata.get('display_name',settings['name'])+' · restored')[:80];write(destination/'metadata.json',metadata);write(destination/'status.json',dict(state='done',stage='Checkpoint restored as new version',progress=100,result=read(destination/'result.json',{})));return dict(id=destination.name)
 

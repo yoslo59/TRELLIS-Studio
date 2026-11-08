@@ -5,6 +5,7 @@ import {createAssetDetails,assetTypeName} from './asset-details.js?v=3.1.0';
 import {createPrintCopy} from './print-copy.js?v=3.1.0';
 import {createAnimationStudio} from './animation-studio.js?v=3.1.0';
 import {createModelImport} from './import-model.js?v=3.1.0';
+import {createMultiviewInputs} from './multiview-inputs.js?v=3.1.0';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -16,8 +17,9 @@ const $=id=>document.getElementById(id);
 const cardMenu=createCardMenu({version:reuseJob,remove:requestDelete,details:openDetails,print:j=>printCopy.open(j),compare:j=>studioTools.compare.open(j),diagnostics:j=>studioTools.diagnostics.open(j),export:j=>studioTools.exports.open(j),history:j=>workbench.history.open(j),folder:j=>workbench.workspace.move(j),lod:j=>workbench.prepare.open(j,'lod'),game:j=>workbench.prepare.open(j,'game'),refinish:openRefinish});
 const labels={done:'Completed',running:'Generating',error:'Failed',cancelled:'Cancelled',queued:'Queued'},reviews={review:'To review',retouch:'Needs changes',retained:'Retained',rejected:'Rejected'};
 let studioTools,viewerLighting,workbench;
-let selectedId=null,loadedId=null,loadingId=null,activeId=null,records=[],selectedFile=null,busy=false,ready=false,shutDown=false,features=false;
-let page=0,trashMode=false,trashRecords=[],metadataId=null,inspectId=null,inspectVersion=0,textureOpen=false,refreshing=false,previewUrl=null;
+let selectedId=null,loadedId=null,loadingId=null,activeId=null,records=[],busy=false,ready=false,shutDown=false,features=false;
+let page=0,trashMode=false,trashRecords=[],metadataId=null,inspectId=null,inspectVersion=0,textureOpen=false,refreshing=false;
+let submittingGeneration=false,restoringReferences=false;
 let boneDots=null;const boneDotMatrix=new THREE.Matrix4(),boneDotPosition=new THREE.Vector3();
 let loadedRevision=null;
 let animationStudio,animationMode=false,pendingSelection=null,mixer=null,clips=[],clipAction=null,clipPlaying=true,skeletonHelper=null;
@@ -29,6 +31,18 @@ const detailControls=await createAssetDetails();
 const printCopy=createPrintCopy({api,startJob:startStudioJob});
 studioTools=createStudioTools({api,getRecords:()=>records,getJob:jobOf,refresh:async()=>{metadataId=null;await refresh();},printCopy,labelAnimation:name=>animationStudio?.label(name)||name});
 const advancedControls=await createAdvancedControls($('advancedControls'));
+const multiview=createMultiviewInputs({
+  changed({role,file,mode}){
+    if(role==='front'){
+      $('parentId').value='';
+      if(file&&$('name').value==='New model')$('name').value=file.name.replace(/\.[^.]+$/,'').slice(0,80);
+    }
+    $('notice').textContent='';
+    if(mode&&!multiview.active)profileControls?.sync();
+    updateButtons();
+  },
+  invalid:message=>errorAt('notice',message),
+});
 function applyDefaultGeneration(){const d=advancedControls.defaults;if(!d)return;for(const[id,value]of Object.entries({preset:d.preset,resolution:d.resolution,triangles:d.triangles,textureSize:d.texture_size}))$(id).value=String(value);}
 applyDefaultGeneration();
 const settingsDownload=document.createElement('a');settingsDownload.className='download-settings';settingsDownload.textContent='Download settings JSON ↓';settingsDownload.download='trellis-reglages.json';settingsDownload.hidden=true;$('assetDetails').after(settingsDownload);
@@ -36,7 +50,7 @@ $('resetAdvanced').disabled=!advancedControls.ready;
 $('resetAdvanced').onclick=()=>{profileControls?.reset();explainCost();$('notice').textContent='Game - Default restored. This model’s seed and height are preserved.';};
 const resolutionOf=j=>Number(j.result?.resolution||j.settings?.resolution||512);
 let availableResolutions=[512],availableTextures=[1024,2048];
-function syncCapabilities(status){availableResolutions=status.supported_resolutions||[512];availableTextures=status.texture_sizes||[1024,2048];for(const option of $('resolution').options)option.disabled=!availableResolutions.includes(Number(option.value));for(const option of $('textureSize').options)option.disabled=Number(option.value)!==0&&!availableTextures.includes(Number(option.value));explainCost();}
+function syncCapabilities(status){multiview.setCapabilities(status.pixal3d);availableResolutions=status.supported_resolutions||[512];availableTextures=status.texture_sizes||[1024,2048];for(const option of $('resolution').options)option.disabled=!availableResolutions.includes(Number(option.value));for(const option of $('textureSize').options)option.disabled=Number(option.value)!==0&&!availableTextures.includes(Number(option.value));explainCost();}
 function explainCost(){const hint=$('qualityHint');if(!hint)return;const notes=[];if(Number($('resolution').value)===1536)notes.push('1536³ requires more processing time and memory.');if(Number($('textureSize').value)===4096)notes.push('4K uses larger textures; reserve it for close-up objects and large surfaces.');hint.textContent=notes.join(' ');hint.hidden=!notes.length;}
 $('resolution').addEventListener('change',explainCost);$('textureSize').addEventListener('change',explainCost);
 profileControls=await createProfileControls(advancedControls,{changed:()=>{explainCost();updateButtons();}});
@@ -87,9 +101,9 @@ $('downloadUnity').onclick=e=>{
 function fillMetadata(j){if(metadataId===j?.id)return;metadataId=j?.id||null;const m=j?.metadata||{};$('displayName').value=j?nameOf(j):'';detailControls.setValue('category',categoryName(m.category)||'');detailControls.setValue('detailAssetType',m.asset_type||j?.settings.asset_type||'object');$('reviewState').value=m.review_state||'review';$('tags').value=(m.tags||[]).join(', ');$('notes').value=m.notes||'';$('metadataNotice').textContent='';}
 function renderSelected(){const j=jobOf();studioTools?.update(j,records,trashMode);workbench?.update(j);detailControls.update(j);animationStudio?.update();$('animateModel').disabled=!j||j.state!=='done';downloads(j);fillMetadata(j);settingsDownload.hidden=!j;if(j)settingsDownload.href=`/api/jobs/${j.id}/files/settings.json`;$('favorite').disabled=!j||!features;$('favorite').textContent=j?.metadata?.favorite?'★':'☆';$('favorite').setAttribute('aria-pressed',!!j?.metadata?.favorite);$('saveMetadata').disabled=!j||!features;$('viewTextures').disabled=!j||j.state!=='done'||!features;
   if(!j){$('modelTitle').textContent='Your next model';$('stats').textContent='';$('sourceThumb').hidden=true;$('assetDetails').replaceChildren(node('dt','','Model'),node('dd','','No model selected'));$('textureSummary').textContent='Select a completed model.';$('textureGallery').replaceChildren();if(model||loadingId){++loadVersion;clearModel();}$('empty').hidden=false;return;}
-  $('modelTitle').textContent=nameOf(j);const terrain=j.settings.asset_type==='terrain_unity',external=['imported','rigged','print'].includes(j.settings.asset_type);$('engineLabel').textContent=external?(j.settings.asset_type==='print'?'3D PRINT COPY':j.settings.asset_type==='rigged'?'RIG & ANIMATION':'IMPORTED MODEL'):terrain?'PROCEDURAL TERRAIN':`TRELLIS.2 · ${resolutionOf(j)}³`;$('downloadGlb').title=j.settings.asset_type==='print'?'Download print preview GLB in metres':terrain?'Download terrain GLB':'Download PBR GLB with all animations';$('sourceThumb').hidden=terrain||external;if(!terrain&&!external&&$('sourcePreview').dataset.id!==j.id){$('sourcePreview').src=`/api/jobs/${j.id}/files/input.png`;$('sourcePreview').dataset.id=j.id;}
+  $('modelTitle').textContent=nameOf(j);const terrain=j.settings.asset_type==='terrain_unity',external=['imported','rigged','print'].includes(j.settings.asset_type),pixal=j.settings.engine==='pixal3d';$('engineLabel').textContent=external?(j.settings.asset_type==='print'?'3D PRINT COPY':j.settings.asset_type==='rigged'?'RIG & ANIMATION':'IMPORTED MODEL'):terrain?'PROCEDURAL TERRAIN':pixal?`PIXAL3D · ${j.settings.views?.length||0} VIEWS`:`TRELLIS.2 · ${resolutionOf(j)}³`;$('downloadGlb').title=j.settings.asset_type==='print'?'Download print preview GLB in metres':terrain?'Download terrain GLB':'Download PBR GLB with all animations';$('sourceThumb').hidden=terrain||external;if(!terrain&&!external&&$('sourcePreview').dataset.id!==j.id){$('sourcePreview').src=`/api/jobs/${j.id}/files/input.png`;$('sourcePreview').dataset.id=j.id;}
   $('exportHint').textContent=j.settings.asset_type==='print'?'The STL uses millimetres. The Blender package includes the static source and the topology report.':terrain?'The Blender package contains the terrain mesh; the Unity export keeps a native Terrain.':'GLB includes UVs and materials. The Blender package also provides separate textures and UV layouts.';const r=j.result;$('stats').textContent=j.state==='done'?(r?(terrain?`${r.dimensions_m?.[0]||j.settings.size_m} m square · elevation ${r.height_m} m · ${r.resolution}² map`:`${Number(r.triangles||0).toLocaleString('en-US')} triangles${r.bones?' · '+r.bones+' bones':''} · ${Number(r.height_m||0).toLocaleString('en-US',{maximumFractionDigits:2})} m`):'Completed model · ready to inspect'):'';
-  if(j.state==='done'||j.operation==='animation'||j.settings.source_kind==='unirig')loadModel(j.id);else if(loadedId!==j.id){++loadVersion;clearModel();$('empty').hidden=false;}const entries=[['Asset type',assetTypeName(j.metadata?.asset_type||j.settings.asset_type)],['Engine',external?(j.settings.asset_type==='print'?'Blender voxel remesh':j.result?.rig_engine||'Local import'):terrain?'Procedural':`TRELLIS.2 / ${resolutionOf(j)}³`],['Height',j.settings.height_m+' m'],['Texture',j.settings.texture_size+' px'],['Seed',j.settings.seed??'—'],['Status',labels[j.state]||j.state],['Created',new Date(j.settings.created*1000).toLocaleDateString('en-US')]];const o=j.generation_options;if(o&&!terrain)entries.push(['Steps · structure / shape / texture',`${o.structure_steps} / ${o.shape_steps} / ${o.texture_steps}`],['Guidance · structure / shape / texture',`${o.structure_guidance} / ${o.shape_guidance} / ${o.texture_guidance}`],['Target triangles',Number(j.settings.triangles).toLocaleString('en-US')],['Finishing',o.mesh_mode==='direct'?'Direct simplification':'Remesh and simplify'],['Pre-simplify to 2M',o.pre_simplify?'Yes':'No'],['Seed texture',o.texture_seed<0?'Main random sequence':o.texture_seed],['Angle UV',o.uv_angle+'°']);$('assetDetails').replaceChildren(...entries.flatMap(([k,v])=>[node('dt','',k),node('dd','',String(v))]));if(textureOpen&&inspectId!==j.id)inspectTextures();
+  if(j.state==='done'||j.operation==='animation'||j.settings.source_kind==='unirig')loadModel(j.id);else if(loadedId!==j.id){++loadVersion;clearModel();$('empty').hidden=false;}const entries=[['Asset type',assetTypeName(j.metadata?.asset_type||j.settings.asset_type)],['Engine',external?(j.settings.asset_type==='print'?'Blender voxel remesh':j.result?.rig_engine||'Local import'):terrain?'Procedural':pixal?`Pixal3D / ${resolutionOf(j)}³`:`TRELLIS.2 / ${resolutionOf(j)}³`],['Height',j.settings.height_m+' m'],['Texture',j.settings.texture_size+' px'],['Seed',j.settings.seed??'—'],['Status',labels[j.state]||j.state],['Created',new Date(j.settings.created*1000).toLocaleDateString('en-US')]];const o=j.generation_options;if(pixal)entries.push(['Reference views',(j.settings.views||[]).map(view=>view.role).join(' · ')],['Side view angle',j.settings.side_angle+'°'],['Target triangles',Number(j.settings.triangles).toLocaleString('en-US')]);else if(o&&!terrain)entries.push(['Steps · structure / shape / texture',`${o.structure_steps} / ${o.shape_steps} / ${o.texture_steps}`],['Guidance · structure / shape / texture',`${o.structure_guidance} / ${o.shape_guidance} / ${o.texture_guidance}`],['Target triangles',Number(j.settings.triangles).toLocaleString('en-US')],['Finishing',o.mesh_mode==='direct'?'Direct simplification':'Remesh and simplify'],['Pre-simplify to 2M',o.pre_simplify?'Yes':'No'],['Seed texture',o.texture_seed<0?'Main random sequence':o.texture_seed],['Angle UV',o.uv_angle+'°']);$('assetDetails').replaceChildren(...entries.flatMap(([k,v])=>[node('dt','',k),node('dd','',String(v))]));if(textureOpen&&inspectId!==j.id)inspectTextures();
 }
 function renderNavigation(){const select=$('librarySelect'),signature=records.map(j=>j.id+nameOf(j)+j.state).join('|');if(select.dataset.signature!==signature){select.replaceChildren(node('option','','Choose from the library…'));select.firstChild.value='';for(const j of records){const o=node('option','',nameOf(j)+' · '+(labels[j.state]||j.state));o.value=j.id;select.append(o);}select.dataset.signature=signature;}select.value=selectedId||'';$('count').textContent=records.length;$('collectionCount').textContent=records.length;const recentKey=JSON.stringify([selectedId,records.slice(0,6).map(j=>[j.id,nameOf(j),j.state])]);if($('history').dataset.signature===recentKey)return;$('history').dataset.signature=recentKey;$('history').replaceChildren();for(const j of records.slice(0,6)){const b=node('button','history-card'+(j.id===selectedId?' selected':''));b.type='button';const image=node('img');image.src=`/api/jobs/${j.id}/files/${j.settings.asset_type==='terrain_unity'?'heightmap.png':'input.png'}?v=${j.result?.revision||j.state}`;image.alt='';image.loading='lazy';image.onerror=()=>image.style.visibility='hidden';const t=node('span');t.append(node('strong','',nameOf(j)),node('small','',labels[j.state]||j.state));b.append(image,t);b.onclick=()=>selectJob(j.id);$('history').append(b);}if(!records.length)$('history').append(node('p','history-empty','No models yet.'));}
 function setMode(terrain){animationMode=false;document.body.classList.remove('animation-mode');document.body.classList.remove('library-mode');$('rigPanel').hidden=true;$('rigTab').setAttribute('aria-pressed','false');showCollection(false);$('openLibrary').setAttribute('aria-pressed','false');$('form').hidden=terrain;$('terrainForm').hidden=!terrain;$('imageTab').setAttribute('aria-pressed',!terrain);$('terrainTab').setAttribute('aria-pressed',terrain);document.querySelector('h1').textContent=terrain?'Create terrain':'Image to 3D';document.querySelector('.intro').textContent=terrain?'Textured procedural terrain, ready to adapt to your scene.':'Turn a reference image into a textured 3D model.';}
@@ -105,16 +119,86 @@ let deleteId=null;function requestDelete(j){if(!j)return;deleteId=j.id;$('delete
 function openImage(url,alt){$('largeImage').src=url;$('largeImage').alt=alt;$('imageDialog').showModal();}$('sourceThumb').onclick=()=>openImage($('sourcePreview').src,'Model reference');$('closeImage').onclick=()=>$('imageDialog').close();
 function setView(textures){textureOpen=textures;viewport.hidden=textures;$('texturePanel').hidden=!textures;$('view3d').classList.toggle('active',!textures);$('viewTextures').classList.toggle('active',textures);if(textures)inspectTextures();}$('view3d').onclick=()=>setView(false);$('viewTextures').onclick=()=>setView(true);
 async function inspectTextures(){const j=jobOf();if(!j||j.state!=='done'||!features)return;const id=j.id;if(inspectId===id)return;inspectId=id;const version=++inspectVersion;$('textureSummary').textContent='Extracting texture maps and UV layouts…';$('textureGallery').replaceChildren();try{const d=await api(`/api/jobs/${id}/inspect`);if(version!==inspectVersion||selectedId!==id)return;$('textureSummary').textContent=`${d.meshes.length} mesh(es) · ${d.has_uv?'UVs present':'UVs missing'} · ${d.has_pbr?'roughness and metalness present':'PBR maps incomplete'} · ${d.normals_map_present?'normal map present':'no normal map in this GLB'}`;const items=[...d.textures.map(t=>({...t,detail:`${t.width} × ${t.height} · ${t.color_space}`})),...d.meshes.filter(m=>m.uv_preview).map(m=>({file:m.uv_preview,label:'UV layout · '+m.name,detail:m.uv_warning||'Painting guide · PNG / SVG included in the package'}))];for(const t of items){const b=node('button','texture-card');b.type='button';const img=node('img');img.src=`/api/jobs/${id}/blender/${t.file}`;img.alt=t.label;b.append(img,node('strong','',t.label),node('small','',t.detail));b.onclick=()=>openImage(img.src,t.label);$('textureGallery').append(b);}if(!items.length)$('textureGallery').append(node('p','hint','This model contains no image textures.'));}catch(e){if(version===inspectVersion){inspectId=null;errorAt('textureSummary',e);}}}
-function updateButtons(){const label=$('generate').querySelector('span');if(label)label.textContent=busy?'Add to queue':'Generate model';$('generate').disabled=!selectedFile||!ready||shutDown||!advancedControls.ready||!profileControls?.ready||!availableResolutions.includes(Number($('resolution').value))||!availableTextures.includes(Number($('textureSize').value)||($('preset').value==='fast'?1024:2048));$('cancel').hidden=!busy;$('cancel').disabled=!activeId||jobOf()?.settings.asset_type==='terrain_unity';$('createTerrain').disabled=busy||shutDown||!ready;}
-function acceptFile(file){$('parentId').value='';if(!file)return;if(!/^image\/(png|jpeg|webp)$/.test(file.type)){errorAt('notice','Choose a PNG, JPEG or WebP image.');return;}if(file.size>25*1024*1024){errorAt('notice','The image exceeds 25 MB.');return;}selectedFile=file;const transfer=new DataTransfer();transfer.items.add(file);$('image').files=transfer.files;if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl=URL.createObjectURL(file);$('inputPreview').src=previewUrl;$('inputPreview').hidden=false;$('dropText').hidden=true;if($('name').value==='New model')$('name').value=file.name.replace(/\.[^.]+$/,'').slice(0,80);$('notice').textContent='';updateButtons();}
-$('image').onchange=()=>acceptFile($('image').files[0]);for(const type of['dragenter','dragover'])$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.add('drag');});for(const type of['dragleave','drop'])$('drop').addEventListener(type,e=>{e.preventDefault();$('drop').classList.remove('drag');if(type==='drop')acceptFile(e.dataTransfer.files[0]);});
+function updateButtons(){
+  const label=$('generate').querySelector('span');
+  if(label)label.textContent=busy?'Add to queue':multiview.active?'Generate character':'Generate model';
+  const supported=multiview.active?multiview.ready:ready&&advancedControls.ready&&profileControls?.ready&&
+    availableResolutions.includes(Number($('resolution').value))&&availableTextures.includes(Number($('textureSize').value)||($('preset').value==='fast'?1024:2048));
+  $('generate').disabled=!multiview.hasFront||!supported||shutDown||submittingGeneration||restoringReferences;
+  if(multiview.active)$('generationSummary').textContent=multiview.summary;
+  $('cancel').hidden=!busy;
+  $('cancel').disabled=!activeId||jobOf()?.settings.asset_type==='terrain_unity';
+  $('createTerrain').disabled=busy||shutDown||!ready;
+}
 $('copyReferencePrompt').onclick=async()=>{const prompt=`Production reference for a contemporary stylised realism game. Subject: ${$('name').value}. ${$('referencePrompt').value}\nOne complete object fully visible and centred, isolated on a plain neutral grey background, single three-quarter view. Credible construction, readable detail and carefully worked materials. Soft diffuse light and minimal shadow. No surrounding scene, text, logo or multi-view sheet. Keep thin parts readable and show the whole subject without cropping. The grey background is not part of the object.`;try{await navigator.clipboard.writeText(prompt);$('notice').textContent='Brief copied. Use it with your image generator.';}catch{$('referencePrompt').value=prompt;$('referencePrompt').closest('details').open=true;$('referencePrompt').focus();$('referencePrompt').select();$('notice').textContent='The brief is ready in the context field for you to copy.';}};
-$('form').onsubmit=async e=>{e.preventDefault();if(!selectedFile)return;busy=true;updateButtons();$('notice').textContent='';const form=new FormData($('form'));form.set('remove_bg',String($('removeBg').checked));try{form.set('queue_only','true');form.set('advanced_settings',JSON.stringify(advancedControls.read()));const v=await api('/api/generate',{method:'POST',body:form});if(!selectedId){selectedId=v.id;metadataId=null;}revealNewCreation();await refresh();}catch(e){errorAt('notice',e);busy=false;updateButtons();}};$('cancel').onclick=async()=>{if(!activeId)return;try{await api(`/api/jobs/${activeId}/cancel`,{method:'POST'});await refresh();}catch(e){errorAt('notice',e);}};
+$('form').onsubmit=async event=>{
+  event.preventDefault();
+  if($('generate').disabled)return;
+  submittingGeneration=true;
+  updateButtons();
+  $('notice').textContent='';
+  try{
+    const usePixal=multiview.active;
+    const form=usePixal?multiview.buildRequest():new FormData($('form'));
+    if(!usePixal){
+      form.set('remove_bg',String($('removeBg').checked));
+      form.set('queue_only','true');
+      form.set('advanced_settings',JSON.stringify(advancedControls.read()));
+    }
+    const v=await api(usePixal?'/api/generate-multiview':'/api/generate',{method:'POST',body:form});
+    if(!selectedId){selectedId=v.id;metadataId=null;}
+    revealNewCreation();
+    await refresh();
+  }catch(error){errorAt('notice',error);}
+  finally{submittingGeneration=false;updateButtons();}
+};
+$('cancel').onclick=async()=>{if(!activeId)return;try{await api(`/api/jobs/${activeId}/cancel`,{method:'POST'});await refresh();}catch(e){errorAt('notice',e);}};
 function revealNewCreation(){trashMode=false;page=0;$('librarySearch').value='';$('libraryFilter').value='all';document.body.classList.remove('collection-collapsed','library-mode');$('toggleCollection').setAttribute('aria-pressed','true');showCollection(false);$('libraryGrid').scrollTop=0;}
 document.querySelectorAll('[data-material]').forEach(b=>b.onclick=()=>{$('materialMode').value=b.dataset.material;document.querySelectorAll('[data-material]').forEach(x=>x.setAttribute('aria-pressed',x===b));materials();});
 function ranges(){$('roughnessValue').textContent=Math.round(Number($('roughness').value)*100)+' %';$('flatValue').textContent=Math.round(Number($('flatZone').value)*100)+' %';}$('roughness').oninput=ranges;$('flatZone').oninput=ranges;
 $('terrainForm').onsubmit=async e=>{e.preventDefault();if(busy)return;busy=true;updateButtons();$('notice').textContent='Creating terrain and textures…';const data={name:$('terrainName').value,terrain_style:$('terrainStyle').value,size_m:Number($('terrainSize').value),height_m:Number($('terrainHeight').value),seed:Number($('terrainSeed').value),roughness:Number($('roughness').value),flat_zone:Number($('flatZone').value),resolution:Number($('terrainResolution').value),terrain_palette:$('terrainPalette').value,parent_id:$('terrainForm').dataset.parentId||''};try{const v=await api('/api/terrain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});selectedId=v.id;metadataId=null;$('notice').textContent='Terrain created.';setView(false);await refresh();}catch(e){busy=false;errorAt('notice',e);updateButtons();}};
-async function reuseJob(j){if(!j||busy)return;const s=j.settings;if(['imported','rigged','print'].includes(s.asset_type)){try{const v=await api(`/api/jobs/${j.id}/version`,{method:'POST'});await startStudioJob(v.id);}catch(e){errorAt('notice',e);}return;}if(s.asset_type==='terrain_unity'){setMode(true);$('terrainForm').dataset.parentId=j.id;for(const[id,v]of Object.entries({terrainName:nameOf(j)+' version',terrainStyle:s.terrain_style,terrainSize:s.size_m,terrainHeight:s.height_m,terrainSeed:s.seed,roughness:s.roughness,flatZone:s.flat_zone,terrainResolution:s.resolution,terrainPalette:s.terrain_palette||'blackwater'}))$(id).value=String(v);ranges();}else{setMode(false);try{const r=await fetch(`/api/jobs/${j.id}/files/input.png`);if(!r.ok)throw Error('Reference image unavailable.');acceptFile(new File([await r.blob()],s.name+'.png',{type:'image/png'}));$('parentId').value=j.id;$('name').value=(nameOf(j)+' version').slice(0,80);for(const[id,v]of Object.entries({preset:s.preset,height:s.height_m,seed:s.seed,triangles:s.triangles,textureSize:s.texture_size,resolution:s.resolution||j.result?.resolution||512,assetType:s.asset_type||'object',referencePrompt:j.metadata?.reference_prompt||''}))$(id).value=String(v);advancedControls.apply(j.generation_options||s.generation_options||{});$('removeBg').checked=s.remove_bg;detailControls.hint();profileControls.detach();$('profileBase').value=$('preset').value;explainCost();$('generationSummary').textContent='VARIANT · LOCAL COMPUTE';$('notice').textContent='Reference, geometry, texture and finishing settings restored. Adjust them to compare a new version.';}catch(e){errorAt('notice',e);}}}
+async function reuseJob(j){
+  if(!j||busy||submittingGeneration||restoringReferences)return;
+  const s=j.settings;
+  if(['imported','rigged','print'].includes(s.asset_type)){
+    try{
+      const v=await api(`/api/jobs/${j.id}/version`,{method:'POST'});
+      await startStudioJob(v.id);
+    }catch(error){errorAt('notice',error);}
+    return;
+  }
+  if(s.asset_type==='terrain_unity'){
+    setMode(true);
+    $('terrainForm').dataset.parentId=j.id;
+    for(const [id,v] of Object.entries({terrainName:nameOf(j)+' version',terrainStyle:s.terrain_style,terrainSize:s.size_m,terrainHeight:s.height_m,terrainSeed:s.seed,roughness:s.roughness,flatZone:s.flat_zone,terrainResolution:s.resolution,terrainPalette:s.terrain_palette||'blackwater'}))$(id).value=String(v);
+    ranges();
+    return;
+  }
+  restoringReferences=true;
+  updateButtons();
+  try{
+    await multiview.restore(j);
+    setMode(false);
+    $('parentId').value=j.id;
+    $('name').value=(nameOf(j)+' version').slice(0,80);
+    $('height').value=String(s.height_m);
+    if(multiview.active){
+      $('keepFinishingSource').checked=!!s.keep_finishing_source;
+      $('notice').textContent='Saved views and Pixal3D settings restored. Adjust them to compare a new version.';
+      return;
+    }
+    for(const [id,v] of Object.entries({preset:s.preset,seed:s.seed,triangles:s.triangles,textureSize:s.texture_size,resolution:s.resolution||j.result?.resolution||512,assetType:s.asset_type||'object',referencePrompt:j.metadata?.reference_prompt||''}))$(id).value=String(v);
+    advancedControls.apply(j.generation_options||s.generation_options||{});
+    $('removeBg').checked=s.remove_bg;
+    detailControls.hint();
+    profileControls.detach();
+    $('profileBase').value=$('preset').value;
+    explainCost();
+    $('generationSummary').textContent='VARIANT · LOCAL COMPUTE';
+    $('notice').textContent='Reference, geometry, texture and finishing settings restored. Adjust them to compare a new version.';
+  }catch(error){errorAt('notice',error);}
+  finally{restoringReferences=false;updateButtons();}
+}
 
 let refinishBase=null;
 function openRefinish(job){
@@ -148,7 +232,7 @@ $('refinishForm').onsubmit=async e=>{
 };
 
 async function refreshLog(){if(!selectedId)return;try{const d=await api(`/api/jobs/${selectedId}/log`);$('log').textContent=d.text||'No log entries yet.';}catch{}}
-async function refresh(){if(shutDown||refreshing)return;refreshing=true;try{const[status,jobs]=await Promise.all([api('/api/status'),api('/api/jobs')]);features=!!status.studio_version;syncCapabilities(status);ready=status.ready;activeId=status.active;busy=!!activeId;records=jobs;if(pendingSelection){const pending=records.find(j=>j.id===pendingSelection);if(pending?.state==='done'){if(pending.operation_error)errorAt('animationNotice',pending.operation_error);selectedId=pendingSelection;pendingSelection=null;metadataId=null;inspectId=null;}else if(pending&&['error','cancelled'].includes(pending.state)){errorAt('animationNotice',pending.error||pending.stage);pendingSelection=null;}}if(selectedId&&!records.some(j=>j.id===selectedId)){selectedId=null;metadataId=null;inspectId=null;++inspectVersion;}$('versionNotice').hidden=features;$('runtime').textContent=ready?`LOCAL · ${status.ram_free_gib} GB RAM available`:'Models unavailable';$('hardware').textContent=status.gpu||'Local compute';updateButtons();renderNavigation();renderSelected();renderLibrary();if(document.querySelector('.journal').open)refreshLog();if(jobOf()?.settings.source_kind==='unirig'&&jobOf()?.state==='running')refreshRigPreview();}catch(error){console.error('Studio refresh failed:',error);$('runtime').textContent='Disconnected · restart TRELLIS';ready=false;updateButtons();}finally{refreshing=false;}}
+async function refresh(){if(shutDown||refreshing)return;refreshing=true;try{const[status,jobs]=await Promise.all([api('/api/status'),api('/api/jobs')]);features=!!status.studio_version;syncCapabilities(status);ready=status.ready;activeId=status.active;busy=!!activeId;records=jobs;if(pendingSelection){const pending=records.find(j=>j.id===pendingSelection);if(pending?.state==='done'){if(pending.operation_error)errorAt('animationNotice',pending.operation_error);selectedId=pendingSelection;pendingSelection=null;metadataId=null;inspectId=null;}else if(pending&&['error','cancelled'].includes(pending.state)){errorAt('animationNotice',pending.error||pending.stage);pendingSelection=null;}}if(selectedId&&!records.some(j=>j.id===selectedId)){selectedId=null;metadataId=null;inspectId=null;++inspectVersion;}$('versionNotice').hidden=features;$('runtime').textContent=ready?`LOCAL · ${status.ram_free_gib} GB RAM available`:'Models unavailable';$('hardware').textContent=status.gpu||'Local compute';updateButtons();renderNavigation();renderSelected();renderLibrary();if(document.querySelector('.journal').open)refreshLog();if(jobOf()?.settings.source_kind==='unirig'&&jobOf()?.state==='running')refreshRigPreview();}catch(error){console.error('Studio refresh failed:',error);$('runtime').textContent='Disconnected · restart TRELLIS';ready=false;multiview.setCapabilities({message:'Studio is disconnected. Restart TRELLIS Studio.'});updateButtons();}finally{refreshing=false;}}
 $('shutdown').onclick=async()=>{try{await api('/api/shutdown',{method:'POST'});shutDown=true;ready=false;busy=false;renderer?.setAnimationLoop(null);clearModel();renderer?.dispose();$('notice').textContent='Run Open TRELLIS.cmd to restart the studio.';$('runtime').textContent='STUDIO STOPPED';$('shutdown').disabled=true;downloads(null);$('downloadHeight').hidden=true;updateButtons();}catch(e){errorAt('notice',e);}};
 function showCollection(details){$('libraryView').hidden=details;$('inspectorPanel').hidden=!details;$('collectionPanel').classList.toggle('details-open',details);}
 function openDetails(j){if(!j)return;selectJob(j.id);document.body.classList.remove('library-mode','collection-collapsed');$('openLibrary').setAttribute('aria-pressed','false');showCollection(true);}
@@ -157,7 +241,15 @@ $('toggleCollection').onclick=()=>{const collapsed=document.body.classList.toggl
 function openAnimationStudio(){setMode(false);animationMode=true;document.body.classList.add('animation-mode');$('form').hidden=true;$('rigPanel').hidden=false;$('imageTab').setAttribute('aria-pressed','false');$('rigTab').setAttribute('aria-pressed','true');document.querySelector('h1').textContent='Animation studio';document.querySelector('.intro').textContent='Choose a motion and add it to your model.';animationStudio?.render();}
 $('rigTab').onclick=openAnimationStudio;$('animateModel').onclick=openAnimationStudio;
 
-document.addEventListener('paste',e=>{if(e.target.closest('input:not([type=file]),textarea,[contenteditable=true]'))return;const file=[...(e.clipboardData?.files||[])].find(f=>f.type.startsWith('image/'));if(file){e.preventDefault();setMode(false);acceptFile(file);}});
+document.addEventListener('paste',event=>{
+  if(event.target.closest('input:not([type=file]),textarea,[contenteditable=true]'))return;
+  const file=[...(event.clipboardData?.files||[])].find(value=>value.type.startsWith('image/'));
+  if(file){
+    event.preventDefault();
+    setMode(false);
+    multiview.accept(multiview.pasteRole(event.target),file);
+  }
+});
 async function startStudioJob(id,options={}){if(options.rig){selectedId=id;metadataId=null;}busy=true;pendingSelection=id;revealNewCreation();updateButtons();await refresh();}
 animationStudio=await createAnimationStudio({api,getJob:jobOf,isBusy:()=>busy,startJob:startStudioJob,rigPreview});createModelImport({api,startJob:startStudioJob});
 workbench=await createStudioWorkbench({api,getRecords:()=>records,getJob:jobOf,refresh,startJob:startStudioJob,renderLibrary,tools:studioTools,labelAnimation:name=>animationStudio?.label(name)||name,getViewer:()=>({scene,renderer,camera,controls,model,lighting:viewerLighting})});

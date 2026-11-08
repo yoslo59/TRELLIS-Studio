@@ -39,6 +39,10 @@
 !/trellis_mcp.py
 !/unity_export.py
 !/worker.py
+!/pixal3d_runtime.py
+!/pixal3d_worker.py
+!/pixal3d_setup.py
+!/Install Pixal3D.cmd
 !/work_blender.py
 !/README.md
 !/INSTALLATION.md
@@ -91,6 +95,7 @@
 !/web/lighting.css
 !/web/model-workbench.js
 !/web/motion-previews.js
+!/web/multiview-inputs.js
 !/web/polish.css
 !/web/preparation-preview.js
 !/web/presentation-studio.js
@@ -140,6 +145,8 @@
 # Runtime payloads and public illustrations are selected explicitly too.
 /installer/*
 !/installer/setup.py
+!/installer/pixal3d-manifest.json
+!/installer/requirements-pixal3d.txt
 !/installer/manifest.json
 !/installer/pipeline.json
 !/installer/requirements-unirig.txt
