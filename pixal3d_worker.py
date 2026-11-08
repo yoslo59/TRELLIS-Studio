@@ -199,7 +199,8 @@ def check_runtime():
 
 def run_job():
     # Shared finishing writes the normal Studio GLB and uses standard job telemetry.
-    from worker import JOB, finish_mesh, options, save_finishing_source, settings, started, status
+    from worker import (JOB, finish_mesh, options, project_requested_face, save_finishing_source,
+                        settings, started, status)
     import time
 
     try:
@@ -225,6 +226,7 @@ def run_job():
         if settings.get('keep_finishing_source'):
             save_finishing_source(torch, source)
         result = finish_mesh(torch, source)
+        face_report = project_requested_face()
         stats = dict(
             name=settings['name'], height_m=settings['height_m'], seed=settings['seed'],
             triangles=len(result.faces), vertices=len(result.vertices), engine='Pixal3D',
@@ -237,6 +239,8 @@ def run_job():
             peak_reserved_gib=round(torch.cuda.max_memory_reserved()/1024**3, 2),
             seconds=round(time.time()-started, 1),
         )
+        if face_report is not None:
+            stats['face_projection'] = face_report
         write(JOB / 'result.json', stats)
         status('done', 'Pixal3D model ready', 100, result=stats)
     except Exception as error:

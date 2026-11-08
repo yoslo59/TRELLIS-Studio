@@ -29,6 +29,7 @@ PIXAL_CHARACTER_OPTIONS = dict(GAME_D_ADVANCED, structure_steps=12, shape_steps=
 REFERENCE_FILES = tuple(VIEW_FILES.values())
 # Studio 3.1 adds typed agent access and a self-hosted developer reference.
 SOURCE_REVISION=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+UI_REVISION='3.1.0-face-reprojection'
 def gpu_description():
     try:
         value=subprocess.check_output(['nvidia-smi','--query-gpu=name,memory.total','--format=csv,noheader,nounits'],text=True,timeout=5,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0)).splitlines()[0]
@@ -175,8 +176,8 @@ def status():
     pixal3d=pixal3d_capabilities()
     return dict(ready=ready, gpu=GPU_DESCRIPTION, ram_free_gib=round(psutil.virtual_memory().available/1024**3,1),
                 active=ACTIVE if PROCESS is not None and PROCESS.poll() is None else TERRAIN_ACTIVE,
-                resolution=DEFAULT_GENERATION['resolution'], default_profile=DEFAULT_PROFILE, local=True, studio_version='3.1.0',source_revision=SOURCE_REVISION,multi_view=pixal3d['ready'],pixal3d=pixal3d,
-                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','collection_transfer','rest_api_v1','mcp','refinish','pixal3d_multiview'], texture_sizes=textures,supported_resolutions=resolutions)
+                resolution=DEFAULT_GENERATION['resolution'], default_profile=DEFAULT_PROFILE, local=True, studio_version='3.1.0',source_revision=SOURCE_REVISION,ui_revision=UI_REVISION,multi_view=pixal3d['ready'],pixal3d=pixal3d,
+                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','collection_transfer','rest_api_v1','mcp','refinish','pixal3d_multiview','pixal3d_face_projection'], texture_sizes=textures,supported_resolutions=resolutions)
 
 @app.get('/api/components')
 def components():
@@ -673,6 +674,7 @@ async def generate_multiview(
     parent_id: Annotated[str, Form()] = '',
     reference_prompt: Annotated[str, Form()] = '',
     keep_finishing_source: Annotated[bool, Form()] = False,
+    reproject_face: Annotated[bool, Form()] = False,
     queue_priority: Annotated[int, Form()] = 0,
 ):
     if (side_angle not in (40, 90) or not 0.01 <= height_m <= 100
@@ -686,6 +688,8 @@ async def generate_multiview(
     runtime = pixal3d_capabilities()
     if not runtime['ready']:
         raise HTTPException(503, runtime['message'])
+    if reproject_face and not runtime['face_projection']['ready']:
+        raise HTTPException(503, runtime['face_projection']['message'])
     view_uploads = (
         ('front', 0, image),
         ('left', side_angle, left_image),
@@ -712,6 +716,8 @@ async def generate_multiview(
                     resolution=profile['resolution'], pipeline_type='pixal3d_1024_multiview',
                     generation_options=PIXAL_CHARACTER_OPTIONS, settings_version=2, created=time.time(),
                     views=views, side_angle=side_angle, keep_finishing_source=keep_finishing_source)
+    if reproject_face:
+        settings['reproject_face'] = True
     if parent_id:
         settings['parent_id'] = parent_id
     identifier = uuid.uuid4().hex
@@ -894,7 +900,9 @@ async def files(identifier: str, filename: str):
                         media_type={'model.glb':'model/gltf-binary','Unity.zip':'application/zip','Blender.zip':'application/zip','settings.json':'application/json'}.get(filename))
 
 @app.get('/')
-def index(): return FileResponse(ROOT/'web'/'studio.html')
+def index():
+    return FileResponse(ROOT / 'web' / 'studio.html',
+                        headers={'Cache-Control': 'no-cache, must-revalidate'})
 
 @app.get('/api/rig-pilot')
 def rig_pilot():

@@ -1,4 +1,5 @@
 """Filesystem-only capability and calibrated-view rules for the optional Pixal3D runtime."""
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -11,6 +12,7 @@ VIEW_FILES = {
 }
 CAMERA_RADIUS = 3.1192
 CAMERA_FOV = math.radians(20)
+FACE_SETUP_HINT = "Run Install Pixal3D.cmd --face-only to enable face reprojection."
 
 
 def runtime_root(studio_root):
@@ -26,8 +28,21 @@ def source_path(directory, manifest):
     return directory / ('ComfyUI-' + manifest['comfy']['commit'])
 
 
+def verified_face_detector(studio_root):
+    entry = load_manifest(studio_root)['face_detector']
+    path = runtime_root(studio_root) / 'models' / entry['path']
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        raise RuntimeError(FACE_SETUP_HINT) from error
+    if len(data) != entry['bytes'] or hashlib.sha256(data).hexdigest() != entry['sha256']:
+        raise RuntimeError('Face detector checksum mismatch. Reinstall the verified face detector.')
+    return path
+
+
 def runtime_status(studio_root):
     directory = runtime_root(studio_root)
+    face_ready = False
     try:
         manifest = load_manifest(studio_root)
         marker = json.loads((directory / 'verified.json').read_text(encoding='utf-8'))
@@ -41,9 +56,19 @@ def runtime_status(studio_root):
         )
     except (OSError, ValueError, KeyError, TypeError):
         ready = False
+    if ready:
+        try:
+            verified_face_detector(studio_root)
+            face_ready = True
+        except (OSError, RuntimeError, ValueError, KeyError, TypeError):
+            pass
     return {
         'ready': ready,
         'message': 'Pixal3D is ready.' if ready else 'Run Install Pixal3D.cmd to enable Pixal3D.',
+        'face_projection': {
+            'ready': face_ready,
+            'message': 'Face reprojection is ready.' if face_ready else FACE_SETUP_HINT,
+        },
     }
 
 

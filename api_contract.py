@@ -31,6 +31,7 @@ class MultiViewGeneration(Contract):
     parent_id: Identifier | None = None
     reference_prompt: str = Field(default='', max_length=6000)
     keep_finishing_source: bool = False
+    reproject_face: bool = False
     priority: int = Field(default=0, ge=-2, le=2)
 
 

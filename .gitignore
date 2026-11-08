@@ -41,6 +41,7 @@
 !/worker.py
 !/pixal3d_runtime.py
 !/pixal3d_worker.py
+!/face_projection.py
 !/pixal3d_setup.py
 !/Install Pixal3D.cmd
 !/work_blender.py

@@ -92,6 +92,7 @@ Use `GET /status` to inspect `pixal3d.ready` and the optional character recipe. 
 - `upload_id` is the front image. Supply at least one of `left_upload_id`, `back_upload_id` and `right_upload_id`.
 - `side_angle` is 40 for three-quarter views or 90 for profiles. Left is positive azimuth, right is negative azimuth and back is 180°. Use the same full-body pose and framing.
 - Optional fields include `name`, `height_m`, `seed`, `triangles`, `texture_size` (1024 or 2048), `parent_id`, `keep_finishing_source` and queue `priority`. Defaults come from **Character · Pixal3D**.
+- Set `reproject_face` to `true` to transfer the visible face from the original front photo after generation. The default is `false`. Check `pixal3d.face_projection.ready` in `GET /status` before requesting it. Model results report the pass under `result.face_projection`, including a reason if skipped.
 
 The response uses the usual job ID, state and status URL. Inspect the completed job's settings for the saved camera roles. The source views can be downloaded via the regular model files route. The optional runtime must be installed before submission.
 

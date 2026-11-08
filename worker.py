@@ -146,6 +146,26 @@ def finish_mesh(torch, source):
     return result
 
 
+def project_requested_face():
+    if settings.get('engine') != 'pixal3d' or not settings.get('reproject_face'):
+        return None
+    status('running', 'Reprojecting the original face', 96)
+    try:
+        from pixal3d_runtime import verified_face_detector
+        detector = verified_face_detector(ROOT)
+    except (OSError, RuntimeError, ValueError, KeyError, TypeError):
+        return {'state': 'skipped', 'reason': 'The verified face detector is unavailable.'}
+    try:
+        from face_projection import reproject_face
+        report = reproject_face(JOB / 'model.glb', JOB / 'input.png', detector)
+    except Exception:
+        # The optional pass must preserve the successful model and surface failures in its log.
+        traceback.print_exc()
+        return {'state': 'skipped', 'reason': 'Face reprojection failed. Original texture kept.'}
+    print('FACE_PROJECTION ' + json.dumps(report, ensure_ascii=False), flush=True)
+    return report
+
+
 def main():
     import torch
     torch.set_num_threads(6)
@@ -165,6 +185,7 @@ def main():
             save_finishing_source(torch, source)
     resolution = source['resolution']
     result = finish_mesh(torch, source)
+    face_report = project_requested_face()
     stats = dict(name=settings['name'], height_m=settings['height_m'], seed=settings['seed'],
                  triangles=len(result.faces), vertices=len(result.vertices),
                  engine='Pixal3D' if settings.get('engine') == 'pixal3d' else 'TRELLIS.2',
@@ -176,6 +197,8 @@ def main():
                  peak_vram_gib=round(torch.cuda.max_memory_allocated()/1024**3, 2),
                  peak_reserved_gib=round(torch.cuda.max_memory_reserved()/1024**3, 2),
                  seconds=round(time.time()-started, 1))
+    if face_report is not None:
+        stats['face_projection'] = face_report
     if source_id:
         stats['finish_source_id'] = source_id
     write(JOB / 'result.json', stats)

@@ -4,6 +4,7 @@ const limit = 25 * 1024 * 1024;
 
 export function createMultiviewInputs({ changed, invalid }) {
   const toggle = $('pixalMode');
+  const reprojectFace = $('reprojectFace');
   const slots = new Map(roles.map(role => {
     const area = document.querySelector(`[data-reference-slot="${role}"]`);
     return [role, {
@@ -115,6 +116,11 @@ export function createMultiviewInputs({ changed, invalid }) {
     state.classList.toggle('dirty', !value?.ready);
     $('pixalRuntimeNotice').textContent = value?.ready ? 'Pixal3D ready on this computer.' :
       value?.message || 'Restart TRELLIS Studio to check the optional Pixal3D runtime.';
+    const projection = value?.face_projection;
+    reprojectFace.disabled = !value?.ready || !projection?.ready;
+    $('reprojectFaceHelp').textContent = reprojectFace.disabled ?
+      projection?.message || value?.message || 'Restart TRELLIS Studio to check face reprojection availability.' :
+      'Blends the visible face from the front reference into the model texture after generation.';
     const profile = value?.profile;
     $('pixalProfileName').textContent = profile?.name || 'Character · Pixal3D';
     $('pixalProfileSummary').textContent = profile ?
@@ -139,6 +145,7 @@ export function createMultiviewInputs({ changed, invalid }) {
       const value = $(id).value;
       if (value !== '') form.set(field, value);
     }
+    if (reprojectFace.checked && !reprojectFace.disabled) form.set('reproject_face', 'true');
     if ($('keepFinishingSource').checked) form.set('keep_finishing_source', 'true');
     return form;
   }
@@ -160,6 +167,7 @@ export function createMultiviewInputs({ changed, invalid }) {
     const files = new Map(restored);
     for (const role of roles) setFile(role, files.get(role) || null);
     toggle.checked = active;
+    reprojectFace.checked = active && settings.reproject_face === true;
     if (active) {
       $('sideAngle').value = String(settings.side_angle ?? 40);
       $('pixalSeed').value = String(settings.seed ?? 42);

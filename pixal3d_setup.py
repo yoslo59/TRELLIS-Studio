@@ -85,18 +85,26 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--plan', action='store_true', help='Show pinned downloads and disk use.')
     parser.add_argument('--verify-only', action='store_true', help='Verify an existing installation.')
+    parser.add_argument('--face-only', action='store_true', help='Install only the small face detector.')
     parser.add_argument('--accept-dinov3-license', action='store_true')
     parser.add_argument('--reuse-assets', type=Path, help='Reuse SHA-256 verified local weights and source archive.')
     args = parser.parse_args()
     manifest = load_manifest(ROOT)
     entries = manifest['weights']
+    face = manifest['face_detector']
+    face_path = RUNTIME / 'models' / face['path']
     if args.plan:
         print(json.dumps({'runtime': str(RUNTIME), 'comfy': manifest['comfy'], 'weights': entries,
-                          'download_bytes': manifest['comfy']['bytes'] + sum(entry['bytes'] for entry in entries)},
+                          'face_detector': face, 'download_bytes': manifest['comfy']['bytes'] +
+                          face['bytes'] + sum(entry['bytes'] for entry in entries)},
                          indent=2))
         return
     if os.name != 'nt' or sys.maxsize <= 2**32:
         raise RuntimeError('This Pixal3D installer targets 64-bit Windows.')
+    if args.face_only:
+        obtain(face, face_path)
+        print('Face reprojection detector verified. Refresh TRELLIS Studio.', flush=True)
+        return
     if args.verify_only:
         status = runtime_status(ROOT)
         if not status['ready']:
@@ -104,6 +112,8 @@ def main():
         for entry in entries:
             if not verified(RUNTIME / 'models' / entry['path'], entry):
                 raise RuntimeError(f"Checksum mismatch: {entry['path']}")
+        if face_path.exists() and not verified(face_path, face):
+            raise RuntimeError(f"Checksum mismatch: {face['path']}")
         verify_runtime()
         return
     allow_download = args.accept_dinov3_license or args.reuse_assets is None
@@ -119,6 +129,9 @@ def main():
     for entry in entries:
         obtain(entry, RUNTIME / 'models' / entry['path'],
                local_assets / 'models' / entry['path'] if local_assets else None, allow_download)
+    local_face = local_assets / 'models' / face['path'] if local_assets else None
+    if allow_download or face_path.is_file() or (local_face and local_face.is_file()):
+        obtain(face, face_path, local_face, allow_download)
     install_dependencies(local_assets)
     verify_runtime()
     write(RUNTIME / 'verified.json', {
