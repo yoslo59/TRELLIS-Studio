@@ -26,9 +26,21 @@ source=work/'input.glb' if (work/'input.glb').exists() else job/'source.glb'
 stage('Analysing character',8);extract(source,'glb')
 stage('UniRig · predicting skeleton',22)
 run('run.py','--task='+str(work/'skeleton.yaml'),'--seed=12345','--input='+str(source),'--output='+str(work/'skeleton.fbx'),'--npz_dir='+str(work/'intermediate'))
-run(root/'skeleton-preview.py',job)
-stage('Preparing joints',45);extract(work/'skeleton.fbx','fbx')
+skeleton=work/'skeleton.fbx'
+settings=json.loads((job/'settings.json').read_text(encoding='utf-8'))
+if settings.get('rig_options',{}).get('landmarks'):
+    stage('Applying your joint landmarks',42)
+    run(root/'apply-landmarks.py',job)
+    skeleton=work/'skeleton-landmarks.fbx'
+run(root/'skeleton-preview.py',job,skeleton)
+stage('Preparing joints',45);extract(skeleton,'fbx')
 stage('UniRig · calculating skin weights',58)
-run('run.py','--task='+str(work/'skin.yaml'),'--seed=12345','--input='+str(work/'skeleton.fbx'),'--output='+str(work/'skin.fbx'),'--npz_dir='+str(work/'intermediate'),'--data_name=raw_data.npz')
+run('run.py','--task='+str(work/'skin.yaml'),'--seed=12345','--input='+str(skeleton),'--output='+str(work/'skin.fbx'),'--npz_dir='+str(work/'intermediate'),'--data_name=raw_data.npz')
+skin=work/'skin.fbx'
+if settings.get('rig_options',{}).get('landmarks'):
+    run(root/'restore-skin-frame.py',job)
+    skin=work/'skin-model-frame.fbx'
 stage('Transferring rig to the textured model',80)
-run('-m','src.inference.merge','--require_suffix=glb,fbx','--num_runs=1','--id=0','--source='+str(work/'skin.fbx'),'--target='+str(source),'--output='+str(work/'rigged.glb'))
+run('-m','src.inference.merge','--require_suffix=glb,fbx','--num_runs=1','--id=0','--source='+str(skin),'--target='+str(source),'--output='+str(work/'rigged.glb'))
+if settings.get('rig_options',{}).get('landmarks'):
+    run(root/'verify-landmarks.py',job)

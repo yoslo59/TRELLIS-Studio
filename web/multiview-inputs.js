@@ -18,6 +18,17 @@ export function createMultiviewInputs({ changed, invalid }) {
     }];
   }));
   let capabilities;
+  const profileChoice=$('pixalProfileChoice');
+  function selectedProfile(){return (capabilities?.profiles||[capabilities?.profile]).find(p=>p?.id===profileChoice.value)||capabilities?.profile;}
+  function renderProfile(){
+    const profile=selectedProfile();
+    $('pixalProfileSummary').textContent=profile?
+      `${profile.resolution}³ · ${Number(profile.triangles).toLocaleString('en-US')} target triangles · texture ${profile.texture_size/1024}K`:'Dedicated recipe for characters.';
+    $('pixalTriangles').placeholder=profile?String(profile.triangles):'Profile default';
+  }
+  profileChoice.addEventListener('change',()=>{
+    $('pixalTriangles').value='';$('pixalTextureSize').value='';renderProfile();changed({profile:true});
+  });
 
   function syncPicker(slot) {
     const transfer = new DataTransfer();
@@ -105,6 +116,9 @@ export function createMultiviewInputs({ changed, invalid }) {
   }
 
   toggle.addEventListener('change', () => {
+    if(toggle.checked&&$('preset').value==='humanoid_experimental'&&[...profileChoice.options].some(o=>o.value==='humanoid_experimental')){
+      profileChoice.value='humanoid_experimental';$('pixalTriangles').value='';$('pixalTextureSize').value='';renderProfile();
+    }
     renderMode();
     changed({ mode: true });
   });
@@ -121,12 +135,14 @@ export function createMultiviewInputs({ changed, invalid }) {
     $('reprojectFaceHelp').textContent = reprojectFace.disabled ?
       projection?.message || value?.message || 'Restart TRELLIS Studio to check face reprojection availability.' :
       'Blends the visible face from the front reference into the model texture after generation.';
-    const profile = value?.profile;
-    $('pixalProfileName').textContent = profile?.name || 'Character · Pixal3D';
-    $('pixalProfileSummary').textContent = profile ?
-      `${profile.resolution}³ · ${Number(profile.triangles).toLocaleString('en-US')} target triangles · texture ${profile.texture_size / 1024}K` :
-      'Dedicated recipe for characters.';
-    $('pixalTriangles').placeholder = profile ? String(profile.triangles) : 'Profile default';
+    const profiles=value?.profiles||(value?.profile?[value.profile]:[]);
+    if(profiles.length&&JSON.stringify(profiles.map(p=>[p.id,p.name]))!==profileChoice.dataset.recipes){
+      const selected=profileChoice.value;profileChoice.replaceChildren();
+      for(const p of profiles){const option=document.createElement('option');option.value=p.id;option.textContent=p.name;profileChoice.append(option);}
+      profileChoice.value=profiles.some(p=>p.id===selected)?selected:value.profile.id;
+      profileChoice.dataset.recipes=JSON.stringify(profiles.map(p=>[p.id,p.name]));
+    }
+    renderProfile();
     const textures = value?.texture_sizes || [1024, 2048];
     for (const option of $('pixalTextureSize').options) option.disabled = !!option.value && !textures.includes(Number(option.value));
   }
@@ -141,12 +157,13 @@ export function createMultiviewInputs({ changed, invalid }) {
     for (const [field, id] of Object.entries({
       name: 'name', height_m: 'height', parent_id: 'parentId', side_angle: 'sideAngle', seed: 'pixalSeed',
       triangles: 'pixalTriangles', texture_size: 'pixalTextureSize',
+      profile_id:'pixalProfileChoice',
     })) {
       const value = $(id).value;
       if (value !== '') form.set(field, value);
     }
     if (reprojectFace.checked && !reprojectFace.disabled) form.set('reproject_face', 'true');
-    if ($('keepFinishingSource').checked) form.set('keep_finishing_source', 'true');
+    if ($('keepFinishingSource').checked||profileChoice.value==='humanoid_experimental') form.set('keep_finishing_source', 'true');
     return form;
   }
 
@@ -169,6 +186,7 @@ export function createMultiviewInputs({ changed, invalid }) {
     toggle.checked = active;
     reprojectFace.checked = active && settings.reproject_face === true;
     if (active) {
+      profileChoice.value=settings.profile?.id||settings.preset||'character_pixal';renderProfile();
       $('sideAngle').value = String(settings.side_angle ?? 40);
       $('pixalSeed').value = String(settings.seed ?? 42);
       $('pixalTriangles').value = settings.triangles ?? '';
@@ -183,7 +201,7 @@ export function createMultiviewInputs({ changed, invalid }) {
     get active() { return toggle.checked; },
     get hasFront() { return !!slots.get('front').file; },
     get ready() { return !!capabilities?.ready && countViews() >= 2 && !$('pixalTextureSize').selectedOptions[0]?.disabled; },
-    get summary() { return `${capabilities?.profile?.name || 'Character · Pixal3D'} · ${countViews()} views · local compute`; },
+    get summary() { return `${selectedProfile()?.name || 'Character · Pixal3D'} · ${countViews()} views · local compute`; },
     pasteRole(target) { return (toggle.checked && target.closest('[data-reference-slot]')?.dataset.referenceSlot) || 'front'; },
   };
 }

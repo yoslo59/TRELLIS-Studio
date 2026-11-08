@@ -11,9 +11,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps, UnidentifiedImageError
 from generation_options import (normalize_options, options_for_job, schema as generation_schema,
-                                DEFAULT_PROFILE, DEFAULT_GENERATION, GENERATION_PRESETS, GAME_D_ADVANCED, PROFILE_ADVANCED)
+                                DEFAULT_PROFILE, DEFAULT_GENERATION, GENERATION_PRESETS, GAME_D_ADVANCED, PROFILE_ADVANCED, HUMANOID_EXPERIMENTAL)
 from asset_taxonomy import ASSET_TYPES, SYSTEM_TYPES, schema as taxonomy_schema
-from generation_profiles import ProfileStore
+from generation_profiles import ProfileStore, builtin_profiles
 from studio_import import FORMATS, MAX_BYTES, find_blender, validate_glb, copy_version
 from animation_edits import recover as recover_animation
 from glb_data import media as model_media
@@ -26,10 +26,15 @@ PIXAL_CHARACTER_PROFILE = dict(id='character_pixal', name='Character · Pixal3D'
 PIXAL_TEXTURE_SIZES = (1024, 2048)
 PIXAL_CHARACTER_OPTIONS = dict(GAME_D_ADVANCED, structure_steps=12, shape_steps=20,
                                texture_steps=12, texture_guidance=1.0)
+PIXAL_HUMANOID_PROFILE = dict(id=HUMANOID_EXPERIMENTAL, name='Humanoid · Experimental',
+                              resolution=1024, triangles=250000, texture_size=2048,
+                              experimental=True, asset_type='humanoid', keep_finishing_source=True,
+                              description='Dense comparison master. Keeps the finishing source; review anatomy before reducing. No automatic local reconstruction or rig.')
+PIXAL_PROFILES = (PIXAL_CHARACTER_PROFILE, PIXAL_HUMANOID_PROFILE)
 REFERENCE_FILES = tuple(VIEW_FILES.values())
 # Studio 3.1 adds typed agent access and a self-hosted developer reference.
 SOURCE_REVISION=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-UI_REVISION='3.1.0-reference-card'
+UI_REVISION='3.1.0-humanoid-experimental'
 def gpu_description():
     try:
         value=subprocess.check_output(['nvidia-smi','--query-gpu=name,memory.total','--format=csv,noheader,nounits'],text=True,timeout=5,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0)).splitlines()[0]
@@ -165,6 +170,7 @@ def generation_capabilities():
 
 def pixal3d_capabilities():
     return {**pixal3d_runtime_status(ROOT), 'profile': PIXAL_CHARACTER_PROFILE,
+            'default_profile': PIXAL_CHARACTER_PROFILE['id'], 'profiles': list(PIXAL_PROFILES),
             'texture_sizes': PIXAL_TEXTURE_SIZES}
 
 
@@ -177,7 +183,7 @@ def status():
     return dict(ready=ready, gpu=GPU_DESCRIPTION, ram_free_gib=round(psutil.virtual_memory().available/1024**3,1),
                 active=ACTIVE if PROCESS is not None and PROCESS.poll() is None else TERRAIN_ACTIVE,
                 resolution=DEFAULT_GENERATION['resolution'], default_profile=DEFAULT_PROFILE, local=True, studio_version='3.1.0',source_revision=SOURCE_REVISION,ui_revision=UI_REVISION,multi_view=pixal3d['ready'],pixal3d=pixal3d,
-                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','collection_transfer','rest_api_v1','mcp','refinish','pixal3d_multiview','pixal3d_face_projection'], texture_sizes=textures,supported_resolutions=resolutions)
+                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','rig_landmarks','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','collection_transfer','rest_api_v1','mcp','refinish','pixal3d_multiview','pixal3d_face_projection'], texture_sizes=textures,supported_resolutions=resolutions)
 
 @app.get('/api/components')
 def components():
@@ -251,17 +257,17 @@ async def import_version(identifier: str):
 
 @app.post('/api/jobs/{identifier}/rig',status_code=201)
 async def rig_model(identifier: str,request: Request):
+    from rig_landmarks import validate_rig_options
     try:
         raw=await request.body();options=json.loads(raw) if raw else {}
-        if not isinstance(options,dict):raise ValueError()
-        rotation=options.get('rotation',[0,0,0]);height=float(options.get('height_m',1.7));offset=float(options.get('offset_m',0))
-        if len(rotation)!=3 or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not -180<=v<=180 for v in rotation) or not .2<=height<=3 or not -1<=offset<=1:raise ValueError()
-        options=dict(rotation=rotation,height_m=height,offset_m=offset)
-    except (ValueError,TypeError,KeyError):raise HTTPException(400,'Invalid rig rotation, height or offset.')
+        options=validate_rig_options(options)
+    except (ValueError,TypeError,KeyError) as error:raise HTTPException(400,str(error) or 'Invalid rig options.')
     async with LOCK:
         require_idle();source=job_path(identifier);record=job_record(source)
         if record['state']!='done' or not (source/'model.glb').is_file(): raise HTTPException(409,'Choose a completed model.')
         if record['settings'].get('asset_type')=='terrain_unity': raise HTTPException(400,'Choose a character or mesh object.')
+        if options.get('landmarks') and validate_glb(source/'model.glb').get('skins'):
+            raise HTTPException(409,'This model already has a skeleton. Landmark placement requires an unrigged copy.')
         if not components()['unirig'].get('ready') or not find_blender(): raise HTTPException(503,'UniRig or Blender is unavailable. Run Open TRELLIS.cmd and check its diagnostic log.')
         destination=OUTPUT/uuid.uuid4().hex;destination.mkdir()
         shutil.copy2(source/'model.glb',destination/'source.glb')
@@ -666,6 +672,7 @@ async def generate_multiview(
     back_image: Annotated[UploadFile | None, File()] = None,
     right_image: Annotated[UploadFile | None, File()] = None,
     side_angle: Annotated[int, Form()] = 40,
+    profile_id: Annotated[str, Form()] = 'character_pixal',
     name: Annotated[str, Form()] = 'Character',
     height_m: Annotated[float, Form()] = 1.7,
     seed: Annotated[int, Form()] = 42,
@@ -677,6 +684,12 @@ async def generate_multiview(
     reproject_face: Annotated[bool, Form()] = False,
     queue_priority: Annotated[int, Form()] = 0,
 ):
+    profile = next((p for p in PIXAL_PROFILES if p['id'] == profile_id), None)
+    if profile is None:
+        raise HTTPException(400, 'Unknown Pixal3D profile. Choose a profile advertised by Studio.')
+    experimental = profile['id'] == HUMANOID_EXPERIMENTAL
+    if experimental:
+        keep_finishing_source = True
     if (side_angle not in (40, 90) or not 0.01 <= height_m <= 100
         or not 0 <= seed <= 2147483647 or not -2 <= queue_priority <= 2
         or (triangles and not 1000 <= triangles <= 500000)
@@ -706,7 +719,9 @@ async def generate_multiview(
         filename = VIEW_FILES[role]
         views.append(dict(role=role, azimuth=azimuth, file=filename))
         sources.append((filename, source))
-    profile = PIXAL_CHARACTER_PROFILE
+    generation_options = dict(PIXAL_CHARACTER_OPTIONS)
+    if experimental:
+        generation_options['mesh_mode'] = 'direct'
     safe_name = re.sub(r'[^A-Za-z0-9_-]+', '-', name.strip()).strip('-')[:50] or 'Character'
     settings = dict(name=safe_name, engine='pixal3d', preset=profile['id'],
                     profile=dict(id=profile['id'], name=profile['name']),
@@ -714,8 +729,11 @@ async def generate_multiview(
                     triangles=triangles or profile['triangles'],
                     texture_size=texture_size or profile['texture_size'],
                     resolution=profile['resolution'], pipeline_type='pixal3d_1024_multiview',
-                    generation_options=PIXAL_CHARACTER_OPTIONS, settings_version=3, created=time.time(),
+                    generation_options=generation_options, settings_version=3, created=time.time(),
                     views=views, side_angle=side_angle, keep_finishing_source=keep_finishing_source)
+    settings['profile_snapshot'] = dict(profile, engine='pixal3d', triangles=settings['triangles'],
+        texture_size=settings['texture_size'], generation_options=generation_options,
+        keep_finishing_source=keep_finishing_source)
     if reproject_face:
         settings['reproject_face'] = True
     if parent_id:
@@ -751,6 +769,12 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
                    reference_prompt: str = Form(''), resolution: int = Form(DEFAULT_GENERATION['resolution']), advanced_settings: str = Form(''),
                    keep_finishing_source: Annotated[bool,Form()]=False,
                    profile_id: str = Form(''), parent_id: Annotated[str,Form()]='', queue_only: Annotated[bool,Form()]=False, queue_priority: Annotated[int,Form()]=0, queue_hold: Annotated[bool,Form()]=False):
+    # Legacy multipart profile_id is provenance; an edited base preset wins.
+    experimental = preset == HUMANOID_EXPERIMENTAL
+    if experimental:
+        preset = HUMANOID_EXPERIMENTAL
+        keep_finishing_source = True
+        asset_type = 'humanoid'
     if (preset not in GENERATION_PRESETS or not 0.01 <= height_m <= 100 or not 0 <= seed <= 2147483647
         or (triangles!=0 and not 1000<=triangles<=500000) or asset_type not in ASSET_TYPES
         or texture_size not in (0,1024,2048,4096) or resolution not in (512,1024,1536) or len(reference_prompt)>6000 or len(name)>80):
@@ -767,6 +791,8 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
         try: profile = next((p for p in PROFILES.list() if p['id'] == profile_id), None)
         except ValueError as error: raise HTTPException(422, str(error))
         if profile is None: raise HTTPException(400, 'Profile not found; reload profiles.')
+    elif experimental:
+        profile = next(p for p in builtin_profiles() if p['id'] == HUMANOID_EXPERIMENTAL)
     async with LOCK:
         if parent_id:job_path(parent_id)
         if not queue_only and (TERRAIN_ACTIVE or (PROCESS is not None and PROCESS.poll() is None)):
@@ -791,6 +817,11 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
                         generation_options=advanced,settings_version=2)
         if keep_finishing_source: settings['keep_finishing_source'] = True
         if profile: settings['profile'] = dict(id=profile['id'], name=profile['name'])
+        if experimental:
+            settings['profile_snapshot'] = dict(id=HUMANOID_EXPERIMENTAL, name='Humanoid · Experimental',
+                engine='trellis2', experimental=True, asset_type='humanoid', keep_finishing_source=True,
+                preset=preset, resolution=resolution, triangles=triangles, texture_size=texture,
+                generation_options=advanced)
         if parent_id:settings['parent_id']=parent_id
         (folder / 'settings.json').write_text(json.dumps(settings, indent=2), encoding='utf-8')
         write_json(folder/'metadata.json',dict(display_name=name.strip()[:80] or safe_name,

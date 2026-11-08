@@ -1,18 +1,27 @@
 // Recipes are persisted by the local server, independently from object history.
 const $=id=>document.getElementById(id);
-const steps={game_d:20,high_detail:20,fast:8,balanced:12,detail:20};
+const steps={game_d:20,high_detail:20,humanoid_experimental:20,fast:8,balanced:12,detail:20};
 export async function createProfileControls(advanced,{changed=()=>{}}={}){
-  let profiles=[],selected=null,saving=false,edit=false;
+  let profiles=[],selected=null,saving=false,edit=false,sourceRequired=false,previousKeep=false;
   function read(){const {texture_seed,...options}=advanced.read();return {preset:$('preset').value,resolution:Number($('resolution').value),
-    triangles:Number($('triangles').value)||({game_d:28000,high_detail:250000,fast:25000,balanced:50000,detail:100000}[$('preset').value]),
+    triangles:Number($('triangles').value)||({game_d:28000,high_detail:250000,humanoid_experimental:250000,fast:25000,balanced:50000,detail:100000}[$('preset').value]),
     texture_size:Number($('textureSize').value)||($('preset').value==='fast'?1024:2048),
     remove_bg:$('removeBg').checked,advanced:options};}
   function resolved(s){const copy=structuredClone(s);for(const key of ['structure_steps','shape_steps','texture_steps'])if(copy.advanced[key]===0)copy.advanced[key]=steps[copy.preset];return copy;}
   const equal=(a,b)=>{const x=resolved(a),y=resolved(b);return Object.keys(x).every(k=>k==='advanced'?Object.keys(x[k]).every(f=>x[k][f]===y[k][f]):x[k]===y[k]);};
   function sync(){
     if(!selected)return;
+    const experimental=($('pixalMode').checked?$('pixalProfileChoice').value:$('preset').value)==='humanoid_experimental';
+    if(experimental!==sourceRequired){
+      if(experimental){previousKeep=$('keepFinishingSource').checked;$('keepFinishingSource').checked=true;}
+      else $('keepFinishingSource').checked=previousKeep;
+      sourceRequired=experimental;
+    }
+    $('keepFinishingSource').disabled=experimental;$('humanoidProfileHelp').hidden=!experimental;$('finishingSourceHelp').hidden=experimental;
+    if(experimental&&!$('pixalMode').checked)$('assetType').value='humanoid';
     const recipe=read(),dirty=!equal(recipe,selected.settings);
-    $('profileState').textContent=dirty?'MODIFIED':selected.variant?'VARIANT':selected.builtin?'REFERENCE':'CUSTOM';
+    $('profileId').value=recipe.preset===selected.settings.preset?selected.id:'';
+    $('profileState').textContent=dirty?'MODIFIED':selected.variant?'VARIANT':selected.experimental?'EXPERIMENTAL':selected.builtin?'REFERENCE':'CUSTOM';
     $('profileState').classList.toggle('dirty',dirty);
     $('profileSummary').textContent=`${recipe.resolution}³ · ${recipe.triangles.toLocaleString('en-US')} triangles · texture ${recipe.texture_size/1024}K`;
     $('generationSummary').textContent=`${selected.name.replace(' · recommended','')}${dirty?' · modified':''} · local compute`;
@@ -28,6 +37,7 @@ export async function createProfileControls(advanced,{changed=()=>{}}={}){
     const textureSeed=advanced.read().texture_seed;
     $('removeBg').checked=s.remove_bg;advanced.apply({...s.advanced,texture_seed:textureSeed});
     $('profileChoice').value=id;$('profileId').value=id;
+    if(s.preset==='humanoid_experimental')$('assetType').value='humanoid';
     $('profileNotice').textContent='';sync();
   }
   async function request(url,options){const r=await fetch(url,options),data=await r.json();if(!r.ok)throw Error(typeof data.detail==='string'?data.detail:'Profiles unavailable.');return data;}
@@ -64,6 +74,7 @@ export async function createProfileControls(advanced,{changed=()=>{}}={}){
     finally{saving=false;$('confirmProfile').disabled=false;}
   };
   return {sync,reset:()=>apply('game_d'),
+    restoreSource(value){sourceRequired=false;previousKeep=!!value;$('keepFinishingSource').checked=!!value;sync();},
     detach(){
       selected={id:'',name:'Variant',builtin:true,variant:true,settings:read()};
       $('profileChoice').querySelector('[data-variant]')?.remove();

@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 import time
 import uuid
-from generation_options import GENERATION_PRESETS, GAME_D_ADVANCED, normalize_options
+from generation_options import GENERATION_PRESETS, GAME_D_ADVANCED, HUMANOID_EXPERIMENTAL, normalize_options
 
 
 def profile_options(overrides, steps):
@@ -15,11 +15,15 @@ def profile_options(overrides, steps):
 def builtin_profiles():
     # Historical presets stay readable by old jobs, but are no longer offered.
     recipes = [('game_d', 'Game - Default', GAME_D_ADVANCED),
-               ('high_detail', 'High Detail', {**GAME_D_ADVANCED, 'mesh_mode': 'direct'})]
-    return [dict(id=key, name=name, builtin=True, settings=dict(
+               ('high_detail', 'High Detail', {**GAME_D_ADVANCED, 'mesh_mode': 'direct'}),
+               (HUMANOID_EXPERIMENTAL, 'Humanoid · Experimental', {**GAME_D_ADVANCED, 'mesh_mode': 'direct'})]
+    profiles = [dict(id=key, name=name, builtin=True, settings=dict(
         preset=key, resolution=1024, triangles=GENERATION_PRESETS[key][1],
         texture_size=2048, remove_bg=True, advanced=profile_options(options,20)))
         for key,name,options in recipes]
+    profiles[-1].update(experimental=True, asset_type='humanoid', keep_finishing_source=True,
+                       description='Dense comparison master. Keeps the finishing source; review anatomy before reducing. No automatic local reconstruction or rig.')
+    return profiles
 
 
 def validate_recipe(data):

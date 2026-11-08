@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="trellis-ui-revision" content="3.1.0-reference-card">
+<meta name="trellis-ui-revision" content="3.1.0-humanoid-experimental">
 <title>TRELLIS Studio — Local 3D workspace</title>
 <link rel="icon" type="image/svg+xml" href="/web/trellis-mark.svg">
 <link rel="stylesheet" href="/web/studio.css?v=2.3">
 <link rel="stylesheet" href="/web/workspace.css?v=3.1.0"><link rel="stylesheet" href="/web/polish.css?v=3.1.0-reference-card">
 <script type="importmap">{"imports":{"three":"/vendor/build/three.module.js","three/addons/":"/vendor/examples/jsm/"}}</script>
-<link rel="stylesheet" href="/web/animation-studio.css?v=3.1.0"><link rel="stylesheet" href="/web/details.css?v=3.1.0"><link rel="stylesheet" href="/web/studio-tools.css?v=3.1.0"><link rel="stylesheet" href="/web/lighting.css?v=3.1.0"><link rel="stylesheet" href="/web/workbench.css?v=3.1.0"></head><body>
+<link rel="stylesheet" href="/web/animation-studio.css?v=3.1.0-rig-landmarks-flat"><link rel="stylesheet" href="/web/details.css?v=3.1.0"><link rel="stylesheet" href="/web/studio-tools.css?v=3.1.0"><link rel="stylesheet" href="/web/lighting.css?v=3.1.0"><link rel="stylesheet" href="/web/workbench.css?v=3.1.0"></head><body>
 <header class="topbar"><a class="brand" href="/"><img class="brand-logo" src="/web/trellis-mark.svg" alt=""><strong>TRELLIS <em>Studio</em></strong><span class="version">LOCAL / 03.1</span></a><span class="top-context">IMAGE → MATERIAL → VOLUME</span><div class="top-status"><span class="online-dot"></span><span id="runtime">Connecting to the engine…</span><a class="developer-link" href="/developers" title="API & MCP documentation" aria-label="API and MCP documentation"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#details"/></svg></a><button id="shutdown" class="quiet" type="button" title="Stop the local server">Stop</button></div></header>
 <div id="versionNotice" class="version-notice" role="status" hidden><span id="versionNoticeText"></span> <a id="reloadStudio" href="/" hidden>Reload Studio</a></div>
 <div class="app-shell">
@@ -21,7 +21,7 @@
 <div class="profile-actions"><button id="saveProfileAs" type="button" disabled>＋ Save a copy</button><button id="updateProfile" type="button" hidden>Edit this profile</button></div><p id="profileNotice" role="status" aria-live="polite"></p></div>
 <div class="profile-box" id="pixalProfile" hidden>
   <div class="section-label"><span>Character profile</span><span id="pixalRuntimeState" class="profile-state">OPTIONAL</span></div>
-  <strong id="pixalProfileName">Character · Pixal3D</strong>
+  <label class="sr-only" for="pixalProfileChoice">Character profile</label><select id="pixalProfileChoice"><option value="character_pixal">Character · Pixal3D</option></select>
   <p id="pixalProfileSummary" class="hint">Dedicated recipe for characters.</p>
   <p id="pixalRuntimeNotice" class="hint" role="status">Checking the optional Pixal3D runtime…</p>
 </div>
@@ -90,10 +90,11 @@
   </div>
 </fieldset>
 <label class="check"><input id="keepFinishingSource" name="keep_finishing_source" type="checkbox" value="true"><span>Keep source for finishing variants</span></label>
-<p class="hint">Optional. Stores the dense geometry and materials locally so finishing can be repeated without generation.</p>
+<p id="humanoidProfileHelp" class="hint" hidden>Experimental humanoid recipe. Keeps its source for lighter finishing variants without generation. Local face and hand reconstruction is not automatic.</p>
+<p id="finishingSourceHelp" class="hint">Optional. Stores the dense geometry and materials locally so finishing can be repeated without generation.</p>
 <fieldset id="monoAdvanced" class="mode-fields">
   <details class="advanced" id="advancedSettings"><summary>Advanced settings · 3D, textures & UV</summary>
-  <label class="field">Base preset<select id="profileBase"><option value="game_d">Game - Default · 20 steps</option><option value="high_detail">High Detail · 20 steps</option></select></label><div class="advanced-actions"><button id="resetAdvanced" type="button" class="secondary">Reset to Game - Default</button></div>
+  <label class="field">Base preset<select id="profileBase"><option value="game_d">Game - Default · 20 steps</option><option value="high_detail">High Detail · 20 steps</option><option value="humanoid_experimental">Humanoid · Experimental · 20 steps</option></select></label><div class="advanced-actions"><button id="resetAdvanced" type="button" class="secondary">Reset to Game - Default</button></div>
   <p class="hint">Hover over a label or field for help. Each result stores its settings for reuse with New version.</p>
   <div class="two-fields"><label class="field">Target triangles<input id="triangles" name="triangles" type="number" min="0" max="500000" step="1" value="28000"><small>0 = profile · 1,000 to 500,000</small></label><label class="field">3D seed<input id="seed" name="seed" type="number" value="42" min="0" max="2147483647" step="1"></label></div>
   <div id="advancedControls"></div>
@@ -107,7 +108,18 @@
 <input id="animationSearch" class="animation-search" type="search" placeholder="Search animations…" aria-label="Search animations">
 <div class="animation-tabs"><button id="animationTabLibrary" type="button" class="active">Library</button><button id="animationTabAdded" type="button">Added <b id="animationAddedCount">0</b></button></div>
 <div class="animation-target"><strong id="animationModel">Choose a model</strong><p id="animationRigState"></p><button id="createRig" class="secondary" type="button"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#skeleton"/></svg>Add rig</button></div>
-<section id="rigSetup" hidden><h2>Configure rig</h2><p class="hint">Orient the character upright and facing forward.</p><div id="rigRotationControls"></div><label class="field">Target height <span><input id="rigHeight" type="range" min="0.2" max="3" value="1.7" step="0.01"><output id="rigHeightValue">1.70 m</output></span></label><label class="field">Vertical offset <span><input id="rigOffset" type="range" min="-1" max="1" value="0" step="0.01"><output id="rigOffsetValue">0 m</output></span></label><div class="rig-setup-actions"><button id="resetRigSetup" class="secondary" type="button">Reset</button><button id="cancelRigSetup" class="quiet" type="button">Back</button><button id="confirmRigSetup" class="primary" type="button">Create rig</button></div></section>
+<section id="rigSetup" hidden>
+ <span id="rigStepLabel" class="eyebrow">01 / Size &amp; orientation</span><h2>Prepare character rig</h2>
+ <div id="rigTransformStep"><p class="hint">Face the character forward, with feet on the ground. Compare its size with the fixed 1.70 m reference.</p><div id="rigRotationControls"></div>
+ <label class="field">Target height <span><input id="rigHeight" type="range" min="0.2" max="3" value="1.7" step="0.01"><output id="rigHeightValue">1.70 m</output></span></label>
+ <label class="field rig-height-number">Height in metres<input id="rigHeightNumber" type="number" min="0.2" max="3" step="0.01" value="1.7"></label>
+ <label class="field">Vertical offset <span><input id="rigOffset" type="range" min="-1" max="1" value="0" step="0.01"><output id="rigOffsetValue">0 m</output></span></label></div>
+ <div id="rigLandmarkStep" hidden><p class="hint">Drag each marker onto the joint. L and R refer to the character’s own sides. Use the arrow keys for fine adjustments, Shift for larger steps.</p>
+ <div class="rig-marker-key"><span style="--marker-color:#6bd7e8">Chin</span><span style="--marker-color:#e6d56a">Shoulders</span><span style="--marker-color:#8fdf83">Elbows</span><span style="--marker-color:#d990d9">Wrists</span><span style="--marker-color:#e2e8db">Groin</span><span style="--marker-color:#e8a365">Knees</span><span style="--marker-color:#b6d76b">Ankles</span></div>
+ <label class="rig-symmetry"><input id="rigSymmetry" type="checkbox" checked> Mirror paired markers</label><output id="rigSelectedPoint" class="rig-selected-point" aria-live="polite"></output>
+ <p class="hint">Starting markers are a guide. Check every joint before confirming. Depth is estimated from the model.</p></div>
+ <div class="rig-setup-actions"><button id="resetRigSetup" class="secondary" type="button">Reset</button><button id="cancelRigSetup" class="quiet" type="button">Cancel</button><button id="confirmRigSetup" class="primary" type="button">Next · place joints</button></div>
+</section>
 <div id="animationLibraryControls"><label class="duration-control"><span>Animation duration <output id="animationDurationValue">3 s</output></span><input id="animationDuration" type="range" min="2" max="5" value="3" step="0.5"><small class="duration-bounds"><span>2 seconds</span><span>5 seconds</span></small></label><div class="animation-category"><select id="animationCategory" aria-label="Animation category"><option value="">All categories</option></select><span id="animationAvailableCount"></span></div><div id="animationCards" class="animation-cards"></div></div><p id="animationNotice" role="status" aria-live="polite"></p></section>
 <div id="notice" role="status" aria-live="polite"></div>
 </aside>
@@ -135,7 +147,7 @@
 <dialog id="deleteDialog"><form method="dialog"><span class="eyebrow">TRASH</span><h2>Remove this model?</h2><p id="deleteName"></p><p>The model and its files will move to the local trash. You can restore them later.</p><div class="dialog-actions"><button value="cancel" class="secondary">Keep</button><button id="confirmDelete" type="button" class="danger">Move to trash</button></div></form></dialog>
 <dialog id="imageDialog"><button class="dialog-close" id="closeImage">Close ×</button><img id="largeImage" alt="Full-size texture or UV layout"></dialog>
 <footer><span>TRELLIS STUDIO</span><span>Reference → generation → review → Blender</span><span>UV & PBR · local compute</span></footer>
-<script type="module" src="/web/studio.js?v=3.1.0-face-reprojection"></script><script type="module" src="/web/validation-en.js?v=3.1.0"></script>
+<script type="module" src="/web/studio.js?v=3.1.0-humanoid-final"></script><script type="module" src="/web/validation-en.js?v=3.1.0"></script>
 <dialog id="refinishDialog" class="studio-dialog" aria-labelledby="refinishTitle">
 <form id="refinishForm">
 <header class="studio-dialog-head"><div><span class="eyebrow">FINISHING</span><h2 id="refinishTitle">Refinish model</h2><p id="refinishSource"></p></div><button id="closeRefinish" type="button" class="dialog-x" aria-label="Close finishing"></button></header>

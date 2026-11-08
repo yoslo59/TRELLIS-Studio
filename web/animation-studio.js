@@ -1,6 +1,6 @@
 import {icon} from './card-menu.js?v=2.6.1';
 import {createMotionPreviews} from './authored-previews.js?v=2.6';
-export async function createAnimationStudio({api,getJob,isBusy,startJob,rigPreview}){
+export async function createAnimationStudio({api,getJob,isBusy,startJob,rigSetup}){
  const $=id=>document.getElementById(id),data=await api('/api/animations');
  let tab='library',catalog=data.animations;const previews=createMotionPreviews();
  const categories=[...new Set(catalog.map(c=>c.category))];
@@ -8,18 +8,41 @@ export async function createAnimationStudio({api,getJob,isBusy,startJob,rigPrevi
  const nameOf=j=>j?.metadata?.display_name||j?.settings.name||'Choose a model from the collection';
  $('animationDuration').oninput=()=>{$('animationDurationValue').value=Number($('animationDuration').value).toLocaleString('en-US')+' s';};
  async function run(path,body){$('animationNotice').textContent='';try{const result=await api(path,{method:'POST',...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});await startJob(result.id,{rig:path.endsWith('/rig')});}catch(e){$('animationNotice').textContent=e.message;}render();}
- const rotation=[];
+ const rotation=[];let rigStep=0,rigJobId=null,savedLandmarks=null;
  for(const axis of ['X','Y','Z']){const label=document.createElement('label');label.className='rig-rotation';const caption=document.createElement('span');caption.textContent='Rotation '+axis;const slider=document.createElement('input');slider.type='range';slider.min=-180;slider.max=180;slider.step=1;slider.value=0;slider.setAttribute('aria-label','Rotation '+axis);const value=document.createElement('output');value.value='0°';const reset=document.createElement('button');reset.type='button';reset.className='quiet';reset.append(icon('rotate'));reset.setAttribute('aria-label','Reset rotation '+axis);reset.onclick=()=>{slider.value=0;changeRig();};slider.oninput=changeRig;label.append(caption,slider,value,reset);rotation.push(slider);$('rigRotationControls').append(label);}
  function rigOptions(){return {rotation:rotation.map(s=>Number(s.value)),height_m:Number($('rigHeight').value),offset_m:Number($('rigOffset').value)};}
- function changeRig(){rotation.forEach(s=>s.nextElementSibling.value=s.value+'°');$('rigHeightValue').value=Number($('rigHeight').value).toLocaleString('en-US',{minimumFractionDigits:2})+' m';$('rigOffsetValue').value=Number($('rigOffset').value).toLocaleString('en-US')+' m';rigPreview(rigOptions());}
- function closeRig(){rigPreview(null);$('rigSetup').hidden=true;$('animationLibraryControls').hidden=false;}
- $('createRig').onclick=()=>{$('rigSetup').hidden=false;$('animationLibraryControls').hidden=true;rotation.forEach(s=>s.value=0);$('rigHeight').value=Math.min(3,Math.max(.2,getJob()?.result?.height_m||1.7));$('rigOffset').value=0;changeRig();};
+ function changeRig(){rotation.forEach(s=>s.nextElementSibling.value=s.value+'°');$('rigHeightValue').value=Number($('rigHeight').value).toLocaleString('en-US',{minimumFractionDigits:2})+' m';$('rigHeightNumber').value=$('rigHeight').value;$('rigOffsetValue').value=Number($('rigOffset').value).toLocaleString('en-US')+' m';rigSetup?.preview(rigOptions());}
+ function showRigStep(step){rigStep=step;$('rigTransformStep').hidden=step!==0;$('rigLandmarkStep').hidden=step!==1;$('rigStepLabel').textContent=step===0?'01 / Size & orientation':'02 / Joint placement';$('confirmRigSetup').textContent=step===0?'Next · place joints':'Confirm & create rig';$('cancelRigSetup').textContent=step===0?'Cancel':'Back';}
+ function closeRig(){document.body.classList.remove('rig-preparing');rigSetup?.close();rigJobId=null;savedLandmarks=null;$('rigSetup').hidden=true;$('animationLibraryControls').hidden=false;}
+ $('createRig').onclick=()=>{if(!rigSetup?.ready)return;document.body.classList.add('rig-preparing');rigJobId=getJob()?.id;savedLandmarks=null;$('rigSetup').hidden=false;$('animationLibraryControls').hidden=true;showRigStep(0);rotation.forEach(s=>s.value=0);$('rigHeight').value=Math.min(3,Math.max(.2,getJob()?.result?.height_m||1.7));$('rigOffset').value=0;$('rigSymmetry').checked=true;changeRig();};
  $('rigHeight').oninput=changeRig;$('rigOffset').oninput=changeRig;
- $('cancelRigSetup').onclick=closeRig;$('resetRigSetup').onclick=()=>{rotation.forEach(s=>s.value=0);$('rigHeight').value=1.7;$('rigOffset').value=0;changeRig();};
- $('confirmRigSetup').onclick=()=>{const options=rigOptions(),j=getJob();closeRig();if(j)run(`/api/jobs/${j.id}/rig`,options);};
+ $('rigHeightNumber').oninput=()=>{const input=$('rigHeightNumber');if(!input.validity.valid||!input.value)return;$('rigHeight').value=input.value;changeRig();};
+ $('cancelRigSetup').onclick=()=>{if(rigStep===1){savedLandmarks=rigSetup.getLandmarks();rigSetup.endMarkers();showRigStep(0);}else closeRig();};
+ $('resetRigSetup').onclick=()=>{if(rigStep===1){rigSetup.resetMarkers();return;}savedLandmarks=null;rotation.forEach(s=>s.value=0);$('rigHeight').value=1.7;$('rigOffset').value=0;changeRig();};
+ $('rigSymmetry').onchange=()=>rigSetup.setSymmetry($('rigSymmetry').checked);
+ $('confirmRigSetup').onclick=async()=>{
+  const options=rigOptions(),j=getJob(),button=$('confirmRigSetup');
+  if(!j||j.id!==rigJobId){closeRig();return;}
+  if(rigStep===0){
+   if(!$('rigHeightNumber').reportValidity())return;
+   $('animationNotice').textContent='';showRigStep(1);
+   rigSetup.startMarkers({points:savedLandmarks,symmetry:$('rigSymmetry').checked,onChange:(points,key)=>{
+    $('rigSelectedPoint').textContent=key.replaceAll('_',' ')+' · '+points[key].map(v=>(v*options.height_m).toFixed(3)).join(', ')+' m';
+   }});return;
+  }
+  options.landmarks=rigSetup.getLandmarks();button.disabled=true;$('animationNotice').textContent='';
+  try{
+   const status=await api('/api/status');
+   if(!status.features?.includes('rig_landmarks'))throw Error('Restart TRELLIS to enable manual joint placement before creating this rig.');
+   if(getJob()?.id!==j.id||rigJobId!==j.id)return;
+   const result=await api(`/api/jobs/${j.id}/rig`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(options)});
+   closeRig();await startJob(result.id,{rig:true});
+  }catch(error){$('animationNotice').textContent=error.message;}
+  finally{button.disabled=false;render();}
+ };
  function render(){
   const job=getJob(),busy=isBusy(),hasRig=!!(job?.result?.bones||job?.result?.rigged),done=job?.state==='done';
-  $('animationModel').textContent=nameOf(job);$('createRig').hidden=hasRig;$('createRig').disabled=!done||busy;
+  $('animationModel').textContent=nameOf(job);$('createRig').hidden=hasRig;$('createRig').disabled=!done||busy||!rigSetup?.ready;
   $('animationRigState').textContent=hasRig?`${job.result.bones} bones · ready to animate`:done?'Add a rig to use the motion library.':'Open a completed model from the collection.';
   const q=$('animationSearch').value.toLocaleLowerCase('en'),added=job?.settings.animation_clips||[];
   $('animationAddedCount').textContent=added.length;
@@ -37,5 +60,5 @@ export async function createAnimationStudio({api,getJob,isBusy,startJob,rigPrevi
  }
  for(const name of ['library','added'])$('animationTab'+(name==='library'?'Library':'Added')).onclick=()=>{tab=name;for(const t of ['Library','Added'])$('animationTab'+t).classList.toggle('active',t.toLowerCase()===name);render();};
  $('animationSearch').oninput=render;$('animationCategory').onchange=render;
- let signature='';return {label(name){const match=/^TS_(.+)_([0-9.]+)s$/.exec(name);return match?(catalog.find(c=>c.id===match[1])?.name||match[1])+' · '+Number(match[2]).toLocaleString('en-US')+' s':name;},update(){const job=getJob(),key=JSON.stringify([job?.id,job?.state,job?.result?.bones,job?.settings.animation_clips,isBusy()]);if(signature!==key){signature=key;render();}},render};
+ let signature='';return {closeRig,label(name){const match=/^TS_(.+)_([0-9.]+)s$/.exec(name);return match?(catalog.find(c=>c.id===match[1])?.name||match[1])+' · '+Number(match[2]).toLocaleString('en-US')+' s':name;},update(){const job=getJob();if(rigJobId&&rigJobId!==job?.id)closeRig();const key=JSON.stringify([job?.id,job?.state,job?.result?.bones,job?.settings.animation_clips,isBusy(),rigSetup?.ready]);if(signature!==key){signature=key;render();}},render};
 }

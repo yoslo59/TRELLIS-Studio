@@ -2,7 +2,8 @@
 import math
 
 DEFAULT_PROFILE = 'game_d'
-GENERATION_PRESETS = {'game_d': (20, 28000, 2048), 'high_detail': (20, 250000, 2048), 'fast': (8, 25000, 1024),
+HUMANOID_EXPERIMENTAL = 'humanoid_experimental'
+GENERATION_PRESETS = {'game_d': (20, 28000, 2048), 'high_detail': (20, 250000, 2048), HUMANOID_EXPERIMENTAL: (20, 250000, 2048), 'fast': (8, 25000, 1024),
                       'balanced': (12, 50000, 2048), 'detail': (20, 100000, 2048)}
 DEFAULT_GENERATION = dict(preset=DEFAULT_PROFILE, resolution=1024, triangles=28000, texture_size=2048)
 
@@ -53,7 +54,8 @@ BY_KEY={f['key']:f for f in FIELDS}
 # The new-game default is explicit both in submitted settings and the UI schema.
 GAME_D_ADVANCED={f['key']:f['default'] for f in FIELDS}
 GAME_D_ADVANCED.update(texture_guidance=2.0,repair_holes=True)
-PROFILE_ADVANCED = {'game_d': GAME_D_ADVANCED, 'high_detail': {**GAME_D_ADVANCED, 'mesh_mode': 'direct'}}
+PROFILE_ADVANCED = {'game_d': GAME_D_ADVANCED, 'high_detail': {**GAME_D_ADVANCED, 'mesh_mode': 'direct'},
+                    HUMANOID_EXPERIMENTAL: {**GAME_D_ADVANCED, 'mesh_mode': 'direct'}}
 
 def normalize_options(overrides=None,base_steps=12):
     if overrides is None:overrides={}

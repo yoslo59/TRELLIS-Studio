@@ -13,7 +13,10 @@ x,y,z=[math.radians(v) for v in options['rotation']]
 rotation=Matrix.Rotation(x,4,'X')@Matrix.Rotation(y,4,'Y')@Matrix.Rotation(z,4,'Z')
 group.matrix_world=conversion@rotation@conversion.inverted()
 def bounds():
-    bpy.context.view_layer.update();points=[o.matrix_world@Vector(c) for o in bpy.context.scene.objects if o.type=='MESH' for c in o.bound_box]
+    # Match Three.js Box3(..., precise=True) in rig preparation, including
+    # arbitrary rotations. Rotated local box corners overestimate the mesh.
+    bpy.context.view_layer.update();points=[o.matrix_world@v.co for o in bpy.context.scene.objects if o.type=='MESH' for v in o.data.vertices]
+    if not points:raise ValueError('The character contains no mesh vertices.')
     low=Vector(tuple(min(p[i] for p in points) for i in range(3)));high=Vector(tuple(max(p[i] for p in points) for i in range(3)));return low,high
 low,high=bounds();group.scale*=options['height_m']/max(high.z-low.z,.00001)
 low,high=bounds();center=(low+high)/2;group.location+=Vector((-center.x,-center.y,-low.z+options['offset_m']))

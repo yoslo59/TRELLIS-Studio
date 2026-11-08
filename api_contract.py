@@ -1,6 +1,6 @@
 """Versioned agent API contracts. No model engines or GPU libraries are imported."""
 from typing import Literal,Annotated
-from pydantic import BaseModel,ConfigDict,Field,field_validator
+from pydantic import BaseModel,ConfigDict,Field,field_validator,model_validator
 
 VERSION='3.1.0'
 Identifier=Annotated[str,Field(pattern=r'^[a-f0-9]{32}$')]
@@ -19,6 +19,7 @@ class Generation(Contract):
 
 class MultiViewGeneration(Contract):
     upload_id: Identifier = Field(description='Front-view upload ID.')
+    profile_id: Literal['character_pixal', 'humanoid_experimental'] = Field(default='character_pixal', description='Optional experimental dense master profile; standard Pixal3D remains the default.')
     left_upload_id: Identifier | None = None
     back_upload_id: Identifier | None = None
     right_upload_id: Identifier | None = None
@@ -81,6 +82,15 @@ class Rig(Contract):
     rotation:tuple[float,float,float]=(0,0,0)
     height_m:float=Field(default=1.7,ge=.2,le=3)
     offset_m:float=Field(default=0,ge=-1,le=1)
+    landmarks:dict[str,list[float]]|None=Field(default=None,description='Optional complete set of 12 frontal joint markers [x/height,y/height], centre/ground origin before offset. +X is anatomical left. Requires an unrigged humanoid A/T pose; depth is predicted by UniRig.')
+    @model_validator(mode='before')
+    @classmethod
+    def validate_setup(cls,value):
+        from rig_landmarks import validate_rig_options
+        if isinstance(value,dict):
+            raw={k:v for k,v in value.items() if k!='landmarks' or v is not None}
+            validate_rig_options(raw)
+        return value
 
 class PrintCopy(Contract):
     height_mm:float=Field(default=150,ge=20,le=500)

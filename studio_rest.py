@@ -93,7 +93,7 @@ def install(app,g):
         return accepted(dict(id=result['ids'][0]))
 
     @router.post('/generations/multiview', tags=['Generation'], status_code=202,
-                 response_model=JobAccepted, summary='Queue a Pixal3D character from posed images')
+                 response_model=JobAccepted, summary='Queue a Pixal3D character using a standard or experimental profile')
     async def generate_multiview(data: MultiViewGeneration):
         recipe = data.model_dump(exclude={'upload_id', 'left_upload_id', 'back_upload_id',
                                           'right_upload_id', 'priority'}, exclude_none=True)
@@ -169,7 +169,7 @@ def install(app,g):
     async def printing(identifier:Identifier,data:PrintCopy):return accepted(await legacy('POST',f'/api/jobs/{identifier}/print-copy',data.model_dump()))
 
     @router.post('/models/{identifier}/rig',tags=['Animation'],status_code=202,response_model=JobAccepted,summary='Generate a UniRig skeleton on a linked copy')
-    async def rig(identifier:Identifier,data:Rig):return accepted(await legacy('POST',f'/api/jobs/{identifier}/rig',data.model_dump()))
+    async def rig(identifier:Identifier,data:Rig):return accepted(await legacy('POST',f'/api/jobs/{identifier}/rig',data.model_dump(exclude_none=True)))
 
     @router.post('/models/{identifier}/animations',tags=['Animation'],status_code=202,response_model=JobAccepted,summary='Add or update one library motion on the same model')
     async def animation(identifier:Identifier,data:Animation):return accepted(await legacy('POST',f'/api/jobs/{identifier}/animations',data.model_dump()))

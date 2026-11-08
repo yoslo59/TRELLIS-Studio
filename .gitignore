@@ -26,6 +26,8 @@
 !/retarget_catalogue.py
 !/retarget_motions.py
 !/rig_worker.py
+!/rig_landmarks.py
+!/rig_joint_placement.py
 !/standard_animations.py
 !/studio_api.py
 !/studio_assets.py
@@ -50,6 +52,9 @@
 /tests/*
 !/tests/pixal3d_sampling.py
 !/tests/pixal3d_generation.py
+!/tests/rig_landmarks.py
+!/tests/rig_landmarks_api.py
+!/tests/rig_landmarks_blender.py
 !/INSTALLATION.md
 !/THIRD_PARTY_NOTICES.md
 !/SECURITY.md
@@ -79,6 +84,7 @@
 !/web/advanced-controls.js
 !/web/animation-studio.css
 !/web/animation-studio.js
+!/web/rig-setup-viewer.js
 !/web/api-reference.css
 !/web/asset-details.js
 !/web/asset-placeholder.svg
@@ -134,6 +140,10 @@
 !/UniRig/check-runtime.sh
 !/UniRig/check-runtime.py
 !/UniRig/skeleton-preview.py
+!/UniRig/skeleton_alignment.py
+!/UniRig/apply-landmarks.py
+!/UniRig/verify-landmarks.py
+!/UniRig/restore-skin-frame.py
 /animations/*
 !/animations/library.json
 /integrations/*
@@ -179,3 +189,5 @@
 /docs/screenshots/new/*
 !/docs/screenshots/new/01.jpg
 !/docs/screenshots/new/02.jpg
+
+!/tests/humanoid_profiles.py

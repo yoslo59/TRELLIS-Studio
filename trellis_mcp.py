@@ -8,7 +8,7 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from starlette.responses import JSONResponse
-from api_contract import Identifier,Generation,ImportModel,Metadata,LOD,Game,Motion,Animation,Rig,PrintCopy,Export,Folder,Assign,SavedView,VERSION
+from api_contract import Identifier,Generation,MultiViewGeneration,ImportModel,Metadata,LOD,Game,Motion,Animation,Rig,PrintCopy,Export,Folder,Assign,SavedView,VERSION
 
 ROOT=Path(__file__).resolve().parent
 BASE=os.environ.get('TRELLIS_API_URL','http://127.0.0.1:7860').rstrip('/')
@@ -83,6 +83,11 @@ async def queue_generation(recipe:Generation)->dict[str,Any]:
     return await api('POST','/generations',recipe.model_dump())
 
 @tool()
+async def queue_multiview_generation(recipe:MultiViewGeneration)->dict[str,Any]:
+    """Queue Pixal3D from a front image and at least one posed side/back image. Upload images first. Standard character_pixal is default; humanoid_experimental keeps a dense finishing source. Poll get_model; anatomy requires visual review."""
+    return await api('POST','/generations/multiview',recipe.model_dump(exclude_none=True))
+
+@tool()
 async def import_model(source:ImportModel)->dict[str,Any]:
     """Import a previously uploaded 3D model. GLB keeps embedded materials, rig and clips."""
     return await api('POST','/imports',source.model_dump())
@@ -129,8 +134,8 @@ async def prepare_print_copy(model_id:Identifier,settings:PrintCopy)->dict[str,A
 
 @tool()
 async def rig_model(model_id:Identifier,settings:Rig)->dict[str,Any]:
-    """Run UniRig on a linked copy with orientation, height and vertical offset. Does not alter the source."""
-    return await api('POST','/models/'+model_id+'/rig',settings.model_dump())
+    """Run UniRig on a linked copy with orientation, height, vertical offset and optional frontal joint landmarks. Does not alter the source."""
+    return await api('POST','/models/'+model_id+'/rig',settings.model_dump(exclude_none=True))
 
 @tool()
 async def add_animation(model_id:Identifier,motion:Animation)->dict[str,Any]:

@@ -31,12 +31,12 @@ Read the [detailed installation, repair and troubleshooting guide](INSTALLATION.
 | **Queue** | Prepare batches of up to 30 images with individual recipes and priorities; schedule sequentially; pause, cancel or explicitly retry a task. Progress appears on its collection card. |
 | **Collection** | Search, category/type/review filters, favourites, tags, notes, nested folders, saved views, multiple selection, restorable trash and per-card action menus. |
 | **Review** | PBR/clay/normals/wireframe views, camera presets, adjustable preview lighting, synchronised before/after comparison, topology/UV/material/dimension diagnostics. |
-| **Animate** | UniRig skeleton and skin-weight prediction, orientation/height/offset controls, visible skeleton inspection and 83 authored humanoid animation entries. |
+| **Animate** | UniRig skeleton and skin-weight prediction, size comparison with a flat 1.70 m human silhouette, editable frontal joint markers, visible skeleton inspection and 83 authored humanoid animation entries. |
 | **Prepare** | Linked LOD copies, pivots, centring, orientation, scale and box/convex collisions; dedicated printing copies with STL and topology reports. |
 | **History** | Parent/child lineage, recipes, comments, recoverable checkpoints and restoration as a new card. |
 | **Present** | Custom card thumbnails from the current camera/lighting, transparent PNGs and 6/10-second turntable videos. |
 | **Transfer** | Collection ZIP backup with models, sources, profiles, clips, metadata and prepared resources; optional checkpoints; verified restoration with new IDs. |
-| **Automate** | Typed REST API v1, self-hosted interactive OpenAPI reference and 36 MCP tools over STDIO or Streamable HTTP. |
+| **Automate** | Typed REST API v1, self-hosted interactive OpenAPI reference and 37 MCP tools over STDIO or Streamable HTTP. |
 
 ### Try another finish
 
@@ -50,13 +50,15 @@ The source cache can take hundreds of megabytes per model. Studio stores it once
 
 **High Detail** retains the 1024/20-step/2K sampling setup, targets 250,000 triangles and uses direct simplification to preserve more surface detail. Create custom profiles when you need another recipe; the built-in profiles remain protected. Historical recipes remain readable.
 
+**Humanoid · Experimental** (`humanoid_experimental`) is an optional comparison recipe: 1024 cascade, 250,000 target triangles, 2K materials and direct simplification. It retains the decoded source automatically and classifies the result as a humanoid. Inspect this detailed master, then use **Refinish model** to compare lighter copies around 10,000–14,000 triangles without generating again. The single-image sampler uses D’s 20-step setup; the Pixal3D version keeps its existing multi-view sampler. It does not automatically reconstruct or replace the face and hands, bake a new high-to-low normal map, generate extra reference views or add a rig. Those anatomy experiments remain separate. **Game - Default stays selected at startup and reset.**
+
 512 and 1024 generation are provided by the standard installer. Higher-resolution controls require separate local capability validation and sufficient memory. Texture resolution is independent of geometry resolution.
 
 ### Optional multi-view characters
 
 Run **Install Pixal3D.cmd** once after the main Studio installation. In the **Reference image** card in **Create**, enable **Multi-view · Pixal3D**, add a full-body front image and at least one complementary view, then choose the side angle that matches the images. The left and right slots are relative to the character. The back is a 180° view. Use the same character, scale and A-pose or T-pose in each image, with hands and feet visible. The slots accept PNG, JPEG and WebP up to 25 MB each. Studio prepares the cutouts and framing locally. Supply the views yourself.
 
-The separate **Character · Pixal3D** recipe uses the 1024 cascade, a target of 10,600 triangles and 2K materials. The mesh and materials are generated in successive stages. Actual triangle counts are approximate. Jobs share Studio's queue and retain their input views, angles and recipe. The source cache for **Refinish model** is optional. The standard Create mode continues to use **Game - Default**.
+The separate **Character · Pixal3D** recipe uses the 1024 cascade, a target of 10,600 triangles and 2K materials. The mesh and materials are generated in successive stages. Actual triangle counts are approximate. Jobs share Studio's queue and retain their input views, angles and recipe. The source cache for **Refinish model** is optional for this standard recipe. The **Character profile** selector also offers **Humanoid · Experimental**, which keeps the source and targets a detailed 250,000-triangle master before lighter finishing comparisons. The standard Create mode continues to use **Game - Default**.
 
 New Pixal3D jobs use 12 structure steps, 20 steps in each geometry pass and 12 material steps, with guidance 7.5 / 7.5 / 1. Recipe version 3 makes the geometry step count apply to both passes. Replaying a saved version 1 or 2 job retains its historical 12-step high-resolution pass. Increasing steps does not guarantee finer anatomy. Keep the references, seed and finishing settings fixed when comparing recipes.
 
@@ -78,11 +80,13 @@ Diagnostics report measured topology, UV presence/collapse, normals, textures, d
 *An imported character with its skeleton visible, animation timeline and clip library. Studio supports both generated and imported models.*
 
 1. Select a completed model and open **Animation**.
-2. Use **Add rig** for an unrigged character. Set its orientation, target height and vertical offset. UniRig runs in its separate WSL environment and produces a linked rigged copy.
+2. Use **Add rig** for an unrigged character. Set its orientation, target height and vertical offset, using the fixed **1.70 m reference silhouette** for scale. Choose **Next · place joints**, then position the chin, shoulders, elbows, wrists, groin, knees and ankles. Drag markers or use the arrow keys (Shift for larger steps); disable **Mirror paired markers** for asymmetrical poses. L/R refer to the character's own sides. Confirm only after checking every point. UniRig runs in its separate WSL environment and produces a linked rigged copy.
 3. Inspect the predicted skeleton against the model, including hands, feet, joints and proportions.
 4. Browse or search the animation cards on the left. Choose **2–5 seconds** and **Add to model**.
 5. Add more clips to that **same model and card**. Updating a clip preserves the others. Existing custom clips are retained.
 6. Select clips, play/pause, inspect the skeleton or use the motion workshop to trim/resample, blend a loop and choose in-place or root motion. Motion edits create a checkpoint and update prepared skinned LODs.
+
+The initial markers are editable guides, not automatic landmark detection. Manual placement supports upright humanoids in an A-pose or T-pose: frontal positions constrain the predicted skeleton **before skin weights are calculated**, while UniRig retains its predicted depth. Ambiguous skeleton mappings stop with an error rather than ignoring the markers. This step does not rebuild mesh anatomy or add a facial rig. Existing skins can still be retained through the API without new landmarks; editing an already skinned skeleton is a separate workflow.
 
 The library uses the **free Standard editions** of Quaternius Universal Animation Libraries 1 and 2, under **CC0-1.0**. Entries cover locomotion, crouching, jumping, interaction, combat, reactions, emotes and other game actions. Card previews show authored motion on its source mannequin. Paid packs are not included. The retargeter adapts timing, body/finger rotations and root travel to the fitted rig; extreme proportions, clothing, skin weights, contacts and transitions can still need manual work.
 

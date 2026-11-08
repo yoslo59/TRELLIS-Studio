@@ -76,6 +76,19 @@ stored clip name from the model record. Motion edits protect the previous versio
 with a checkpoint; other clips stay on the same model and prepared LODs are updated.
 `distance` adds forward travel to the source motion. Use zero to keep authored travel.
 
+`POST /models/{id}/rig` accepts `rotation`, `height_m`, `offset_m` and an optional
+`landmarks` object for an unrigged humanoid in an A-pose or T-pose. The complete
+set is required: `chin`, `groin`, `left_shoulder`, `right_shoulder`, `left_elbow`,
+`right_elbow`, `left_wrist`, `right_wrist`, `left_knee`, `right_knee`, `left_ankle`
+and `right_ankle`. Each value is `[x, y]` normalized by `height_m`, with origin at
+the horizontal centre and ground **before** `offset_m`; +X is anatomical left
+(right on a front-facing screen). UniRig predicts joint depth. The supplied
+frontal positions adjust the skeleton before skin weights are calculated, and
+the final rig is checked against them. These are joint placement hints, not mesh
+deformations. Existing skinned models reject manual landmarks with HTTP 409;
+omitting `landmarks` preserves the previous rig workflow. Check the
+`rig_landmarks` feature in `/status` before submitting points to a running server.
+
 Generation, LOD, game preparation, print preparation and rigging create linked
 versions as described in the reference. Metadata changes and animation additions
 operate on the selected record. Model deletion is a move to restorable trash;

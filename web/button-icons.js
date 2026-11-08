@@ -5,6 +5,7 @@ const names={closeLighting:'close',resetLighting:'rotate',lightingToggle:'sun',s
  applyBatch:'check',keepBatch:'close',confirmBatchTrash:'trash',closeImport:'close',confirmImport:'import',closePrint:'close',confirmPrint:'print',prepareExport:'download',newExport:'plus',cancelExportTask:'close',
  compareFrame:'fit',comparePlay:'play',rerunDiagnostics:'rotate',animationTabLibrary:'grid',animationTabAdded:'check',cancelRigSetup:'back',resetRigSetup:'rotate',confirmRigSetup:'skeleton',createRig:'skeleton'};
 function decorate(button){
+ if(button.hasAttribute('data-landmark'))return;
  for(const n of [...button.childNodes])if(n.nodeType===Node.TEXT_NODE)n.textContent=n.textContent.replace(/^[\s]*[＋+↻↺←→▦☆★×✕]\s*/,'');
  if(button.querySelector('svg'))return;
  const text=button.textContent.trim().toLowerCase();let name=names[button.id]||({compare:'compare',diagnostics:'shield',export:'download',details:'details',version:'version',remove:'trash',print:'print'}[button.dataset.action]);
