@@ -13,7 +13,7 @@ import { createAdvancedControls } from './advanced-controls.js?v=3.1.0';
 import { createProfileControls } from './profiles.js?v=3.1.0';
 import {createCardMenu,updateCardStatus,icon} from './card-menu.js?v=3.1.0';
 const $=id=>document.getElementById(id);
-const cardMenu=createCardMenu({version:reuseJob,remove:requestDelete,details:openDetails,print:j=>printCopy.open(j),compare:j=>studioTools.compare.open(j),diagnostics:j=>studioTools.diagnostics.open(j),export:j=>studioTools.exports.open(j),history:j=>workbench.history.open(j),folder:j=>workbench.workspace.move(j),lod:j=>workbench.prepare.open(j,'lod'),game:j=>workbench.prepare.open(j,'game')});
+const cardMenu=createCardMenu({version:reuseJob,remove:requestDelete,details:openDetails,print:j=>printCopy.open(j),compare:j=>studioTools.compare.open(j),diagnostics:j=>studioTools.diagnostics.open(j),export:j=>studioTools.exports.open(j),history:j=>workbench.history.open(j),folder:j=>workbench.workspace.move(j),lod:j=>workbench.prepare.open(j,'lod'),game:j=>workbench.prepare.open(j,'game'),refinish:openRefinish});
 const labels={done:'Completed',running:'Generating',error:'Failed',cancelled:'Cancelled',queued:'Queued'},reviews={review:'To review',retouch:'Needs changes',retained:'Retained',rejected:'Rejected'};
 let studioTools,viewerLighting,workbench;
 let selectedId=null,loadedId=null,loadingId=null,activeId=null,records=[],selectedFile=null,busy=false,ready=false,shutDown=false,features=false;
@@ -62,7 +62,28 @@ async function loadModel(id){const current=records.find(j=>j.id===id),rigPending
 $('gridToggle').onclick=()=>{if(!grid)return;grid.visible=!grid.visible;$('gridToggle').setAttribute('aria-pressed',grid.visible);};
 $('fit').onclick=()=>fit();$('rotate').onclick=()=>{rotating=!rotating;$('rotate').setAttribute('aria-pressed',rotating);};$('wireframe').onclick=()=>{wire=!wire;$('wireframe').setAttribute('aria-pressed',wire);materials();};$('materialMode').onchange=materials;
 document.querySelectorAll('[data-angle]').forEach(b=>b.onclick=()=>{rotating=false;$('rotate').setAttribute('aria-pressed','false');if(model)model.rotation.y=0;fit(b.dataset.angle);});
-function downloads(j){for(const[id,file,enabled]of[['downloadBlender','Blender.zip',features],['downloadGlb','model.glb',true],['downloadUnity','Unity.zip',!['imported','rigged','print'].includes(j?.settings.asset_type)]]){const el=$(id),ok=j?.state==='done'&&enabled;el.classList.toggle('disabled',!ok);el.setAttribute('aria-disabled',!ok);if(ok)el.href=`/api/jobs/${j.id}/files/${file}`;else el.removeAttribute('href');}const printable=j?.state==='done'&&j?.settings.asset_type==='print';$('downloadStl').hidden=!printable;if(printable)$('downloadStl').href=`/api/jobs/${j.id}/files/model.stl`;else $('downloadStl').removeAttribute('href');const terrain=j?.settings.asset_type==='terrain_unity';$('downloadHeight').hidden=!(terrain&&j.state==='done');if(terrain)$('downloadHeight').href=`/api/jobs/${j.id}/files/heightmap.png`;}
+function downloads(j){
+ const done=j?.state==='done',terrain=j?.settings.asset_type==='terrain_unity';
+ for(const[id,file,enabled]of[['downloadBlender','Blender.zip',features],['downloadGlb','model.glb',true],['downloadUnity','Unity.zip',true]]){
+  const el=$(id),ok=done&&enabled;
+  el.classList.toggle('disabled',!ok);el.setAttribute('aria-disabled',!ok);
+  if(ok)el.href=id==='downloadUnity'&&!terrain?'#exportDialog':`/api/jobs/${j.id}/files/${file}`;else el.removeAttribute('href');
+ }
+ const unityLabel=terrain?'Download native Unity terrain':'Export to Unity';
+ $('downloadUnity').title=unityLabel;$('downloadUnity').setAttribute('aria-label',unityLabel);
+ const printable=done&&j.settings.asset_type==='print';
+ $('downloadStl').hidden=!printable;
+ if(printable)$('downloadStl').href=`/api/jobs/${j.id}/files/model.stl`;else $('downloadStl').removeAttribute('href');
+ $('downloadHeight').hidden=!(terrain&&done);
+ if(terrain)$('downloadHeight').href=`/api/jobs/${j.id}/files/heightmap.png`;
+}
+$('downloadUnity').onclick=e=>{
+ const j=jobOf();
+ if(j?.state!=='done'){e.preventDefault();return;}
+ if(j.settings.asset_type!=='terrain_unity'){
+  e.preventDefault();studioTools.exports.open(j,'unity');
+ }
+};
 function fillMetadata(j){if(metadataId===j?.id)return;metadataId=j?.id||null;const m=j?.metadata||{};$('displayName').value=j?nameOf(j):'';detailControls.setValue('category',categoryName(m.category)||'');detailControls.setValue('detailAssetType',m.asset_type||j?.settings.asset_type||'object');$('reviewState').value=m.review_state||'review';$('tags').value=(m.tags||[]).join(', ');$('notes').value=m.notes||'';$('metadataNotice').textContent='';}
 function renderSelected(){const j=jobOf();studioTools?.update(j,records,trashMode);workbench?.update(j);detailControls.update(j);animationStudio?.update();$('animateModel').disabled=!j||j.state!=='done';downloads(j);fillMetadata(j);settingsDownload.hidden=!j;if(j)settingsDownload.href=`/api/jobs/${j.id}/files/settings.json`;$('favorite').disabled=!j||!features;$('favorite').textContent=j?.metadata?.favorite?'★':'☆';$('favorite').setAttribute('aria-pressed',!!j?.metadata?.favorite);$('saveMetadata').disabled=!j||!features;$('viewTextures').disabled=!j||j.state!=='done'||!features;
   if(!j){$('modelTitle').textContent='Your next model';$('stats').textContent='';$('sourceThumb').hidden=true;$('assetDetails').replaceChildren(node('dt','','Model'),node('dd','','No model selected'));$('textureSummary').textContent='Select a completed model.';$('textureGallery').replaceChildren();if(model||loadingId){++loadVersion;clearModel();}$('empty').hidden=false;return;}
@@ -95,6 +116,37 @@ function ranges(){$('roughnessValue').textContent=Math.round(Number($('roughness
 $('terrainForm').onsubmit=async e=>{e.preventDefault();if(busy)return;busy=true;updateButtons();$('notice').textContent='Creating terrain and textures…';const data={name:$('terrainName').value,terrain_style:$('terrainStyle').value,size_m:Number($('terrainSize').value),height_m:Number($('terrainHeight').value),seed:Number($('terrainSeed').value),roughness:Number($('roughness').value),flat_zone:Number($('flatZone').value),resolution:Number($('terrainResolution').value),terrain_palette:$('terrainPalette').value,parent_id:$('terrainForm').dataset.parentId||''};try{const v=await api('/api/terrain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});selectedId=v.id;metadataId=null;$('notice').textContent='Terrain created.';setView(false);await refresh();}catch(e){busy=false;errorAt('notice',e);updateButtons();}};
 async function reuseJob(j){if(!j||busy)return;const s=j.settings;if(['imported','rigged','print'].includes(s.asset_type)){try{const v=await api(`/api/jobs/${j.id}/version`,{method:'POST'});await startStudioJob(v.id);}catch(e){errorAt('notice',e);}return;}if(s.asset_type==='terrain_unity'){setMode(true);$('terrainForm').dataset.parentId=j.id;for(const[id,v]of Object.entries({terrainName:nameOf(j)+' version',terrainStyle:s.terrain_style,terrainSize:s.size_m,terrainHeight:s.height_m,terrainSeed:s.seed,roughness:s.roughness,flatZone:s.flat_zone,terrainResolution:s.resolution,terrainPalette:s.terrain_palette||'blackwater'}))$(id).value=String(v);ranges();}else{setMode(false);try{const r=await fetch(`/api/jobs/${j.id}/files/input.png`);if(!r.ok)throw Error('Reference image unavailable.');acceptFile(new File([await r.blob()],s.name+'.png',{type:'image/png'}));$('parentId').value=j.id;$('name').value=(nameOf(j)+' version').slice(0,80);for(const[id,v]of Object.entries({preset:s.preset,height:s.height_m,seed:s.seed,triangles:s.triangles,textureSize:s.texture_size,resolution:s.resolution||j.result?.resolution||512,assetType:s.asset_type||'object',referencePrompt:j.metadata?.reference_prompt||''}))$(id).value=String(v);advancedControls.apply(j.generation_options||s.generation_options||{});$('removeBg').checked=s.remove_bg;detailControls.hint();profileControls.detach();$('profileBase').value=$('preset').value;explainCost();$('generationSummary').textContent='VARIANT · LOCAL COMPUTE';$('notice').textContent='Reference, geometry, texture and finishing settings restored. Adjust them to compare a new version.';}catch(e){errorAt('notice',e);}}}
 
+let refinishBase=null;
+function openRefinish(job){
+ if(busy||!job?.can_refinish)return;
+ refinishBase=job;
+ const form=$('refinishForm'),fields=form.elements,options=job.generation_options||job.settings.generation_options||{};
+ fields.mesh_mode.value=options.mesh_mode||'remesh';
+ fields.triangles.value=job.settings.triangles;
+ fields.repair_holes.checked=!!options.repair_holes;
+ fields.texture_size.replaceChildren(...availableTextures.map(size=>new Option(`${size/1024}K`,size)));
+ fields.texture_size.value=availableTextures.includes(job.settings.texture_size)?job.settings.texture_size:2048;
+ $('refinishSource').textContent=nameOf(job);
+ $('refinishError').textContent='';
+ $('startRefinish').disabled=false;
+ $('refinishDialog').showModal();
+}
+$('closeRefinish').onclick=()=>$('refinishDialog').close();
+$('refinishForm').onsubmit=async e=>{
+ e.preventDefault();
+ const fields=e.currentTarget.elements,source=refinishBase;
+ if(!source)return;
+ $('startRefinish').disabled=true;
+ $('refinishError').textContent='';
+ try{
+  const data={triangles:Number(fields.triangles.value),texture_size:Number(fields.texture_size.value),mesh_mode:fields.mesh_mode.value,repair_holes:fields.repair_holes.checked};
+  const result=await api(`/api/jobs/${source.id}/refinish`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  $('refinishDialog').close();
+  await startStudioJob(result.id);
+ }catch(error){$('refinishError').textContent=error.message;}
+ finally{$('startRefinish').disabled=false;}
+};
+
 async function refreshLog(){if(!selectedId)return;try{const d=await api(`/api/jobs/${selectedId}/log`);$('log').textContent=d.text||'No log entries yet.';}catch{}}
 async function refresh(){if(shutDown||refreshing)return;refreshing=true;try{const[status,jobs]=await Promise.all([api('/api/status'),api('/api/jobs')]);features=!!status.studio_version;syncCapabilities(status);ready=status.ready;activeId=status.active;busy=!!activeId;records=jobs;if(pendingSelection){const pending=records.find(j=>j.id===pendingSelection);if(pending?.state==='done'){if(pending.operation_error)errorAt('animationNotice',pending.operation_error);selectedId=pendingSelection;pendingSelection=null;metadataId=null;inspectId=null;}else if(pending&&['error','cancelled'].includes(pending.state)){errorAt('animationNotice',pending.error||pending.stage);pendingSelection=null;}}if(selectedId&&!records.some(j=>j.id===selectedId)){selectedId=null;metadataId=null;inspectId=null;++inspectVersion;}$('versionNotice').hidden=features;$('runtime').textContent=ready?`LOCAL · ${status.ram_free_gib} GB RAM available`:'Models unavailable';$('hardware').textContent=status.gpu||'Local compute';updateButtons();renderNavigation();renderSelected();renderLibrary();if(document.querySelector('.journal').open)refreshLog();if(jobOf()?.settings.source_kind==='unirig'&&jobOf()?.state==='running')refreshRigPreview();}catch(error){console.error('Studio refresh failed:',error);$('runtime').textContent='Disconnected · restart TRELLIS';ready=false;updateButtons();}finally{refreshing=false;}}
 $('shutdown').onclick=async()=>{try{await api('/api/shutdown',{method:'POST'});shutDown=true;ready=false;busy=false;renderer?.setAnimationLoop(null);clearModel();renderer?.dispose();$('notice').textContent='Run Open TRELLIS.cmd to restart the studio.';$('runtime').textContent='STUDIO STOPPED';$('shutdown').disabled=true;downloads(null);$('downloadHeight').hidden=true;updateButtons();}catch(e){errorAt('notice',e);}};
@@ -109,7 +161,7 @@ document.addEventListener('paste',e=>{if(e.target.closest('input:not([type=file]
 async function startStudioJob(id,options={}){if(options.rig){selectedId=id;metadataId=null;}busy=true;pendingSelection=id;revealNewCreation();updateButtons();await refresh();}
 animationStudio=await createAnimationStudio({api,getJob:jobOf,isBusy:()=>busy,startJob:startStudioJob,rigPreview});createModelImport({api,startJob:startStudioJob});
 workbench=await createStudioWorkbench({api,getRecords:()=>records,getJob:jobOf,refresh,startJob:startStudioJob,renderLibrary,tools:studioTools,labelAnimation:name=>animationStudio?.label(name)||name,getViewer:()=>({scene,renderer,camera,controls,model,lighting:viewerLighting})});
-document.querySelector('.journal').addEventListener('toggle',refreshLog);await refresh();const entry=new URLSearchParams(location.search),entryModel=entry.get('model');if(entryModel&&records.some(j=>j.id===entryModel))selectJob(entryModel);if(entry.get('workspace')==='animation')openAnimationStudio();if(entry.get('workspace')==='details'&&jobOf())openDetails(jobOf());setInterval(refresh,3000);
+document.querySelector('.journal').addEventListener('toggle',refreshLog);await refresh();const entry=new URLSearchParams(location.search),entryModel=entry.get('model');if(entryModel&&records.some(j=>j.id===entryModel))selectJob(entryModel);if(entry.get('workspace')==='animation')openAnimationStudio();if(entry.get('workspace')==='details'&&jobOf())openDetails(jobOf());const comparison=records.find(j=>j.id===entry.get('compare')&&j.state==='done');if(comparison&&jobOf()?.state==='done')studioTools.compare.open(jobOf(),comparison);setInterval(refresh,3000);
 
 function setupClips(gltf){
  clips=gltf.animations;mixer=clips.length?new THREE.AnimationMixer(model):null;

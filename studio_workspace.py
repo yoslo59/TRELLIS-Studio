@@ -18,6 +18,17 @@ def name(value,limit=80):
     if not isinstance(value,str) or not value.strip() or len(value)>limit or any(ord(c)<32 for c in value):raise ValueError('Choose a name of 1–'+str(limit)+' characters.')
     return value.strip()
 
+def finishing_source(folder, settings):
+    identifier = settings.get('finish_source_id') if settings.get('source_kind') == 'refinish' else folder.name
+    if not isinstance(identifier, str) or not ID.fullmatch(identifier):
+        return None
+    source = folder.parent / identifier
+    cache = source / 'raw_state.pt'
+    if source.resolve().parent == folder.parent and not cache.is_symlink() and cache.is_file():
+        return identifier
+    return None
+
+
 class Workspace:
     def __init__(self,root):
         self.root=Path(root);self.path=self.root/'workspace.json';self.queue_path=self.root/'queue.json'

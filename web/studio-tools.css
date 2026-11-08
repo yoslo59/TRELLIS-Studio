@@ -23,3 +23,5 @@ button.has-icon{gap:7px}button>.ui-icon{flex-shrink:0;vertical-align:middle}#sav
 
 .export-beacon{position:static;z-index:auto;margin-left:auto;padding:7px 10px;border-radius:7px;box-shadow:none;font-size:10px;color:#c3e99d;background:#b8e38b0b;border-color:#9cba6d4d;white-space:nowrap}.export-beacon .ui-icon{width:13px;height:13px}
 .library-top h2 #collectionTitle{font:inherit;color:inherit;letter-spacing:inherit;margin:0}
+
+.refinish-body { padding: 0 24px; }

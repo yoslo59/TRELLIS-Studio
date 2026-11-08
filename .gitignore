@@ -130,6 +130,7 @@
 !/integrations/Register-Codex.ps1
 /unity/*
 !/unity/TrellisPackageImporter.cs
+!/unity/TrellisTerrainImporter.cs
 /**/__pycache__/
 *.py[cod]
 /docs/screenshots/*

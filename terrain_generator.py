@@ -120,8 +120,8 @@ def generate_terrain(folder, settings):
     (target/'terrain-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     editor = bundle/'Editor'
     editor.mkdir(exist_ok=True)
-    shutil.copy2(ROOT/'unity/TrellisTerrainImport.cs',editor/'TrellisTerrainImport.cs')
-    (bundle/'LIRE-TERRAIN.txt').write_text('Copier TRELLIS dans Assets, attendre la compilation, puis Outils > TRELLIS > Import les terrains Unity.\n'
+    shutil.copy2(ROOT/'unity/TrellisTerrainImporter.cs',editor/'TrellisTerrainImporter.cs')
+    (bundle/'LIRE-TERRAIN.txt').write_text('Copier TRELLIS dans Assets, attendre la compilation, puis Outils > TRELLIS > Importer les terrains Unity.\n'
         'TerrainData, trois TerrainLayers, materiau Terrain Lit et prefab avec TerrainCollider sont crees.\n'
         'RAW : 16 bits non signes little-endian, ordre des lignes z puis x.\n'
         'Le GLB est un apercu de 32 768 triangles, pas le TerrainData natif.\n'

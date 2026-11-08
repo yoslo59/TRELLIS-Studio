@@ -164,6 +164,8 @@ UniRig and Blender, starts/reuses the local services and opens Studio:
 - MCP HTTP: `http://127.0.0.1:7861/mcp`
 - Reference: `http://127.0.0.1:7860/developers`
 
+If the launch fails, the command window stays open with the error. You can also run **Open TRELLIS.cmd** from an existing Command Prompt.
+
 An unrelated process using either port is preserved and reported. The launcher
 waits for active Studio computation before replacing an outdated backend. Engine
 weights load on demand; starting the interface does not keep both engines on the GPU.

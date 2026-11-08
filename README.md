@@ -38,6 +38,12 @@ Read the [detailed installation, repair and troubleshooting guide](INSTALLATION.
 | **Transfer** | Collection ZIP backup with models, sources, profiles, clips, metadata and prepared resources; optional checkpoints; verified restoration with new IDs. |
 | **Automate** | Typed REST API v1, self-hosted interactive OpenAPI reference and 36 MCP tools over STDIO or Streamable HTTP. |
 
+### Try another finish
+
+Select **Keep source for finishing variants** before generating if you want to retain the decoded geometry and materials. On a completed model, open its card menu and choose **Refinish model**. Adjust remeshing or direct simplification, triangle target, texture size and small-hole repair. The new card is linked to the original and can be opened in **Compare**. Variants reuse the saved source and run mesh processing and UV baking without loading the generation model.
+
+The source cache can take hundreds of megabytes per model. Studio stores it once per source and keeps it local to this installation. Collection ZIPs preserve the finished models and recipes. The cache is optional and leaves generation profiles intact.
+
 ### Generation profiles
 
 **Game - Default** (`game_d`) uses the validated 1024 cascade recipe: 20 steps per phase, guidance 7.5 / 7.5 / 2, approximately 28,000 target triangles, 2K textures, 2M pre-simplification, initial small-hole repair and DC remeshing capped at 512. Final triangle count is approximate. Dimensions and seeds belong to individual models.
@@ -88,6 +94,7 @@ Foot-contact measurements are estimates. The workshop does not guarantee foot lo
 | **Unity** | Animated FBX, PBR maps, optional Editor importer; prepared LOD/collision resources | Metres, Y up |
 | **Unreal Engine** | Animated FBX, ORM maps and DirectX normal maps | Centimetres, Z up |
 | **3D printing** | Dedicated STL and topology report; create a print copy first | Millimetres, Z up |
+| **Unity terrain** | Heightmap, terrain textures and Editor importer from a procedural Terrain card | Metres, Y up |
 
 Exports run as separate cancellable jobs and provide downloadable ZIPs. Engine packages accept up to 50 completed models. A collection backup accepts up to 500 models.
 

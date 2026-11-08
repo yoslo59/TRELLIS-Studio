@@ -15,7 +15,7 @@ class Generation(Contract):
     height_m:float=Field(default=1,ge=.01,le=100)
     seed:int=Field(default=42,ge=0,le=2147483647)
     priority:int=Field(default=0,ge=-2,le=2)
-    overrides:dict=Field(default_factory=dict,examples=[{}],description='Optional recipe overrides: triangles, texture_size, resolution, remove_bg, advanced_settings, asset_type, reference_prompt, parent_id.')
+    overrides:dict=Field(default_factory=dict,examples=[{}],description='Optional recipe overrides: triangles, texture_size, resolution, remove_bg, advanced_settings, asset_type, reference_prompt, parent_id, keep_finishing_source.')
 
 class ImportModel(Contract):
     upload_id:Identifier

@@ -1,5 +1,6 @@
 """Loopback-only local asset studio. No remote inference or hosted dependencies."""
 from pathlib import Path
+from studio_workspace import finishing_source
 from contextlib import asynccontextmanager
 import asyncio, hashlib, io, json, os, re, shutil, subprocess, sys, time, uuid
 from urllib.parse import urlparse
@@ -33,6 +34,7 @@ TRASH = Path(os.environ.get('TRELLIS_TRASH_DIR', str(ROOT / 'trash'))).resolve()
 OUTPUT.mkdir(parents=True, exist_ok=True)
 PROCESS = None
 ACTIVE = None
+FINISH_SOURCE = None
 TERRAIN_ACTIVE = None
 LOG_HANDLE = None
 LOCK = asyncio.Lock()
@@ -114,6 +116,7 @@ def job_record(folder):
         data = json.loads(status_path.read_text(encoding='utf-8')) if status_path.exists() else {'state':'queued','stage':'Starting','progress':0}
         data.update(id=folder.name, settings=settings)
         data['media']=model_media(folder/'model.glb')
+        data['can_refinish'] = data['state'] == 'done' and bool(finishing_source(folder, settings))
         if settings.get('asset_type') not in ('terrain_unity','imported','rigged','print'):
             try:data['generation_options']=options_for_job(settings)
             except (ValueError,TypeError):data['generation_options']=None
@@ -159,7 +162,7 @@ def status():
     return dict(ready=ready, gpu=GPU_DESCRIPTION, ram_free_gib=round(psutil.virtual_memory().available/1024**3,1),
                 active=ACTIVE if PROCESS is not None and PROCESS.poll() is None else TERRAIN_ACTIVE,
                 resolution=DEFAULT_GENERATION['resolution'], default_profile=DEFAULT_PROFILE, local=True, studio_version='3.1.0',source_revision=SOURCE_REVISION,multi_view=False,
-                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','collection_transfer','rest_api_v1','mcp'], texture_sizes=textures,supported_resolutions=resolutions)
+                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','collection_transfer','rest_api_v1','mcp','refinish'], texture_sizes=textures,supported_resolutions=resolutions)
 
 @app.get('/api/components')
 def components():
@@ -169,8 +172,8 @@ def components():
                 unirig=runtime.get('unirig',{'ready':False,'message':'Run Open TRELLIS.cmd to check UniRig.'}),
                 rig_pilot=(RIG_PILOT/'tira_animated.glb').is_file())
 
-def launch_worker(folder, script):
-    global PROCESS, ACTIVE, LOG_HANDLE
+def launch_worker(folder, script, source_id=None):
+    global PROCESS, ACTIVE, LOG_HANDLE, FINISH_SOURCE
     if LOG_HANDLE: LOG_HANDLE.close()
     LOG_HANDLE=(folder/'generation.log').open('a' if script=='animation_worker.py' else 'w',encoding='utf-8')
     env=os.environ.copy();env['PYTHONUTF8']='1'
@@ -178,6 +181,7 @@ def launch_worker(folder, script):
                              stdout=LOG_HANDLE,stderr=subprocess.STDOUT,
                              creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
     ACTIVE=folder.name
+    FINISH_SOURCE = source_id
 
 def require_idle():
     if TERRAIN_ACTIVE or (PROCESS is not None and PROCESS.poll() is None):
@@ -354,7 +358,7 @@ def write_json(path, data):
     temp.replace(path)
 
 def active_job(identifier):
-    return identifier==TERRAIN_ACTIVE or (identifier==ACTIVE and PROCESS is not None and PROCESS.poll() is None)
+    return identifier==TERRAIN_ACTIVE or (identifier in (ACTIVE, FINISH_SOURCE) and PROCESS is not None and PROCESS.poll() is None)
 
 @app.patch('/api/jobs/{identifier}/metadata')
 async def metadata(identifier: str, request: Request):
@@ -628,8 +632,8 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
                    height_m: float = Form(1), seed: int = Form(42), remove_bg: bool = Form(True),
                    triangles: int = Form(0), asset_type: str = Form('object'), texture_size: int = Form(0),
                    reference_prompt: str = Form(''), resolution: int = Form(DEFAULT_GENERATION['resolution']), advanced_settings: str = Form(''),
+                   keep_finishing_source: Annotated[bool,Form()]=False,
                    profile_id: str = Form(''), parent_id: Annotated[str,Form()]='', queue_only: Annotated[bool,Form()]=False, queue_priority: Annotated[int,Form()]=0, queue_hold: Annotated[bool,Form()]=False):
-    global PROCESS, ACTIVE, LOG_HANDLE
     if (preset not in GENERATION_PRESETS or not 0.01 <= height_m <= 100 or not 0 <= seed <= 2147483647
         or (triangles!=0 and not 1000<=triangles<=500000) or asset_type not in ASSET_TYPES
         or texture_size not in (0,1024,2048,4096) or resolution not in (512,1024,1536) or len(reference_prompt)>6000 or len(name)>80):
@@ -676,6 +680,7 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
                         steps=steps, triangles=triangles, texture_size=texture, created=time.time(), asset_type=asset_type,
                         resolution=resolution,pipeline_type={512:'512',1024:'1024_cascade',1536:'1536_cascade'}[resolution],
                         generation_options=advanced,settings_version=2)
+        if keep_finishing_source: settings['keep_finishing_source'] = True
         if profile: settings['profile'] = dict(id=profile['id'], name=profile['name'])
         if parent_id:settings['parent_id']=parent_id
         (folder / 'settings.json').write_text(json.dumps(settings, indent=2), encoding='utf-8')
@@ -685,14 +690,7 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
             write_json(folder/'status.json',dict(state='queued',stage='Waiting in queue',progress=0))
             STUDIO.workspace.enqueue(identifier,queue_priority,queue_hold)
             return {'id':identifier,'queued':True}
-        if LOG_HANDLE: LOG_HANDLE.close()
-        LOG_HANDLE = (folder / 'generation.log').open('w', encoding='utf-8')
-        env = os.environ.copy()
-        env['PYTHONUTF8'] = '1'
-        PROCESS = subprocess.Popen([sys.executable, '-u', str(ROOT / 'worker.py'), str(folder)],
-                                   cwd=ROOT, stdout=LOG_HANDLE, stderr=subprocess.STDOUT, env=env,
-                                   creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
-        ACTIVE = identifier
+        launch_worker(folder, 'worker.py')
         return {'id': identifier}
 
 @app.post('/api/jobs/{identifier}/cancel')
@@ -780,7 +778,7 @@ async def files(identifier: str, filename: str):
         name=json.loads((folder/'settings.json').read_text(encoding='utf-8'))['name']
         return FileResponse(folder/'Blender.zip',filename='TRELLIS-'+name+'-Blender.zip',media_type='application/zip',
                             background=BackgroundTask(EXPORTING.discard,identifier))
-    if filename not in ('input.png','prepared.png','model.glb','model.stl','print-report.json','Unity.zip','Blender.zip','settings.json','result.json','heightmap.png','heightmap.raw','original.glb','original.fbx','original.obj','original.stl','original.ply') or not (folder / filename).exists():
+    if filename not in ('input.png','prepared.png','conditioning.png','model.glb','model.stl','print-report.json','Unity.zip','Blender.zip','settings.json','result.json','heightmap.png','heightmap.raw','original.glb','original.fbx','original.obj','original.stl','original.ply') or not (folder / filename).exists():
         raise HTTPException(404)
     download_name = 'TRELLIS-' + json.loads((folder/'settings.json').read_text(encoding='utf-8'))['name']
     if filename == 'model.glb': download_name += '.glb'

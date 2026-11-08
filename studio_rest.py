@@ -85,7 +85,7 @@ def install(app,g):
 
     @router.post('/generations',tags=['Generation'],status_code=202,response_model=JobAccepted,summary='Queue a generation from an uploaded image')
     async def generate(data:Generation):
-        if set(data.overrides)-{'triangles','texture_size','resolution','remove_bg','advanced_settings','asset_type','reference_prompt','parent_id'}:raise HTTPException(400,'Unsupported recipe override.')
+        if set(data.overrides)-{'triangles','texture_size','resolution','remove_bg','advanced_settings','asset_type','reference_prompt','parent_id','keep_finishing_source'}:raise HTTPException(400,'Unsupported recipe override.')
         source,entry=upload(data.upload_id,'image');spec=dict(name=data.name,profile_id=data.profile_id,height_m=data.height_m,seed=data.seed,priority=data.priority,**data.overrides)
         with source.open('rb') as stream:
             result=await legacy('POST','/api/queue/batch',images=[UploadFile(file=stream,filename=entry['name'])],specifications=json.dumps([spec]))

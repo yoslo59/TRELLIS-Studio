@@ -21,6 +21,7 @@ os.environ.update({
 sys.path[:0] = [str(ROOT), str(ROOT / 'engine'), str(ROOT / 'engine' / 'o-voxel')]
 os.chdir(ROOT / 'engine')
 from generation_options import options_for_job, sampler_options, export_options, configure_simplifier
+from studio_workspace import write
 options = options_for_job(settings)
 started = time.time()
 
@@ -31,7 +32,7 @@ def status(state, stage, progress, **extra):
     tmp.replace(JOB / 'status.json')
     print(f'STAGE {progress}% {stage}', flush=True)
 
-def main():
+def generate_source(torch):
     status('running', 'Preparing image', 3)
     from PIL import Image, ImageOps
     image = ImageOps.exif_transpose(Image.open(JOB / 'input.png')).convert('RGBA')
@@ -42,11 +43,6 @@ def main():
         del session
         gc.collect()
     image.save(JOB / 'prepared.png')
-    import torch
-    torch.set_num_threads(6)
-    if not torch.cuda.is_available():
-        raise RuntimeError('CUDA indisponible dans cet environnement.')
-    torch.cuda.reset_peak_memory_stats()
     status('running', 'Loading model weights', 8)
     from api_spz.core.state_manage import _apply_patches
     _apply_patches()
@@ -55,6 +51,13 @@ def main():
     config_folder,pipeline_kind=prepare_pipeline_config(ROOT,JOB,requested_resolution)
     pipeline = Trellis2ImageTo3DPipeline.from_pretrained(str(config_folder))
     pipeline.cuda()
+    if settings.get('keep_finishing_source'):
+        prepare_image = pipeline.preprocess_image
+        def record_conditioning(image):
+            prepared = prepare_image(image)
+            prepared.save(JOB / 'conditioning.png')
+            return prepared
+        pipeline.preprocess_image = record_conditioning
     for method, stage, percent in [
         ('get_cond', 'Analysing image', 16),
         ('sample_sparse_structure', 'Building volume', 24),
@@ -80,44 +83,100 @@ def main():
     del shape, texture, pipeline
     gc.collect()
     torch.cuda.empty_cache()
-    status('running', 'UV et cuisson des textures', 83)
-    mesh.attrs = mesh.attrs.cpu()
-    mesh.coords = mesh.coords.cpu()
+    return dict(vertices=mesh.vertices, faces=mesh.faces, attr_volume=mesh.attrs.cpu(),
+                coords=mesh.coords.cpu(), attr_layout=mesh.layout,
+                voxel_size=float(mesh.voxel_size), resolution=int(resolution)), pipeline_kind
+
+
+def save_finishing_source(torch, source):
+    # Cache the decoded surface before the first simplification.
+    status('running', 'Saving reusable finishing source', 77)
+    cpu_source = {
+        key: value.detach().cpu().contiguous() if isinstance(value, torch.Tensor) else value
+        for key, value in source.items()
+    }
+    pending = JOB / 'raw_state.pending.pt'
+    try:
+        torch.save(cpu_source, pending)
+        pending.replace(JOB / 'raw_state.pt')
+    finally:
+        pending.unlink(missing_ok=True)
+
+
+def load_finishing_source(torch, identifier):
+    import re
+    if not re.fullmatch(r'[a-f0-9]{32}', identifier):
+        raise ValueError('Invalid finishing source.')
+    folder = JOB.parent / identifier
+    if folder.resolve().parent != JOB.parent:
+        raise ValueError('Invalid finishing source directory.')
+    # Both the Studio and the original local pilot use only tensors, scalars and slices.
+    with torch.serialization.safe_globals([slice]):
+        return torch.load(folder / 'raw_state.pt', map_location='cpu', weights_only=True)
+
+
+def finish_mesh(torch, source):
+    status('running', 'Finishing mesh and baking textures', 83)
     import cumesh
-    configure_simplifier(cumesh,options)
-    if options['pre_simplify'] and len(mesh.faces) > 2000000:
-        mesh.simplify(2000000)
     import o_voxel
-    args = dict(vertices=mesh.vertices, faces=mesh.faces, attr_volume=mesh.attrs,
-                coords=mesh.coords, attr_layout=mesh.layout, voxel_size=mesh.voxel_size)
-    del mesh
-    torch.cuda.empty_cache()
+    configure_simplifier(cumesh, options)
+    vertices, faces = source['vertices'].cuda(), source['faces'].cuda()
+    if options['pre_simplify'] and len(faces) > 2000000:
+        mesh = cumesh.CuMesh()
+        mesh.init(vertices, faces)
+        mesh.simplify(2000000)
+        vertices, faces = mesh.read()
+        del mesh
+        torch.cuda.empty_cache()
     result = o_voxel.postprocess.to_glb(
-        **args, aabb=[[-0.5]*3, [0.5]*3], decimation_target=settings['triangles'],
+        vertices=vertices, faces=faces, attr_volume=source['attr_volume'], coords=source['coords'],
+        attr_layout=source['attr_layout'], voxel_size=source['voxel_size'],
+        aabb=[[-0.5]*3, [0.5]*3], decimation_target=settings['triangles'],
         texture_size=settings['texture_size'], **export_options(options), verbose=True,
     )
-    del args
     bounds = result.bounds
     height = max(float(bounds[1,1]-bounds[0,1]), 1e-6)
     result.vertices -= [(bounds[0,0]+bounds[1,0])/2, bounds[0,1], (bounds[0,2]+bounds[1,2])/2]
     result.vertices *= settings['height_m']/height
-    result.export(JOB / 'model.glb')
-    status('running', 'Preparing Unity export', 96)
-    sys.path.insert(0, str(ROOT))
-    from unity_export import export_unity
-    stats = export_unity(result, JOB, {**settings,'resolution':int(resolution)})
-    stats['dimensions_m'] = result.extents.tolist()
-    stats['resolution'] = int(resolution)
-    stats['requested_resolution'] = requested_resolution
-    stats['pipeline_type'] = pipeline_kind
-    stats['generation_options'] = options
-    stats['sampler_options'] = samplers
-    stats['settings_version'] = 2
-    stats['peak_vram_gib'] = round(torch.cuda.max_memory_allocated()/1024**3, 2)
-    stats['peak_reserved_gib'] = round(torch.cuda.max_memory_reserved()/1024**3, 2)
-    stats['seconds'] = round(time.time()-started, 1)
-    (JOB / 'result.json').write_text(json.dumps(stats, indent=2), encoding='utf-8')
-    status('done', 'Model ready', 100, result=stats)
+    result.export(JOB / 'model.pending.glb')
+    (JOB / 'model.pending.glb').replace(JOB / 'model.glb')
+    return result
+
+
+def main():
+    import torch
+    torch.set_num_threads(6)
+    if not torch.cuda.is_available():
+        raise RuntimeError('CUDA is unavailable in this environment.')
+    torch.cuda.reset_peak_memory_stats()
+    source_id = settings.get('finish_source_id') if settings.get('source_kind') == 'refinish' else None
+    if source_id:
+        status('running', 'Loading cached geometry and materials', 10)
+        from api_spz.core.state_manage import _apply_patches
+        _apply_patches()
+        source = load_finishing_source(torch, source_id)
+        pipeline_kind = settings.get('pipeline_type')
+    else:
+        source, pipeline_kind = generate_source(torch)
+        if settings.get('keep_finishing_source'):
+            save_finishing_source(torch, source)
+    resolution = source['resolution']
+    result = finish_mesh(torch, source)
+    stats = dict(name=settings['name'], height_m=settings['height_m'], seed=settings['seed'],
+                 triangles=len(result.faces), vertices=len(result.vertices), engine='TRELLIS.2',
+                 dimensions_m=result.extents.tolist(), resolution=resolution,
+                 requested_resolution=requested_resolution, pipeline_type=pipeline_kind,
+                 texture_size=settings['texture_size'], generation_options=options,
+                 sampler_options=sampler_options(options), settings_version=2,
+                 neural_inferences=0 if source_id else 1,
+                 peak_vram_gib=round(torch.cuda.max_memory_allocated()/1024**3, 2),
+                 peak_reserved_gib=round(torch.cuda.max_memory_reserved()/1024**3, 2),
+                 seconds=round(time.time()-started, 1))
+    if source_id:
+        stats['finish_source_id'] = source_id
+    write(JOB / 'result.json', stats)
+    status('done', 'Finishing variant ready' if source_id else 'Model ready', 100, result=stats)
+
 
 if __name__ == '__main__':
     try:
@@ -127,5 +186,6 @@ if __name__ == '__main__':
         message = str(error)
         if 'out of memory' in message.lower():
             message = 'Insufficient GPU memory. Reduce 3D resolution (1536 → 1024 → 512) or texture size (4K → 2K), then try again.'
-        status('error', 'Generation failed', 0, error=message[:1400])
+        stage = 'Finishing failed' if settings.get('source_kind') == 'refinish' else 'Generation failed'
+        status('error', stage, 0, error=message[:1400])
         sys.exit(1)
