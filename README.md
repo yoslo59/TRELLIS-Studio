@@ -9,8 +9,13 @@ Inference runs on your computer. Models and dependency packages are downloaded d
 
 > **First public preview · Windows x64.** The validated generation setup uses an RTX 4070 Ti with 12 GB VRAM and 32 GB RAM. Installation verifies components, but output quality, deformation and target-engine suitability still need visual review. The Studio code is MIT; model and dependency licenses are separate, particularly DINOv3.
 
-![Create workspace with a textured desk, Game - Default profile and local collection](docs/screenshots/new/01.jpg)
-*The Create workspace combines the generation profile, reference image card, PBR preview and local collection. The pictured assets are not included in this repository.*
+## 30-second demo
+
+[![TRELLIS Studio demo from a compressor reference image to two PBR finishes and a Unity 6 import](docs/demo/compressor-to-unity.webp)](docs/demo/compressor-to-unity.mp4?raw=true)
+
+One local generation produced two finishes from the same saved source. The high-detail version has **94,170 triangles** and the **Game - Default** version has **27,568**, both with 2K PBR textures. The demo follows the lighter FBX and its materials into Unity 6.
+
+[Download the HD video (MP4)](docs/demo/compressor-to-unity.mp4?raw=true) · [Install on Windows](#get-started)
 
 ## Get started
 
@@ -24,6 +29,9 @@ The full model/animation download is approximately **20.6 GiB**, plus the engine
 Read the [detailed installation, repair and troubleshooting guide](INSTALLATION.md). WSL setup, driver installation, a required reboot and third-party license acceptance can require your interaction. The installer does not silently enable Windows features or replace a GPU driver.
 
 ## What you can do
+
+![Create workspace with a textured desk, Game - Default profile and local collection](docs/screenshots/new/01.jpg)
+*The Create workspace combines the generation profile, reference image card, PBR preview and local collection. The pictured assets are not included in this repository.*
 
 | Workspace | Features |
 | --- | --- |

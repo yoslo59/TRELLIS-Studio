@@ -132,6 +132,10 @@
 !/docs/API.md
 !/docs/MCP.md
 !/docs/screenshots/
+!/docs/demo/
+/docs/demo/*
+!/docs/demo/compressor-to-unity.webp
+!/docs/demo/compressor-to-unity.mp4
 /UniRig/*
 !/UniRig/runtime.sh
 !/UniRig/run-model.sh
