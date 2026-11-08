@@ -29,7 +29,7 @@ PIXAL_CHARACTER_OPTIONS = dict(GAME_D_ADVANCED, structure_steps=12, shape_steps=
 REFERENCE_FILES = tuple(VIEW_FILES.values())
 # Studio 3.1 adds typed agent access and a self-hosted developer reference.
 SOURCE_REVISION=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-UI_REVISION='3.1.0-face-reprojection'
+UI_REVISION='3.1.0-reference-card'
 def gpu_description():
     try:
         value=subprocess.check_output(['nvidia-smi','--query-gpu=name,memory.total','--format=csv,noheader,nounits'],text=True,timeout=5,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0)).splitlines()[0]

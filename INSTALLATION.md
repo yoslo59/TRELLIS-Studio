@@ -159,7 +159,7 @@ runtime directory; set it within the selected WSL user's environment.
 
 After installing the standard Studio, double-click **Install Pixal3D.cmd**. The installer downloads pinned ComfyUI source and Pixal3D checkpoints, verifies their sizes and SHA-256 hashes and installs dependencies separately under `models/pixal3d/`. Allow about **8.25 GiB** for those downloads plus the Python dependencies. Read the DINOv3 terms shown by the installer. The existing TRELLIS.2 environment, collection and profiles are used in place.
 
-Open Studio and enable **Multi-view · Pixal3D** at the top of Create. Upload the same character from the front and one to three additional angles. Choose **40°** for three-quarter side views or **90°** for side profiles. Use a consistent pose and show the whole body in each view. Generation runs locally in the usual queue. If GPU memory runs short, retry with fewer views or close other GPU workloads.
+Open Studio and enable **Multi-view · Pixal3D** in the **Reference image** card in Create. Upload the same character from the front and one to three additional angles. Choose **40°** for three-quarter side views or **90°** for side profiles. Use a consistent pose and show the whole body in each view. Generation runs locally in the usual queue. If GPU memory runs short, retry with fewer views or close other GPU workloads.
 
 The full Pixal3D installer also installs the small face detector. To add it to an existing Pixal3D installation, run `"Install Pixal3D.cmd" --face-only` from Command Prompt in the Studio directory. This downloads about 227 KiB. Refresh Studio to use **Reproject the original face photo**.
 
