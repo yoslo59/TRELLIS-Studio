@@ -3,6 +3,7 @@ from pathlib import Path,PurePosixPath
 import hashlib,json,re,shutil,stat,uuid,zipfile
 from studio_workspace import read,write,ID
 from studio_import import validate_glb
+from studio_version import VERSION
 
 EXTENSIONS={'.json','.glb','.blend','.png','.jpg','.jpeg','.webp','.stl','.fbx','.obj','.ply','.raw','.mtl','.webm'}
 EXCLUDED={'Blender','rig-work','before-animations','__pycache__'}
@@ -13,7 +14,7 @@ def digest(path):
         while block:=stream.read(4*1024*1024):h.update(block)
     return h.hexdigest()
 def build(sources,destination,workspace,profiles,include_revisions=False,notify=lambda *args:None):
-    sources=Path(sources);manifest=dict(format='trellis-collection',version=1,studio_version='3.0.0',models=[],workspace=workspace,profiles=profiles,files=[])
+    sources=Path(sources);manifest=dict(format='trellis-collection',version=1,studio_version=VERSION,models=[],workspace=workspace,profiles=profiles,files=[])
     folders=[p for p in sources.iterdir() if p.is_dir() and ID.fullmatch(p.name)]
     used={read(p/'metadata.json',{}).get('folder_id','') for p in folders};catalog={f['id']:f for f in workspace.get('folders',[])}
     for _ in range(500):

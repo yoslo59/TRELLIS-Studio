@@ -1,6 +1,7 @@
 # TRELLIS Studio REST API v1
 
-Base URL: `http://127.0.0.1:7860/api/v1`.
+Base URL: `http://127.0.0.1:7860/api/v1` for the source installation,
+or `http://127.0.0.1:7870/api/v1` for Windows Setup.
 
 Start **Open TRELLIS.cmd** (or **Ouvrir TRELLIS.cmd**). The developer workspace is
 at `/developers`, interactive reference at `/api/docs`, and the downloadable

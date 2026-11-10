@@ -1,7 +1,7 @@
 """Documented JSON API over the same transactional services used by Studio's UI."""
 from pathlib import Path
 from contextlib import ExitStack
-import inspect,io,json,time,uuid,hashlib
+import inspect,io,json,time,uuid,hashlib,os
 from fastapi import APIRouter,UploadFile,File,HTTPException,Query
 from fastapi.responses import FileResponse,HTMLResponse,RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -41,7 +41,7 @@ def install(app,g):
         return folder/entry['file'],entry
 
     @router.get('/status',tags=['Studio'],summary='Studio readiness and active computation')
-    def status():return {**g['status'](),'api_version':'1','documentation':'/developers','mcp_url':'http://127.0.0.1:7861/mcp'}
+    def status():return {**g['status'](),'api_version':'1','documentation':'/developers','mcp_url':f"http://127.0.0.1:{int(os.environ.get('TRELLIS_MCP_PORT','7861'))}/mcp"}
 
     @router.get('/profiles',tags=['Studio'],summary='Built-in and custom generation profiles')
     def profiles():return g['profiles_list']()
@@ -54,9 +54,9 @@ def install(app,g):
 
     @router.get('/client-config',tags=['Studio'],summary='STDIO configuration for this installation')
     def client_config():
-        import os
         python=root/'.mcp-venv'/('Scripts/python.exe' if os.name=='nt' else 'bin/python')
-        return {'mcpServers':{'trellis-studio':{'command':str(python),'args':[str(root/'trellis_mcp.py')],'cwd':str(root)}}}
+        return {'mcpServers':{'trellis-studio':{'command':str(python),'args':[str(root/'trellis_mcp.py')],
+            'cwd':str(root),'env':{'TRELLIS_API_URL':f"http://127.0.0.1:{g['PORT']}"}}}}
 
     @router.post('/uploads',tags=['Sources'],status_code=201,summary='Upload an image, 3D model or collection archive')
     async def source_upload(file:UploadFile=File(...)):

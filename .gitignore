@@ -198,3 +198,21 @@
 !/docs/screenshots/new/02.jpg
 
 !/tests/humanoid_profiles.py
+!/tests/finishing_board.py
+!/tests/export_preflight.py
+!/tests/unity_reimport.py
+!/tests/unity_reimport_editor.cs
+!/export_preflight.py
+!/web/export-preflight.js
+!/web/finishing-board.js
+!/docs/WINDOWS_SETUP.md
+!/installer/windows/
+/installer/windows/*
+!/installer/windows/Build-Setup.ps1
+!/installer/windows/StudioSetup.nsi
+!/installer/windows/Launch-Installed.ps1
+!/installer/windows/Launch.cmd
+!/installer/windows/check-idle.ps1
+!/installer/windows/Manage-Shortcuts.ps1
+!/installer/windows/trellis-studio.ico
+!/studio_version.py

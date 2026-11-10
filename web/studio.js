@@ -1,21 +1,21 @@
-import {createStudioWorkbench} from './studio-workbench.js?v=3.1.0';
-import {createViewerLighting} from './viewer-lighting.js?v=3.1.0';
-import {createStudioTools} from './studio-tools.js?v=3.1.0-rig-landmarks';
-import {createAssetDetails,assetTypeName} from './asset-details.js?v=3.1.0';
-import {createPrintCopy} from './print-copy.js?v=3.1.0';
-import {createAnimationStudio} from './animation-studio.js?v=3.1.0-humanoid-final';
-import {createRigSetupViewer} from './rig-setup-viewer.js?v=3.1.0-humanoid-final';
-import {createModelImport} from './import-model.js?v=3.1.0';
-import {createMultiviewInputs} from './multiview-inputs.js?v=3.1.0-humanoid-experimental';
+import {createStudioWorkbench} from './studio-workbench.js?v=3.2.0';
+import {createViewerLighting} from './viewer-lighting.js?v=3.2.0';
+import {createStudioTools} from './studio-tools.js?v=3.2.0';
+import {createAssetDetails,assetTypeName} from './asset-details.js?v=3.2.0';
+import {createPrintCopy} from './print-copy.js?v=3.2.0';
+import {createAnimationStudio} from './animation-studio.js?v=3.2.0';
+import {createRigSetupViewer} from './rig-setup-viewer.js?v=3.2.0';
+import {createModelImport} from './import-model.js?v=3.2.0';
+import {createMultiviewInputs} from './multiview-inputs.js?v=3.2.0';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createAdvancedControls } from './advanced-controls.js?v=3.1.0';
-import { createProfileControls } from './profiles.js?v=3.1.0-humanoid-final';
-import {createCardMenu,updateCardStatus,icon} from './card-menu.js?v=3.1.0';
+import { createAdvancedControls } from './advanced-controls.js?v=3.2.0';
+import { createProfileControls } from './profiles.js?v=3.2.0';
+import {createCardMenu,updateCardStatus,icon} from './card-menu.js?v=3.2.0';
 const $=id=>document.getElementById(id);
-const cardMenu=createCardMenu({version:reuseJob,remove:requestDelete,details:openDetails,print:j=>printCopy.open(j),compare:j=>studioTools.compare.open(j),diagnostics:j=>studioTools.diagnostics.open(j),export:j=>studioTools.exports.open(j),history:j=>workbench.history.open(j),folder:j=>workbench.workspace.move(j),lod:j=>workbench.prepare.open(j,'lod'),game:j=>workbench.prepare.open(j,'game'),refinish:openRefinish});
+const cardMenu=createCardMenu({version:reuseJob,remove:requestDelete,details:openDetails,print:j=>printCopy.open(j),compare:j=>studioTools.compare.open(j),diagnostics:j=>studioTools.diagnostics.open(j),export:j=>studioTools.exports.open(j),history:j=>workbench.history.open(j),folder:j=>workbench.workspace.move(j),lod:j=>workbench.prepare.open(j,'lod'),game:j=>workbench.prepare.open(j,'game'),refinish:openRefinish,finishingBoard:j=>workbench.finishingBoard.open(j)});
 const labels={done:'Completed',running:'Generating',error:'Failed',cancelled:'Cancelled',queued:'Queued'},reviews={review:'To review',retouch:'Needs changes',retained:'Retained',rejected:'Rejected'};
 let studioTools,viewerLighting,workbench,rigSetupViewer;
 let selectedId=null,loadedId=null,loadingId=null,activeId=null,records=[],busy=false,ready=false,shutDown=false,features=false;
@@ -30,7 +30,7 @@ const categoryName=value=>({Mobilier:'Furniture',Industriel:'Industrial','Mobili
 const viewport=$('viewport'),nameOf=j=>j.metadata?.display_name||j.settings?.name||'Untitled',jobOf=()=>records.find(j=>j.id===selectedId);
 const detailControls=await createAssetDetails();
 const printCopy=createPrintCopy({api,startJob:startStudioJob});
-studioTools=createStudioTools({api,getRecords:()=>records,getJob:jobOf,refresh:async()=>{metadataId=null;await refresh();},printCopy,labelAnimation:name=>animationStudio?.label(name)||name});
+studioTools=createStudioTools({api,getRecords:()=>records,getJob:jobOf,refresh:async()=>{metadataId=null;await refresh();},printCopy,labelAnimation:name=>animationStudio?.label(name)||name,openPreparation:(job,action)=>workbench.prepare.open(job,action)});
 const advancedControls=await createAdvancedControls($('advancedControls'));
 const multiview=createMultiviewInputs({
   changed({role,file,mode}){
@@ -147,7 +147,7 @@ function updateButtons(){
   if(multiview.active)$('generationSummary').textContent=multiview.summary;
   $('cancel').hidden=!busy;
   $('cancel').disabled=!activeId||jobOf()?.settings.asset_type==='terrain_unity';
-  $('createTerrain').disabled=busy||shutDown||!ready;
+  $('createTerrain').disabled=busy||shutDown||!features;
 }
 $('copyReferencePrompt').onclick=async()=>{const prompt=`Production reference for a contemporary stylised realism game. Subject: ${$('name').value}. ${$('referencePrompt').value}\nOne complete object fully visible and centred, isolated on a plain neutral grey background, single three-quarter view. Credible construction, readable detail and carefully worked materials. Soft diffuse light and minimal shadow. No surrounding scene, text, logo or multi-view sheet. Keep thin parts readable and show the whole subject without cropping. The grey background is not part of the object.`;try{await navigator.clipboard.writeText(prompt);$('notice').textContent='Brief copied. Use it with your image generator.';}catch{$('referencePrompt').value=prompt;$('referencePrompt').closest('details').open=true;$('referencePrompt').focus();$('referencePrompt').select();$('notice').textContent='The brief is ready in the context field for you to copy.';}};
 $('form').onsubmit=async event=>{
@@ -251,7 +251,7 @@ $('refinishForm').onsubmit=async e=>{
 };
 
 async function refreshLog(){if(!selectedId)return;try{const d=await api(`/api/jobs/${selectedId}/log`);$('log').textContent=d.text||'No log entries yet.';}catch{}}
-async function refresh(){if(shutDown||refreshing)return;refreshing=true;try{const[status,jobs]=await Promise.all([api('/api/status'),api('/api/jobs')]);features=!!status.studio_version;syncCapabilities(status);ready=status.ready;activeId=status.active;busy=!!activeId;records=jobs;if(pendingSelection){const pending=records.find(j=>j.id===pendingSelection);if(pending?.state==='done'){if(pending.operation_error)errorAt('animationNotice',pending.operation_error);selectedId=pendingSelection;pendingSelection=null;metadataId=null;inspectId=null;}else if(pending&&['error','cancelled'].includes(pending.state)){errorAt('animationNotice',pending.error||pending.stage);pendingSelection=null;}}if(selectedId&&!records.some(j=>j.id===selectedId)){selectedId=null;metadataId=null;inspectId=null;++inspectVersion;}syncVersionNotice(status);$('runtime').textContent=ready?`LOCAL · ${status.ram_free_gib} GB RAM available`:'Models unavailable';$('hardware').textContent=status.gpu||'Local compute';updateButtons();renderNavigation();renderSelected();renderLibrary();if(document.querySelector('.journal').open)refreshLog();if(jobOf()?.settings.source_kind==='unirig'&&jobOf()?.state==='running')refreshRigPreview();}catch(error){console.error('Studio refresh failed:',error);$('runtime').textContent='Disconnected · restart TRELLIS';ready=false;multiview.setCapabilities({message:'Studio is disconnected. Restart TRELLIS Studio.'});updateButtons();}finally{refreshing=false;}}
+async function refresh(){if(shutDown||refreshing)return;refreshing=true;try{const[status,jobs]=await Promise.all([api('/api/status'),api('/api/jobs')]);features=!!status.studio_version;syncCapabilities(status);ready=status.ready;activeId=status.active;busy=!!activeId;records=jobs;if(pendingSelection){const pending=records.find(j=>j.id===pendingSelection);if(pending?.state==='done'){if(pending.operation_error)errorAt('animationNotice',pending.operation_error);selectedId=pendingSelection;pendingSelection=null;metadataId=null;inspectId=null;}else if(pending&&['error','cancelled'].includes(pending.state)){errorAt('animationNotice',pending.error||pending.stage);pendingSelection=null;}}if(selectedId&&!records.some(j=>j.id===selectedId)){selectedId=null;metadataId=null;inspectId=null;++inspectVersion;}syncVersionNotice(status);$('runtime').textContent=ready?`LOCAL · ${status.ram_free_gib} GB RAM available`:'WORKSHOP · generation engine not installed';$('hardware').textContent=status.gpu||'Local compute';updateButtons();renderNavigation();renderSelected();renderLibrary();if(document.querySelector('.journal').open)refreshLog();if(jobOf()?.settings.source_kind==='unirig'&&jobOf()?.state==='running')refreshRigPreview();}catch(error){console.error('Studio refresh failed:',error);$('runtime').textContent='Disconnected · restart TRELLIS';ready=false;multiview.setCapabilities({message:'Studio is disconnected. Restart TRELLIS Studio.'});updateButtons();}finally{refreshing=false;}}
 $('shutdown').onclick=async()=>{try{await api('/api/shutdown',{method:'POST'});shutDown=true;ready=false;busy=false;renderer?.setAnimationLoop(null);clearModel();renderer?.dispose();$('notice').textContent='Run Open TRELLIS.cmd to restart the studio.';$('runtime').textContent='STUDIO STOPPED';$('shutdown').disabled=true;downloads(null);$('downloadHeight').hidden=true;updateButtons();}catch(e){errorAt('notice',e);}};
 function showCollection(details){$('libraryView').hidden=details;$('inspectorPanel').hidden=!details;$('collectionPanel').classList.toggle('details-open',details);}
 function openDetails(j){if(!j)return;selectJob(j.id);document.body.classList.remove('library-mode','collection-collapsed');$('openLibrary').setAttribute('aria-pressed','false');showCollection(true);}

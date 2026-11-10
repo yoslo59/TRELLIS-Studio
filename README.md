@@ -8,7 +8,7 @@ TRELLIS Studio is an independent community application built around **Microsoft 
 
 Inference runs on your computer. Models and dependency packages are downloaded during installation; your reference images and generated library stay in your local installation. No paid generation service or API key is required by Studio.
 
-> **First public preview · Windows x64.** The validated generation setup uses an RTX 4070 Ti with 12 GB VRAM and 32 GB RAM. Installation verifies components, but output quality, deformation and target-engine suitability still need visual review. The Studio code is MIT; model and dependency licenses are separate, particularly DINOv3.
+> **Windows x64 preview.** The maintainer tested Full Studio installation, generation and uninstallation on Windows 11 with an RTX 4070 Ti (12 GB VRAM). Installation verifies components, but output quality, deformation and target-engine suitability still need visual review. The Studio code is MIT; model and dependency licenses are separate, particularly DINOv3.
 
 ## 30-second demo
 
@@ -20,14 +20,15 @@ One local generation produced two finishes from the same saved source. The high-
 
 ## Get started
 
-1. Check the [prerequisites](INSTALLATION.md#prerequisites): NVIDIA driver, Node.js, Blender and WSL2/Ubuntu for UniRig.
-2. [Download the source ZIP](https://github.com/yoslo59/TRELLIS-Studio/archive/refs/heads/main.zip) and extract it to a short local path such as `C:\AI\TRELLIS-Studio`. Git users can clone this repository instead.
-3. Double-click **`Install TRELLIS Studio.cmd`**. Read the DINOv3 license and type `ACCEPT` only if you agree. The installer provisions private Python environments, downloads the pinned engines and model files, installs the browser dependencies and verifies the setup.
-4. Double-click **`Open TRELLIS.cmd`**. `Ouvrir TRELLIS.cmd` is also supported. Open `http://127.0.0.1:7860` if your browser does not open automatically.
+1. Download the x64 Setup from [GitHub Releases](https://github.com/yoslo59/TRELLIS-Studio/releases). This preview is unsigned; the release also includes its SHA-256 checksum.
+2. Choose **Workshop only** for the library, 3D viewer and GLB import/export, or **Full Studio** for local TRELLIS.2 generation, UniRig and Pixal3D. Full Studio requires a compatible NVIDIA driver, Blender and Ubuntu 22.04 under WSL2. Allow around **29 GiB** of model downloads plus packages and **100 GiB** of free space.
+3. Open **TRELLIS Studio** from the Start menu or choose to create a desktop shortcut during Setup. The packaged app opens at `http://127.0.0.1:7870`. The first launch of Workshop only provisions a private Python environment; it does not download model weights.
 
-The full model/animation download is approximately **20.6 GiB**, plus the engines and Python packages. Keep **80 GiB free** for download caches, installation and initial work. Downloads are resumable and verified with SHA-256. Re-running the installer preserves existing user data; an unexpected source directory or mismatching completed download produces an error rather than an overwrite.
+Read the [Windows Setup guide](docs/WINDOWS_SETUP.md) for component installation, repair and uninstall. Downloads are resumable and verified with SHA-256. The uninstaller can stop its own idle local services and keeps the library.
 
-Read the [detailed installation, repair and troubleshooting guide](INSTALLATION.md). WSL setup, driver installation, a required reboot and third-party license acceptance can require your interaction. The installer does not silently enable Windows features or replace a GPU driver.
+### Install from source
+
+[Download the source ZIP](https://github.com/yoslo59/TRELLIS-Studio/archive/refs/heads/main.zip) or clone the repository. Follow the [source installation guide](INSTALLATION.md): run **Install TRELLIS Studio.cmd**, then **Open TRELLIS.cmd**. The source launcher uses ports 7860 and 7861. It needs Node.js to assemble the viewer dependencies. Read and accept the DINOv3 license only if you agree to the terms. Setup does not enable WSL features or replace GPU drivers.
 
 ## What you can do
 
@@ -51,6 +52,8 @@ Read the [detailed installation, repair and troubleshooting guide](INSTALLATION.
 
 Select **Keep source for finishing variants** before generating if you want to retain the decoded geometry and materials. On a completed model, open its card menu and choose **Refinish model**. Adjust remeshing or direct simplification, triangle target, texture size and small-hole repair. The new card is linked to the original and can be opened in **Compare**. Variants reuse the saved source and run mesh processing and UV baking without loading the generation model.
 
+Open **Finishing board** from the same card or from **Prepare** to queue several editable finishing recipes from one cache. Compare the measured results at their original scale with the camera held in place, then mark the preferred version. That choice is recorded separately from the asset's visual review.
+
 The source cache can take hundreds of megabytes per model. Studio stores it once per source and keeps it local to this installation. Collection ZIPs preserve the finished models and recipes. The cache is optional and leaves generation profiles intact.
 
 ### Generation profiles
@@ -65,7 +68,7 @@ The source cache can take hundreds of megabytes per model. Studio stores it once
 
 ### Optional multi-view characters
 
-Run **Install Pixal3D.cmd** once after the main Studio installation. In the **Reference image** card in **Create**, enable **Multi-view · Pixal3D**, add a full-body front image and at least one complementary view, then choose the side angle that matches the images. The left and right slots are relative to the character. The back is a 180° view. Use the same character, scale and A-pose or T-pose in each image, with hands and feet visible. The slots accept PNG, JPEG and WebP up to 25 MB each. Studio prepares the cutouts and framing locally. Supply the views yourself.
+**Full Studio** includes Pixal3D. On a source installation, run **Install Pixal3D.cmd** after the main installation to add it. In the **Reference image** card in **Create**, enable **Multi-view · Pixal3D**, add a full-body front image and at least one complementary view, then choose the side angle that matches the images. The left and right slots are relative to the character. The back is a 180° view. Use the same character, scale and A-pose or T-pose in each image, with hands and feet visible. The slots accept PNG, JPEG and WebP up to 25 MB each. Studio prepares the cutouts and framing locally. Supply the views yourself.
 
 The separate **Character · Pixal3D** recipe uses the 1024 cascade, a target of 10,600 triangles and 2K materials. The mesh and materials are generated in successive stages. Actual triangle counts are approximate. Jobs share Studio's queue and retain their input views, angles and recipe. The source cache for **Refinish model** is optional for this standard recipe. The **Character profile** selector also offers **Humanoid · Experimental**, which keeps the source and targets a detailed 250,000-triangle master before lighter finishing comparisons. The standard Create mode continues to use **Game - Default**.
 
@@ -125,6 +128,10 @@ Foot-contact measurements are estimates. The workshop does not guarantee foot lo
 Exports run as separate cancellable jobs and provide downloadable ZIPs. Engine packages accept up to 50 completed models. A collection backup accepts up to 500 models.
 
 For Unity, merge the exported common `Editor` folder into your project, then choose **Tools → TRELLIS Studio → Configure exported models**. It configures materials, Generic animation/avatar settings and, for prepared copies, a prefab with LODGroup and collisions. Skinned LODs follow LOD 0's bones. Humanoid avatar mapping, controllers and gameplay remain project-specific. Unreal imports still require checking material assignment and normal settings.
+
+In Export, choose **Check model** to measure the asset against editable budgets for its destination and intended use. The report distinguishes checks from the review decision; topology diagnostics can show open and non-manifold edges on a static model. Exported reports refer to the exact source GLB in the export.
+
+To update a Unity asset, extract the new package **outside** `Assets`, select the existing model folder in Unity and choose **Tools → TRELLIS Studio → Preview model update**. Point it to the incoming `studio-export.json`. Review the changes and select the files to update. The importer checks that existing object references still resolve and leaves your materials and prefab edits in place. If the mesh was re-UV-mapped, include its matching textures. Existing projects can install the updated Editor helper without replacing their assets.
 
 ## API and agents
 

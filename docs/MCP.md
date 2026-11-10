@@ -3,6 +3,8 @@
 The local bridge exposes Studio's REST v1 operations as typed MCP tools. It uses
 the official Python MCP SDK 2.3.0 in `.mcp-venv`, separate from TRELLIS and UniRig.
 No GPU model is loaded by the bridge itself. Start Studio before calling its tools.
+The Windows Setup defaults to ports 7870 for the API and 7871 for the MCP bridge;
+the source installation uses 7860 and 7861.
 
 ## Start and connect
 

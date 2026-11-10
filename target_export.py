@@ -1,9 +1,10 @@
 """Target recipes and PBR maps. Export staging never writes into an asset directory."""
 from pathlib import Path
-import copy,hashlib,json,shutil,struct,subprocess,sys
+import copy,json,shutil,struct,subprocess,sys
 import numpy as np
 from PIL import Image
 from glb_data import read,image,animation_info
+from model_diagnostics import matching_report, source_sha256
 from studio_import import find_blender
 
 ROOT=Path(__file__).resolve().parent
@@ -47,8 +48,16 @@ def conversion_glb(data,binary,path):
     text=json.dumps(clone,separators=(',',':')).encode();text+=b' '*((-len(text))%4);binary+=b'\0'*((-len(binary))%4)
     path.write_bytes(struct.pack('<4sII',b'glTF',2,28+len(text)+len(binary))+struct.pack('<II',len(text),0x4e4f534a)+text+struct.pack('<II',len(binary),0x004e4942)+binary)
 
-def export_asset(source,destination,target,notify=lambda fraction,stage:None):
+def export_asset(source,destination,target,notify=lambda fraction,stage:None,*,preflight_budget=None,expected_hash=None):
     source=Path(source);destination=Path(destination);destination.mkdir(parents=True,exist_ok=True)
+    digest=source_sha256(source/'model.glb')
+    if expected_hash is not None and digest != expected_hash:
+        raise ValueError('A model changed after its export check. Run the check again for the current model.')
+    preflight=None
+    if preflight_budget is not None:
+        from export_preflight import asset_report
+        notify(.03,'Checking the export snapshot')
+        preflight=asset_report(source,target,preflight_budget,digest=digest,staged_cache=source/'diagnostics.json')
     data,binary=read(source/'model.glb');settings=json.loads((source/'settings.json').read_text(encoding='utf-8'))
     metadata=json.loads((source/'metadata.json').read_text(encoding='utf-8'))
     recipe=TARGETS[target];clips=animation_info(data,binary)
@@ -56,8 +65,12 @@ def export_asset(source,destination,target,notify=lambda fraction,stage:None):
     notify(.1,'Extracting PBR maps')
     materials=material_maps(data,binary,destination) if target in ('blender','unity','unreal') else []
     manifest=dict(version=1,target=target,name=metadata.get('display_name',settings['name']),id=source.name,coordinates=recipe,
-        source_glb_sha256=hashlib.sha256((source/'model.glb').read_bytes()).hexdigest(),height_m=settings.get('height_m'),animations=clips,
+        source_glb_sha256=digest,height_m=settings.get('height_m'),animations=clips,
         bones=len({j for skin in data.get('skins',[]) for j in skin.get('joints',[])}),materials=materials)
+    if preflight is not None:
+        manifest['preflight']=preflight
+    if target=='unity':
+        manifest.update(unity_asset_id=source.name,unity_parent_id=settings.get('parent_id',''))
     if (source/'physics.json').is_file():
         manifest['physics']=json.loads((source/'physics.json').read_text(encoding='utf-8'))
         if (source/'Collisions').is_dir():shutil.copytree(source/'Collisions',destination/'Collisions',dirs_exist_ok=True)
@@ -88,15 +101,23 @@ def export_asset(source,destination,target,notify=lambda fraction,stage:None):
         shutil.copy2(source/'model.stl',destination/'model.stl');shutil.copy2(source/'print-report.json',destination/'print-report.json')
         manifest['print_report']=json.loads((source/'print-report.json').read_text(encoding='utf-8'))
     notify(.85,'Writing scale, material and import information')
-    for filename in ('settings.json','metadata.json','diagnostics.json'):
+    for filename in ('settings.json','metadata.json'):
         if (source/filename).is_file():shutil.copy2(source/filename,destination/filename)
+    diagnostic=(matching_report(source/'Diagnostics/report.json',digest,current=False)
+                or matching_report(source/'diagnostics.json',digest,current=False))
+    if diagnostic:
+        (destination/'diagnostics.json').write_text(json.dumps(diagnostic,indent=2),encoding='utf-8')
     (destination/'studio-export.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     lines=[f'TRELLIS Studio — {recipe["label"]} export','',f'Units: {recipe["units"]}; up: {recipe["up"]}; forward: {recipe["forward"]}.',
       'The original GLB is included byte-for-byte. Its own coordinates are always Y up / metres.',
       f'Embedded source clips: {len(clips)}. Skeleton joints: {manifest["bones"]}.','']
     if target=='unity':
-        lines+=['Copy this model folder into Assets/TrellisStudioExports. Copy the supplied Editor folder into Assets.',
+        lines+=['FIRST IMPORT: Copy this model folder into Assets/TrellisStudioExports. Copy the supplied Editor folder into Assets.',
           'Wait for compilation, then Tools > TRELLIS Studio > Configure exported models.',
+          'UPDATE: Extract the new export outside the Unity project. Select the installed model folder in Unity, then open Tools > TRELLIS Studio > Preview model update.',
+          'Choose the extracted studio-export.json, review the changes and select FBX, texture files and/or existing LOD and collision FBX files.',
+          'Updates keep the installed paths, Unity .meta files, material assignments and prefab edits. The FBX contains both geometry and its embedded rig/clips.',
+          'An update accepts the same Studio card or an explicitly selected related variant. Incompatible material slots or lost Unity references stop the update.',
           'The helper uses Generic animation, Convert Units and URP Lit (or Standard). It does not create a Humanoid Avatar or controller.',
           'MetallicSmoothness: R=metallic, A=1-roughness; linear. BaseColor/emissive are sRGB. NormalOpenGL is a normal map.']
     elif target=='unreal':

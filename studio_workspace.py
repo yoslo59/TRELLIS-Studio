@@ -66,10 +66,13 @@ class Workspace:
             current=dict(id=uuid.uuid4().hex,**value);self.data['views'].append(current)
         self.save();return current
     def enqueue(self,identifier,priority=0,held=False):
+        self.enqueue_many([identifier], priority, held)
+
+    def enqueue_many(self, identifiers, priority=0, held=False):
         if type(priority) is not int or not -2<=priority<=2:raise ValueError('Priority must be between -2 and 2.')
         previous = self.queue['items']
         items = previous[-1000:] if len(previous) >= 2000 else previous.copy()
-        items.append(dict(id=identifier, priority=priority, held=held, created=time.time()))
+        items.extend(dict(id=identifier, priority=priority, held=held, created=time.time()) for identifier in identifiers)
         self.queue['items'] = items
         try:
             self.save_queue()

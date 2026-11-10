@@ -5,14 +5,47 @@ import numpy as np
 import trimesh
 from glb_data import read,image,animation_info,posed_bounds,accessor
 
-VERSION=3
-def diagnose(folder,force=False):
+VERSION=4
+OVERLAY_LIMIT=1000
+
+
+def source_sha256(path):
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def matching_report(path, digest, *, current=True):
+    try:
+        report = json.loads(Path(path).read_text(encoding='utf-8'))
+        if (isinstance(report, dict) and (not current or report.get('version') == VERSION)
+                and report.get('source_sha256') == digest):
+            return report
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def diagnose(folder,force=False,*,verified_digest=None,staged_cache=None):
     folder=Path(folder);source=folder/'model.glb';stat=source.stat();target=folder/'Diagnostics';cache=target/'report.json'
-    if cache.is_file() and not force:
-        old=json.loads(cache.read_text(encoding='utf-8'))
-        if old.get('version')==VERSION and old.get('source_size')==stat.st_size and old.get('source_mtime_ns')==stat.st_mtime_ns:return old
+    if not force:
+        if verified_digest is not None:
+            old = matching_report(staged_cache or cache, verified_digest)
+            if old:
+                return old
+        elif cache.is_file():
+            try:
+                old=json.loads(cache.read_text(encoding='utf-8'))
+                if old.get('version')==VERSION and old.get('source_size')==stat.st_size and old.get('source_mtime_ns')==stat.st_mtime_ns:return old
+            except (OSError, ValueError, AttributeError):
+                pass
+    digest = verified_digest or source_sha256(source)
     settings=json.loads((folder/'settings.json').read_text(encoding='utf-8')) if (folder/'settings.json').is_file() else {}
     data,binary=read(source);scene=trimesh.load(source,force='scene',process=False);issues=[];meshes=[]
+    can_mark = not data.get('skins') and 'EXT_mesh_gpu_instancing' not in data.get('extensionsUsed', []) and not any(
+        primitive.get('targets') for mesh in data['meshes'] for primitive in mesh['primitives']
+    )
+    edge_samples = {}
+    sampled_edges = False
     def issue(code,message,count=None,severity='warning'):
         entry=dict(code=code,message=message,severity=severity)
         if count is not None:entry['count']=int(count)
@@ -28,6 +61,14 @@ def diagnose(folder,force=False):
             p=uv[faces];u=p[:,1]-p[:,0];v=p[:,2]-p[:,0];uv_zero=int(np.count_nonzero(np.abs(u[:,0]*v[:,1]-u[:,1]*v[:,0])<1e-12))
         mesh.merge_vertices(merge_tex=True,merge_norm=True,digits_vertex=8);mesh.remove_unreferenced_vertices()
         counts=np.bincount(mesh.edges_unique_inverse,minlength=len(mesh.edges_unique));boundary=int(np.count_nonzero(counts==1));nonmanifold=int(np.count_nonzero(counts>2))
+        if can_mark and finite and (boundary or nonmanifold):
+            edge_samples[name] = {}
+            for kind, mask in [('boundary', counts == 1), ('nonmanifold', counts > 2)]:
+                selected = np.flatnonzero(mask)
+                if len(selected) > OVERLAY_LIMIT:
+                    selected = selected[np.linspace(0, len(selected) - 1, OVERLAY_LIMIT, dtype=int)]
+                    sampled_edges = True
+                edge_samples[name][kind] = np.asarray(mesh.vertices)[mesh.edges_unique[selected]]
         labels=trimesh.graph.connected_component_labels(mesh.edges_unique,node_count=len(mesh.vertices));shells=len(np.unique(labels))
         winding=bool(mesh.is_winding_consistent);closed=bool(len(mesh.faces) and not boundary and not nonmanifold and finite)
         volume=float(mesh.volume) if closed and finite else None
@@ -67,12 +108,28 @@ def diagnose(folder,force=False):
     if stored_bad:issue('stored_normals','Invalid or near-zero normals in the GLB source.',stored_bad)
     summary=dict(vertices=sum(m['vertices'] for m in meshes),triangles=sum(m['triangles'] for m in meshes),meshes=len(meshes),instances=len(scene.graph.nodes_geometry),
         materials=len(materials),textures=len(textures),clips=len(clips),bones=len({j for s in data.get('skins',[]) for j in s.get('joints',[])}),
-        dimensions_m=size.tolist(),height_m=float(size[1]),has_uv=bool(meshes) and all(m['has_uv'] for m in meshes),
+        dimensions_m=size.tolist(),bounds_min_m=low.tolist(),bounds_max_m=high.tolist(),
+        height_m=float(size[1]),has_uv=bool(meshes) and all(m['has_uv'] for m in meshes),
         closed_surface=bool(meshes) and all(m['closed_surface'] for m in meshes),boundary_edges=sum(m['boundary_edges'] for m in meshes),nonmanifold_edges=sum(m['nonmanifold_edges'] for m in meshes),
         degenerate_faces=sum(m['degenerate_faces'] for m in meshes),connected_shells=sum(m['connected_shells'] for m in meshes),
         degenerate_uv_faces=sum(m['degenerate_uv_faces'] for m in meshes),invalid_stored_normals=stored_bad,dimension_pose='Stored GLB pose, with skinning evaluated')
-    report=dict(version=VERSION,created=time.time(),source_size=stat.st_size,source_mtime_ns=stat.st_mtime_ns,source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
-        summary=summary,meshes=meshes,textures=textures,materials=materials,animations=clips,issues=issues,
+    overlay = None
+    if edge_samples:
+        overlay = dict(positions={'boundary': [], 'nonmanifold': []}, sampled=sampled_edges)
+        for node in scene.graph.nodes_geometry:
+            transform, name = scene.graph[node]
+            for kind, segments in edge_samples.get(name, {}).items():
+                positions = overlay['positions'][kind]
+                remaining = OVERLAY_LIMIT - len(positions) // 6
+                if len(segments) > remaining:
+                    overlay['sampled'] = True
+                if not remaining or not len(segments):
+                    continue
+                points = trimesh.transform_points(segments[:remaining].reshape(-1, 3), transform)
+                if np.isfinite(points).all():
+                    positions.extend(points.ravel().tolist())
+    report=dict(version=VERSION,created=time.time(),source_size=stat.st_size,source_mtime_ns=stat.st_mtime_ns,source_sha256=digest,
+        summary=summary,meshes=meshes,textures=textures,materials=materials,animations=clips,issues=issues,edge_overlay=overlay,
         status='attention' if any(i['severity'] in ('warning','error') for i in issues) else 'checked',
         scope='Topology uses positions welded to 8 decimal places in metres. Materials are measured as stored; missing optional maps are not automatically defects.',
         not_checked=['Self-intersections','UV overlaps','Minimum wall thickness','Morph target deformations','Rig fit and deformation quality','Visual quality','Gameplay readiness','Physical printability'])

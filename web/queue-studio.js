@@ -1,4 +1,4 @@
-import {button,dialog,el,field,input,select,action} from './workbench-ui.js?v=3.1.0';
+import {button,dialog,el,field,input,select,action} from './workbench-ui.js?v=3.2.0';
 export function createQueueStudio({api,refresh}){
  const ui=dialog('queueDialog','Generation queue','LOCAL COMPUTE','Prepare a batch, then let the studio process one model at a time.','queue-dialog');
  const tabs=el('div','wb-tabs'),listTab=button('Queue','list','active'),composeTab=button('Prepare batch','plus');tabs.append(listTab,composeTab);ui.body.append(tabs);const queue=el('section','queue-list'),compose=el('section','queue-compose');compose.hidden=true;ui.body.append(queue,compose);

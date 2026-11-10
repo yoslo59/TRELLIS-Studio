@@ -1,5 +1,6 @@
 """Studio 3 workspace services. All state is local and scoped to the library."""
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import asyncio,copy,json,math,os,re,shutil,time,uuid
 from fastapi import HTTPException,Request,UploadFile,File,Form
 from fastapi.responses import FileResponse
@@ -42,6 +43,7 @@ class StudioServices:
             await asyncio.sleep(1)
             if self.workspace.queue.get('paused'):continue
             async with self.g['LOCK']:
+                if self.g.get('SHUTTING_DOWN'):continue
                 process=self.g['PROCESS']
                 if self.g['TERRAIN_ACTIVE'] or process is not None and process.poll() is None:continue
                 for item in self.workspace.ordered():
@@ -56,14 +58,95 @@ class StudioServices:
                                                         progress=0,error=str(error)))
                         continue
                     write(folder/'status.json',dict(state='running',stage='Starting queued generation',progress=1))
-                    script = 'pixal3d_worker.py' if settings.get('engine') == 'pixal3d' else 'worker.py'
-                    try:self.g['launch_worker'](folder,script)
+                    try:
+                        if settings.get('source_kind') == 'refinish':
+                            source_id = finishing_source(folder, settings)
+                            if not source_id:
+                                write(folder/'status.json', dict(state='error', stage='Finishing source unavailable',
+                                                                 progress=0, error='Restore the source model and its cache, then retry.'))
+                                continue
+                            self.g['launch_worker'](folder, 'worker.py', source_id=source_id)
+                        else:
+                            script = 'pixal3d_worker.py' if settings.get('engine') == 'pixal3d' else 'worker.py'
+                            self.g['launch_worker'](folder, script)
                     except OSError as error:write(folder/'status.json',dict(state='error',stage='Unable to launch generation',progress=0,error=str(error)))
                     break
     def available(self,identifier):
         folder=self.g['job_path'](identifier);record=self.g['job_record'](folder);self.g['refresh_export']()
-        if record['state']!='done' or self.g['active_job'](identifier) or identifier in self.g['EXPORTING']:raise HTTPException(409,'Wait for this model to finish computing or exporting.')
+        if not record or record['state']!='done' or self.g['active_job'](identifier) or identifier in self.g['EXPORTING']:raise HTTPException(409,'Wait for this model to finish computing or exporting.')
         return folder,record
+
+    def finishing_model(self, identifier, available=False):
+        if available:
+            folder, record = self.available(identifier)
+        else:
+            folder = self.g['job_path'](identifier)
+            record = self.g['job_record'](folder)
+        if not record or record['state'] != 'done':
+            raise HTTPException(409, 'Wait for this model to finish computing.')
+        source_id = finishing_source(folder, record['settings'])
+        if not source_id:
+            raise HTTPException(409, 'This model has no reusable finishing source.')
+        return folder, record, source_id
+
+    def finishing_recipe(self, data, settings, options):
+        if not isinstance(data, dict) or set(data) - {'triangles', 'texture_size', 'mesh_mode', 'repair_holes'}:
+            raise ValueError('Only finishing settings can be changed.')
+        triangles = data.get('triangles', settings['triangles'])
+        texture_size = data.get('texture_size', settings['texture_size'])
+        mesh_mode = data.get('mesh_mode', options['mesh_mode'])
+        repair = data.get('repair_holes', options['repair_holes'])
+        if type(triangles) is not int or not 1000 <= triangles <= 500000:
+            raise ValueError('Choose a target of 1,000–500,000 triangles.')
+        if type(texture_size) is not int or texture_size not in self.g['generation_capabilities']()[1]:
+            raise ValueError('Choose a supported texture size.')
+        if mesh_mode not in ('direct', 'remesh') or type(repair) is not bool:
+            raise ValueError('Choose a valid mesh finishing method and hole setting.')
+        return triangles, texture_size, mesh_mode, repair
+
+    def create_finishing_variant(self, variant, folder, record, source_id, options, recipe):
+        triangles, texture_size, mesh_mode, repair = recipe
+        variant.mkdir()
+        settings = dict(record['settings'])
+        settings.pop('keep_finishing_source', None)
+        settings.update(created=time.time(), parent_id=folder.name, source_kind='refinish',
+                        finish_source_id=source_id, triangles=triangles, texture_size=texture_size,
+                        generation_options={**options, 'mesh_mode': mesh_mode, 'repair_holes': repair})
+        write(variant / 'settings.json', settings)
+        for filename in (*self.g['REFERENCE_FILES'], 'prepared.png', 'conditioning.png'):
+            if (folder / filename).is_file():
+                shutil.copy2(folder / filename, variant / filename)
+        metadata = dict(record['metadata'])
+        label = metadata.get('display_name') or settings['name']
+        suffix = f' · {mesh_mode} {triangles / 1000:g}k · {texture_size // 1024}K'
+        metadata.update(display_name=label[:80-len(suffix)] + suffix, review_state='review', favorite=False)
+        write(variant / 'metadata.json', metadata)
+        write(variant / 'status.json', dict(state='queued', stage='Waiting for finishing', progress=0))
+
+    def queue_finishing_variants(self, folder, record, source_id, options, recipes):
+        identifiers = [uuid.uuid4().hex for _ in recipes]
+        # Stage copies on the same volume. A failed queue write rolls back every new card.
+        with TemporaryDirectory(prefix='finish-board-', dir=self.output) as staging:
+            staged = Path(staging)
+            for identifier, recipe in zip(identifiers, recipes):
+                self.create_finishing_variant(staged / identifier, folder, record, source_id, options, recipe)
+            published = []
+            try:
+                for identifier in identifiers:
+                    target = self.output / identifier
+                    (staged / identifier).rename(target)
+                    published.append(target)
+                self.workspace.enqueue_many(identifiers)
+            except OSError:
+                for target in published:
+                    try:
+                        target.rename(staged / target.name)
+                    except OSError:
+                        write(target/'status.json', dict(state='error', stage='Unable to queue this finishing variant',
+                                                        progress=0, error='The batch was not submitted.'))
+                raise
+        return identifiers
+
     def register(self,app):
         @app.get('/api/workspace')
         def workspace():return self.workspace.data
@@ -175,50 +258,79 @@ class StudioServices:
         async def refinish(identifier: str, request: Request):
             async with self.g['LOCK']:
                 self.g['require_idle']()
-                folder, record = self.available(identifier)
-                source_id = finishing_source(folder, record['settings'])
-                if not source_id:
-                    raise HTTPException(409, 'This model has no reusable finishing source.')
-                settings = dict(record['settings'])
-                options = options_for_job(settings)
+                folder, record, source_id = self.finishing_model(identifier, available=True)
                 try:
-                    data = await request.json()
-                    if not isinstance(data, dict) or set(data) - {'triangles', 'texture_size', 'mesh_mode', 'repair_holes'}:
-                        raise ValueError('Only finishing settings can be changed.')
-                    triangles = data.get('triangles', settings['triangles'])
-                    texture_size = data.get('texture_size', settings['texture_size'])
-                    mesh_mode = data.get('mesh_mode', options['mesh_mode'])
-                    repair = data.get('repair_holes', options['repair_holes'])
-                    if type(triangles) is not int or not 1000 <= triangles <= 500000:
-                        raise ValueError('Choose a target of 1,000–500,000 triangles.')
-                    if type(texture_size) is not int or texture_size not in self.g['generation_capabilities']()[1]:
-                        raise ValueError('Choose a supported texture size.')
-                    if mesh_mode not in ('direct', 'remesh') or type(repair) is not bool:
-                        raise ValueError('Choose a valid mesh finishing method and hole setting.')
+                    settings = record['settings']
+                    options = options_for_job(settings)
+                    recipe = self.finishing_recipe(await request.json(), settings, options)
                 except (ValueError, TypeError) as error:
                     raise HTTPException(400, str(error)) from error
                 variant = self.output / uuid.uuid4().hex
-                variant.mkdir()
-                settings.pop('keep_finishing_source', None)
-                settings.update(created=time.time(), parent_id=identifier, source_kind='refinish',
-                                finish_source_id=source_id, triangles=triangles, texture_size=texture_size,
-                                generation_options={**options, 'mesh_mode': mesh_mode, 'repair_holes': repair})
-                write(variant / 'settings.json', settings)
-                for filename in (*self.g['REFERENCE_FILES'], 'prepared.png', 'conditioning.png'):
-                    if (folder / filename).is_file():
-                        shutil.copy2(folder / filename, variant / filename)
-                metadata = dict(record['metadata'])
-                label = metadata.get('display_name') or settings['name']
-                suffix = f' · {mesh_mode} {triangles / 1000:g}k · {texture_size // 1024}K'
-                metadata.update(display_name=label[:80-len(suffix)] + suffix, review_state='review', favorite=False)
-                write(variant / 'metadata.json', metadata)
-                write(variant / 'status.json', dict(state='queued', stage='Preparing finishing variant', progress=1))
+                self.create_finishing_variant(variant, folder, record, source_id, options, recipe)
                 try:
                     self.g['launch_worker'](variant, 'worker.py', source_id=source_id)
                 except OSError as error:
                     write(variant / 'status.json', dict(state='error', stage='Unable to start finishing', progress=0, error=str(error)))
                     raise HTTPException(503, 'Unable to start finishing.') from error
                 return dict(id=variant.name)
+
+        @app.get('/api/jobs/{identifier}/finishing-board')
+        def finishing_board(identifier: str):
+            _, _, source_id = self.finishing_model(identifier)
+            source = self.output / source_id
+            try:
+                cache_bytes = (source/'raw_state.pt').stat().st_size
+                selection = read(source/'finishing-choice.json', {})
+            except (OSError, ValueError) as error:
+                raise HTTPException(409, 'Unable to read the finishing cache or choice.') from error
+            return dict(source_id=source_id, cache_bytes=cache_bytes,
+                        texture_sizes=self.g['generation_capabilities']()[1],
+                        selected_id=selection.get('id') if isinstance(selection, dict) else None)
+
+        @app.post('/api/jobs/{identifier}/finishing-board', status_code=202)
+        async def finish_board_batch(identifier: str, request: Request):
+            async with self.g['LOCK']:
+                folder, record, source_id = self.finishing_model(identifier)
+                try:
+                    data = await request.json()
+                    if not isinstance(data, dict) or set(data) != {'variants'}:
+                        raise ValueError('Provide finishing variants.')
+                    variants = data['variants']
+                    if not isinstance(variants, list) or not 1 <= len(variants) <= 3:
+                        raise ValueError('Choose one to three finishing recipes.')
+                    settings = record['settings']
+                    options = options_for_job(settings)
+                    recipes = [self.finishing_recipe(value, settings, options) for value in variants]
+                    if len(set(recipes)) != len(recipes):
+                        raise ValueError('Choose different finishing recipes for each variant.')
+                except (ValueError, TypeError) as error:
+                    raise HTTPException(400, str(error)) from error
+                try:
+                    identifiers = self.queue_finishing_variants(folder, record, source_id, options, recipes)
+                except OSError as error:
+                    raise HTTPException(503, 'Unable to queue the finishing variants.') from error
+                return dict(ids=identifiers, source_id=source_id, count=len(identifiers),
+                            paused=self.workspace.queue['paused'])
+
+        @app.patch('/api/jobs/{identifier}/finishing-board')
+        async def choose_finishing_variant(identifier: str, request: Request):
+            try:
+                data = await request.json()
+            except ValueError as error:
+                raise HTTPException(400, 'Choose one completed variant from this board.') from error
+            async with self.g['LOCK']:
+                _, _, source_id = self.finishing_model(identifier)
+                if not isinstance(data, dict) or set(data) != {'selected_id'}:
+                    raise HTTPException(400, 'Choose one completed variant from this board.')
+                selected_id = data['selected_id']
+                if selected_id is not None:
+                    if not isinstance(selected_id, str) or not ID.fullmatch(selected_id):
+                        raise HTTPException(400, 'Invalid variant identifier.')
+                    _, selected, selected_source = self.finishing_model(selected_id)
+                    if selected_source != source_id or not selected['media'].get('available'):
+                        raise HTTPException(409, 'This model is not a completed variant from this board.')
+                write(self.output/source_id/'finishing-choice.json', dict(id=selected_id))
+                return dict(selected_id=selected_id)
 
         @app.post('/api/jobs/{identifier}/prepare/{operation}',status_code=202)
         async def prepare(identifier:str,operation:str,request:Request):

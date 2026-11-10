@@ -1,11 +1,16 @@
-import {createComparison} from './compare-studio.js?v=3.1.0';
-import {createDiagnostics} from './diagnostics.js?v=3.1.0';
-import {createExportStudio} from './export-studio.js?v=3.1.0';
-import {createLibrarySelection} from './library-selection.js?v=3.1.0';
-import {installButtonIcons} from './button-icons.js?v=3.1.0-rig-landmarks';
-import {icon} from './card-menu.js?v=3.1.0';
-export function createStudioTools({api,getRecords,getJob,refresh,printCopy,labelAnimation}){
- const compare=createComparison({getRecords,labelAnimation}),diagnostics=createDiagnostics({api}),exports=createExportStudio({api,printCopy});
+import {createComparison} from './compare-studio.js?v=3.2.0';
+import {createDiagnostics} from './diagnostics.js?v=3.2.0';
+import {createExportStudio} from './export-studio.js?v=3.2.0';
+import {createLibrarySelection} from './library-selection.js?v=3.2.0';
+import {installButtonIcons} from './button-icons.js?v=3.2.0';
+import {icon} from './card-menu.js?v=3.2.0';
+export function createStudioTools({api,getRecords,getJob,refresh,printCopy,labelAnimation,openPreparation}){
+ const compare=createComparison({getRecords,labelAnimation}),diagnostics=createDiagnostics({api});
+ const exports=createExportStudio({api,printCopy,openAction(action,job){
+  if(action==='diagnostics')diagnostics.open(job);
+  else if(action==='print')printCopy.open(job);
+  else openPreparation(job,action);
+ }});
  const selection=createLibrarySelection({api,getRecords,refresh,compare,exports});const $=id=>document.getElementById(id);
  $('compareModel').onclick=()=>compare.open(getJob());$('diagnoseModel').onclick=()=>diagnostics.open(getJob());$('exportModel').onclick=()=>exports.open(getJob());$('detailDiagnostics').onclick=()=>diagnostics.open(getJob());
  installButtonIcons();

@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="trellis-ui-revision" content="3.1.0-humanoid-experimental">
+<meta name="trellis-ui-revision" content="3.2.0">
 <title>TRELLIS Studio — Local 3D workspace</title>
 <link rel="icon" type="image/svg+xml" href="/web/trellis-mark.svg">
 <link rel="stylesheet" href="/web/studio.css?v=2.3">
-<link rel="stylesheet" href="/web/workspace.css?v=3.1.0"><link rel="stylesheet" href="/web/polish.css?v=3.1.0-reference-card">
+<link rel="stylesheet" href="/web/workspace.css?v=3.2.0"><link rel="stylesheet" href="/web/polish.css?v=3.2.0">
 <script type="importmap">{"imports":{"three":"/vendor/build/three.module.js","three/addons/":"/vendor/examples/jsm/"}}</script>
-<link rel="stylesheet" href="/web/animation-studio.css?v=3.1.0-rig-landmarks-flat"><link rel="stylesheet" href="/web/details.css?v=3.1.0"><link rel="stylesheet" href="/web/studio-tools.css?v=3.1.0"><link rel="stylesheet" href="/web/lighting.css?v=3.1.0"><link rel="stylesheet" href="/web/workbench.css?v=3.1.0"></head><body>
-<header class="topbar"><a class="brand" href="/"><img class="brand-logo" src="/web/trellis-mark.svg" alt=""><strong>TRELLIS <em>Studio</em></strong><span class="version">LOCAL / 03.1</span></a><span class="top-context">IMAGE → MATERIAL → VOLUME</span><div class="top-status"><span class="online-dot"></span><span id="runtime">Connecting to the engine…</span><a class="developer-link" href="/developers" title="API & MCP documentation" aria-label="API and MCP documentation"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#details"/></svg></a><button id="shutdown" class="quiet" type="button" title="Stop the local server">Stop</button></div></header>
+<link rel="stylesheet" href="/web/animation-studio.css?v=3.2.0"><link rel="stylesheet" href="/web/details.css?v=3.2.0"><link rel="stylesheet" href="/web/studio-tools.css?v=3.2.0"><link rel="stylesheet" href="/web/lighting.css?v=3.2.0"><link rel="stylesheet" href="/web/workbench.css?v=3.2.0"></head><body>
+<header class="topbar"><a class="brand" href="/"><img class="brand-logo" src="/web/trellis-mark.svg" alt=""><strong>TRELLIS <em>Studio</em></strong><span class="version">LOCAL / 03.2</span></a><span class="top-context">IMAGE → MATERIAL → VOLUME</span><div class="top-status"><span class="online-dot"></span><span id="runtime">Connecting to the engine…</span><a class="developer-link" href="/developers" title="API & MCP documentation" aria-label="API and MCP documentation"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#details"/></svg></a><button id="shutdown" class="quiet" type="button" title="Stop the local server">Stop</button></div></header>
 <div id="versionNotice" class="version-notice" role="status" hidden><span id="versionNoticeText"></span> <a id="reloadStudio" href="/" hidden>Reload Studio</a></div>
 <div class="app-shell">
 <nav class="rail" aria-label="Workspaces"><span class="rail-label">WORKSPACE</span><button id="imageTab" aria-pressed="true" class="rail-button"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#image"/></svg><span class="nav-text">Create</span></button><button id="openLibrary" aria-pressed="false" class="rail-button"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#grid"/></svg><span class="nav-text">Collection</span> <b id="count">0</b></button><button id="terrainTab" aria-pressed="false" class="rail-button"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#terrain"/></svg><span class="nav-text">Terrain</span></button><button id="rigTab" aria-pressed="false" class="rail-button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="14" cy="4" r="2"/><path d="m5 10 5-3 5 3 4-1M10 7l-1 7-5 6m5-6 6 2 2 5m-5-11 2 5"/></svg><span class="nav-text">Animate</span></button><div class="rail-bottom"><span class="local-badge">● 100 % local</span><small>Your images and models<br>stay on this computer.</small><span id="hardware">RTX 4070 Ti · 12 Go</span></div></nav>
@@ -147,7 +147,7 @@
 <dialog id="deleteDialog"><form method="dialog"><span class="eyebrow">TRASH</span><h2>Remove this model?</h2><p id="deleteName"></p><p>The model and its files will move to the local trash. You can restore them later.</p><div class="dialog-actions"><button value="cancel" class="secondary">Keep</button><button id="confirmDelete" type="button" class="danger">Move to trash</button></div></form></dialog>
 <dialog id="imageDialog"><button class="dialog-close" id="closeImage">Close ×</button><img id="largeImage" alt="Full-size texture or UV layout"></dialog>
 <footer><span>TRELLIS STUDIO</span><span>Reference → generation → review → Blender</span><span>UV & PBR · local compute</span></footer>
-<script type="module" src="/web/studio.js?v=3.1.0-humanoid-final"></script><script type="module" src="/web/validation-en.js?v=3.1.0"></script>
+<script type="module" src="/web/studio.js?v=3.2.0"></script><script type="module" src="/web/validation-en.js?v=3.2.0"></script>
 <dialog id="refinishDialog" class="studio-dialog" aria-labelledby="refinishTitle">
 <form id="refinishForm">
 <header class="studio-dialog-head"><div><span class="eyebrow">FINISHING</span><h2 id="refinishTitle">Refinish model</h2><p id="refinishSource"></p></div><button id="closeRefinish" type="button" class="dialog-x" aria-label="Close finishing"></button></header>

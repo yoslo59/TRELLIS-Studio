@@ -1,5 +1,5 @@
-import {button,dialog,el,field,input,select,action} from './workbench-ui.js?v=3.1.0';
-import {createPreparationPreview} from './preparation-preview.js?v=3.1.0';
+import {button,dialog,el,field,input,select,action} from './workbench-ui.js?v=3.2.0';
+import {createPreparationPreview} from './preparation-preview.js?v=3.2.0';
 export function createModelWorkbench({api,getJob,startJob,compare,labelAnimation}){
  const ui=dialog('prepareDialog','Prepare model','MODEL WORKBENCH','Build a dedicated copy for your next workflow.','prepare-dialog');ui.body.classList.add('prepare-layout');const view=el('div','prepare-preview'),form=el('section','prepare-settings');ui.body.append(view,form);const submit=button('Create copy','layers','primary'),frame=button('Frame model','fit','secondary',()=>preview?.frame());ui.foot.append(frame,submit);let job=null,mode='lod',preview=null,loading=0,readOptions=()=>({});
  function closePreview(){++loading;preview?.dispose();preview=null;view.replaceChildren();}ui.element.addEventListener('close',closePreview);

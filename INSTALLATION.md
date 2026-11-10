@@ -1,5 +1,9 @@
 # Installation and recovery
 
+Building or testing the unsigned Windows Setup preview? See the
+[Windows installer guide](docs/WINDOWS_SETUP.md). The instructions below apply
+to the source installation.
+
 This guide targets **Windows x64**. TRELLIS generation runs in native Windows Python;
 UniRig runs in a separate **WSL2 Ubuntu 22.04** environment. Blender is used in private
 background processes for conversion and preparation. The web interface is local.

@@ -2,7 +2,7 @@
 from typing import Literal,Annotated
 from pydantic import BaseModel,ConfigDict,Field,field_validator,model_validator
 
-VERSION='3.1.0'
+from studio_version import VERSION
 Identifier=Annotated[str,Field(pattern=r'^[a-f0-9]{32}$')]
 
 class Contract(BaseModel):

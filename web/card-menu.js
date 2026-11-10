@@ -1,6 +1,13 @@
 export function icon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('ui-icon');svg.setAttribute('aria-hidden','true');const use=document.createElementNS(svg.namespaceURI,'use');use.setAttribute('href',`/web/icons.svg#${name}`);svg.append(use);return svg;}
-export function createCardMenu({version,remove,details,print,compare,diagnostics,export:exportModel,history,folder,lod,game,refinish}){
+export function createCardMenu({version,remove,details,print,compare,diagnostics,export:exportModel,history,folder,lod,game,refinish,finishingBoard}){
   const menu=document.getElementById('assetMenu');let trigger=null,job=null;
+  const boardItem=document.createElement('button');
+  boardItem.type='button';boardItem.setAttribute('role','menuitem');boardItem.hidden=true;
+  const boardLabel=document.createElement('span'),boardHint=document.createElement('small');
+  boardLabel.textContent='Finishing board';boardHint.textContent='Queue and compare cached variants';
+  boardLabel.append(boardHint);boardItem.append(icon('layers'),boardLabel);
+  menu.querySelector('[data-action=refinish]').after(boardItem);
+  boardItem.onclick=()=>{const selected=job;close();finishingBoard?.(selected);};
   const close=()=>{if(menu.matches(':popover-open'))menu.hidePopover();trigger?.setAttribute('aria-expanded','false');};
   menu.addEventListener('toggle',e=>{if(e.newState==='closed')trigger?.setAttribute('aria-expanded','false');});
   for(const [action,handler]of Object.entries({details,print,compare,diagnostics,export:exportModel,history,folder,lod,game,refinish}))menu.querySelector(`[data-action=${action}]`).onclick=()=>{const selected=job;close();handler(selected);};
@@ -17,6 +24,7 @@ export function createCardMenu({version,remove,details,print,compare,diagnostics
       const refinishItem=menu.querySelector('[data-action=refinish]');
       refinishItem.hidden=!j.can_refinish;
       refinishItem.disabled=busy||!j.can_refinish;
+      boardItem.hidden=!finishingBoard||!j.can_refinish;
       menu.querySelector('[data-action=remove]').disabled=!features||j.id===activeId;
       menu.showPopover();b.setAttribute('aria-expanded','true');const r=b.getBoundingClientRect(),box=menu.getBoundingClientRect();menu.style.left=Math.max(10,Math.min(innerWidth-box.width-10,r.right-box.width))+'px';menu.style.top=(r.top-box.height-9>10?r.top-box.height-9:r.bottom+9)+'px';menu.querySelector('button:not([hidden]):not(:disabled)')?.focus();
     };return b;

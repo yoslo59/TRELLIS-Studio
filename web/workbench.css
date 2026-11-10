@@ -26,3 +26,31 @@
 .library-actions :is(#selectModels,#openImport,#showTrash,#libraryTools) .ui-icon{width:16px;height:16px;flex-shrink:0}
 
 .developer-link{display:inline-flex;align-items:center;color:#a8bf93;padding:8px;border:1px solid #405236;border-radius:7px}.developer-link:hover{color:#d6edc1;background:#b6de7e0b}.developer-link .ui-icon{width:16px;height:16px}
+
+.finishing-board{max-width:1020px}
+.finishing-board .wb-body{display:grid;gap:22px}
+.finishing-summary,.finishing-choice{color:#bfd2ad;font-size:13px;margin:0}
+.finishing-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.finishing-form h3,.finishing-form>.hint{grid-column:1/-1;margin:0}
+.finishing-recipe{display:grid;gap:12px;min-width:0;margin:0;padding:12px;border:1px solid #526346;border-radius:8px;background:#182119}
+.finishing-recipe legend{color:#d8e9c9;font-size:12px;padding:0 6px}
+.finishing-recipe .field{margin:0}
+.finishing-recipe .field:has(input[type=checkbox]){display:flex;flex-direction:row;align-items:center;justify-content:space-between}
+.finishing-recipe .field select{width:100%}
+.finishing-results h3{margin:0 0 6px}
+.finishing-rows{margin-top:10px}
+.finishing-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px 10px;border-top:1px solid #3d4938}
+.finishing-row strong,.finishing-row p,.finishing-row small{overflow-wrap:anywhere}
+.finishing-row strong{font-size:13px;font-weight:550;color:#dfebd6}
+.finishing-row p,.finishing-row small{display:block;font-size:12px;margin:5px 0;color:#adbf9f}
+.finishing-row small.finishing-failure{color:#ffb4a4}
+.finishing-row progress{width:min(100%,260px);height:6px;accent-color:#c4f58a;display:block}
+.finishing-row-actions{display:flex;flex-wrap:wrap;justify-content:end;gap:7px}
+.finishing-row-actions button{font-size:11px}
+.finishing-row.finishing-kept{background:#b3dd8217}
+@media(max-width:700px){
+  .finishing-form{grid-template-columns:1fr}
+  .finishing-row{grid-template-columns:1fr}
+  .finishing-row-actions{justify-content:start}
+  .finishing-board .studio-dialog-actions{flex-wrap:wrap}
+}

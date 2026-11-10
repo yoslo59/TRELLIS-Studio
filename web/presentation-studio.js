@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
-import {renderTurntable} from './turntable-webm.js?v=3.1.0';
-import {button,dialog,el,field,input,select,action,download} from './workbench-ui.js?v=3.1.0';
+import {renderTurntable} from './turntable-webm.js?v=3.2.0';
+import {button,dialog,el,field,input,select,action,download} from './workbench-ui.js?v=3.2.0';
 export function createPresentationStudio({api,getJob,getViewer,refresh}){
  const ui=dialog('presentationDialog','Present your model','CAMERA & LIGHT','Capture the current angle, pose, materials and preview lighting.','presentation-dialog');const size=select([['1024','1024 × 1024'],['1920','1920 × 1080'],['2048','2048 × 2048']],'1024'),transparent=input('checkbox',''),duration=select([['6','6 seconds'],['10','10 seconds']],'6');transparent.checked=true;const preview=el('img','capture-preview');preview.alt='Captured model preview';preview.hidden=true;ui.body.append(field('Image resolution',size),field('Transparent PNG background',transparent),field('Turntable duration',duration),preview);const progress=el('progress');progress.max=100;progress.value=0;progress.hidden=true;ui.body.append(progress);const thumbnail=button('Save thumbnail','image','secondary'),png=button('Capture PNG','camera','secondary'),video=button('Record turntable','rotate','primary'),cancel=button('Cancel recording','close','secondary');cancel.hidden=true;ui.foot.append(thumbnail,png,video,cancel);let running=false,cancelled=false,objectUrl=null;
  function enable(on,cancellable=false){for(const b of [thumbnail,png,video])b.disabled=!on;cancel.hidden=on||!cancellable;}

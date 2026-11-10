@@ -108,13 +108,61 @@ def download_assets(manifest,rig=True):
     pipeline=ROOT/'models/trellis2/pipeline.json'
     if not pipeline.exists():shutil.copy2(ROOT/'installer/pipeline.json',pipeline)
 
-def verify(rig=True):
+def bundled_web():
+    if not (ROOT/'bundled-web.json').is_file():return False
+    pinned=json.loads((ROOT/'package.json').read_text())['dependencies']
+    for name,version in pinned.items():
+        package=ROOT/'node_modules'/name/'package.json'
+        if not package.is_file() or json.loads(package.read_text())['version']!=version:
+            raise RuntimeError('Bundled viewer is incomplete. Run the Windows Setup again.')
+    if not (ROOT/'node_modules/three/build/three.module.js').is_file() or not (ROOT/'node_modules/swagger-ui-dist/swagger-ui-bundle.js').is_file():
+        raise RuntimeError('Bundled viewer assets are missing. Run the Windows Setup again.')
+    return True
+
+
+def ensure_web():
+    if not bundled_web():run('npm.cmd','ci','--omit=dev','--ignore-scripts')
+
+
+def ensure_venvs(uv):
+    for environment in ('.venv','.mcp-venv'):
+        target=ROOT/environment
+        if not (target/'Scripts/python.exe').exists():run(uv,'venv','--python','3.11',target)
+    return ROOT/'.venv/Scripts/python.exe'
+
+
+def record_workshop():
+    paths=('installer/setup.py','requirements-windows.txt','requirements-mcp-lock.txt')
+    record={path:digest(ROOT/path) for path in paths}
+    target=ROOT/'.studio-workshop-ready'
+    stage=target.with_suffix('.pending')
+    stage.write_text(json.dumps(record,sort_keys=True),encoding='utf-8')
+    stage.replace(target)
+
+
+def install_workshop(uv):
+    # Reuse the Windows lock's versions, without installing any GPU or model dependencies.
+    names=set('annotated-doc annotated-types anyio click colorama fastapi h11 idna numpy opentelemetry-api pillow psutil pydantic pydantic_core python-multipart scipy starlette trimesh typing-inspection typing_extensions uvicorn'.split())
+    requirements=[line.strip() for line in (ROOT/'requirements-windows.txt').read_text().splitlines()
+                  if line.partition('==')[0].strip() in names]
+    if len(requirements)!=len(names):raise RuntimeError('Workshop dependency list does not match the Windows lock.')
+    python=ensure_venvs(uv)
+    run(uv,'pip','install','--python',python,*requirements)
+    run(uv,'pip','install','--python',ROOT/'.mcp-venv/Scripts/python.exe','-r',ROOT/'requirements-mcp-lock.txt')
+    ensure_web()
+    verify(rig=False,workshop_only=True)
+    record_workshop()
+
+
+def verify(rig=True,workshop_only=False):
     python=ROOT/'.venv/Scripts/python.exe'
-    run(python,'-c',"import torch,cumesh,flex_gemm,fastapi,uvicorn,rembg; assert torch.cuda.is_available(),'CUDA is unavailable'; print('GPU:',torch.cuda.get_device_name());print('TORCH:',torch.__version__)")
+    run(python,'-c',"import fastapi,uvicorn,numpy,psutil,scipy,trimesh; from PIL import Image; from studio_rest import install; from retarget_catalogue import ANIMATIONS; assert len(ANIMATIONS)==83; print('Workshop libraries and animation catalogue ready')")
     run(ROOT/'.mcp-venv/Scripts/python.exe','-c','from mcp.server import MCPServer;import httpx;print("MCP ready")')
+    if not bundled_web():run('node','--check','web/studio.js')
+    if workshop_only:return
+    run(python,'-c',"import torch,cumesh,flex_gemm,rembg; assert torch.cuda.is_available(),'CUDA is unavailable'; print('GPU:',torch.cuda.get_device_name());print('TORCH:',torch.__version__)")
     check="from pathlib import Path;import json;from studio_import import find_blender;from retarget_catalogue import ANIMATIONS;assert find_blender(),'Blender not found';assert len(ANIMATIONS)==83;print('Blender and 83 animations ready')"
     run(python,'-c',check)
-    run('node','--check','web/studio.js')
     if rig:
         settings=json.loads((ROOT/'config/runtime.json').read_text(encoding='utf-8-sig'))
         linux=subprocess.check_output(['wsl.exe','-d',settings['wsl_distribution'],'--exec','wslpath','-a','-u',str(ROOT/'UniRig/check-runtime.sh')],text=True).strip()
@@ -123,36 +171,40 @@ def verify(rig=True):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--uv',type=Path);parser.add_argument('--skip-rig',action='store_true')
+    parser.add_argument('--workshop-only',action='store_true',help='Install the local studio without GPU libraries, engine sources or model downloads.')
     parser.add_argument('--plan',action='store_true');parser.add_argument('--verify-only',action='store_true')
     parser.add_argument('--accept-dinov3-license',action='store_true');parser.add_argument('--wsl-distribution',default='Ubuntu-22.04')
     args=parser.parse_args();manifest=json.loads(MANIFEST.read_text())
     if args.plan:
         print(json.dumps(dict(sources=manifest['sources'],downloads=len(manifest['assets']),download_bytes=sum(a['bytes'] for a in manifest['assets'] if not(args.skip_rig and a['group']=='rig')),rig=not args.skip_rig,personal_data_included=False),indent=2));return
     if os.name!='nt' or platform.machine().lower() not in ('amd64','x86_64'):raise RuntimeError('This installer targets 64-bit Windows. See INSTALLATION.md.')
-    if args.verify_only:verify(not args.skip_rig);return
-    if not args.accept_dinov3_license:raise RuntimeError('Read licenses/DINOv3-LICENSE.md and explicitly accept it in Install TRELLIS Studio.cmd.')
+    if args.verify_only:verify(not args.skip_rig and not args.workshop_only,args.workshop_only);return
     if not args.uv or not args.uv.is_file():raise RuntimeError('Run Install TRELLIS Studio.cmd to provision uv/Python first.')
+    if not bundled_web():
+        for tool in ('node','npm.cmd'):
+            if not shutil.which(tool):raise RuntimeError('Missing prerequisite: '+tool+'. See INSTALLATION.md.')
+    if args.workshop_only:
+        install_workshop(args.uv)
+        print('WORKSHOP READY. Generation, rigging and Blender-dependent operations require their optional components.',flush=True)
+        return
+    if not args.accept_dinov3_license:raise RuntimeError('Read licenses/DINOv3-LICENSE.md and explicitly accept it in Install TRELLIS Studio.cmd.')
     minimum=40 if args.skip_rig else 60
     if shutil.disk_usage(ROOT).free<minimum*1024**3:raise RuntimeError(f'Keep at least {minimum} GiB free before installing. 80 GiB is recommended for a full setup.')
-    for tool in ('node','npm.cmd','nvidia-smi'):
-        if not shutil.which(tool):raise RuntimeError('Missing prerequisite: '+tool+'. See INSTALLATION.md.')
+    if not shutil.which('nvidia-smi'):raise RuntimeError('Missing prerequisite: nvidia-smi. See INSTALLATION.md.')
     from studio_import import find_blender
     if not find_blender():raise RuntimeError('Install Blender 5.2 LTS before continuing. See INSTALLATION.md.')
     run('nvidia-smi','--query-gpu=name,memory.total','--format=csv,noheader')
     if not args.skip_rig:run('wsl.exe','-d',args.wsl_distribution,'--exec','true')
     source('engine',manifest['sources']['engine'])
     if not args.skip_rig:source('unirig',manifest['sources']['unirig'])
-    for environment in ('.venv','.mcp-venv'):
-        target=ROOT/environment
-        if not (target/'Scripts/python.exe').exists():run(args.uv,'venv','--python','3.11',target)
-    python=ROOT/'.venv/Scripts/python.exe'
+    python=ensure_venvs(args.uv)
     run(args.uv,'pip','install','--python',python,'torch==2.8.0','torchvision==0.23.0','xformers==0.0.32.post2','--index-url','https://download.pytorch.org/whl/cu128')
     run(args.uv,'pip','install','--python',python,'-r',ROOT/'requirements-windows.txt')
     wheels=ROOT/'engine/whl'
     for filename in ('cumesh-0.0.1-cp311-cp311-win_amd64.whl','flex_gemm-0.0.1-cp311-cp311-win_amd64.whl','o_voxel-0.0.1-cp311-cp311-win_amd64.whl'):
         run(args.uv,'pip','install','--python',python,'--no-deps',wheels/filename)
     run(args.uv,'pip','install','--python',ROOT/'.mcp-venv/Scripts/python.exe','-r',ROOT/'requirements-mcp-lock.txt')
-    run('npm.cmd','ci','--omit=dev','--ignore-scripts')
+    ensure_web()
     download_assets(manifest,not args.skip_rig)
     config=ROOT/'config/runtime.json';config.parent.mkdir(exist_ok=True)
     if not config.exists():config.write_text(json.dumps(dict(wsl_distribution=args.wsl_distribution),indent=2))
@@ -160,6 +212,7 @@ def main():
         linux=subprocess.check_output(['wsl.exe','-d',args.wsl_distribution,'--exec','wslpath','-a','-u',str(ROOT/'installer/install_unirig.sh')],text=True).strip()
         run('wsl.exe','-d',args.wsl_distribution,'--exec','bash',linux)
     verify(not args.skip_rig)
+    record_workshop()
     print('INSTALLATION COMPLETE. Open TRELLIS.cmd launches Studio and MCP.',flush=True)
 
 if __name__=='__main__':

@@ -1,6 +1,7 @@
 """Loopback-only local asset studio. No remote inference or hosted dependencies."""
 from pathlib import Path
 from studio_workspace import finishing_source
+from studio_version import VERSION
 from contextlib import asynccontextmanager
 from tempfile import TemporaryDirectory
 import asyncio, hashlib, io, json, os, re, shutil, subprocess, sys, time, uuid
@@ -33,14 +34,16 @@ PIXAL_HUMANOID_PROFILE = dict(id=HUMANOID_EXPERIMENTAL, name='Humanoid · Experi
 PIXAL_PROFILES = (PIXAL_CHARACTER_PROFILE, PIXAL_HUMANOID_PROFILE)
 REFERENCE_FILES = tuple(VIEW_FILES.values())
 # Studio 3.1 adds typed agent access and a self-hosted developer reference.
-SOURCE_REVISION=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-UI_REVISION='3.1.0-humanoid-experimental'
+_bundle = ROOT/'bundled-web.json'
+SOURCE_REVISION=(json.loads(_bundle.read_text(encoding='utf-8'))['source_revision'] if _bundle.is_file()
+                 else hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
+UI_REVISION=VERSION
 def gpu_description():
     try:
         value=subprocess.check_output(['nvidia-smi','--query-gpu=name,memory.total','--format=csv,noheader,nounits'],text=True,timeout=5,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0)).splitlines()[0]
         name,memory=value.rsplit(',',1)
         return f'{name.strip()} · {round(float(memory)/1024,1):g} GB'
-    except (OSError,ValueError,subprocess.SubprocessError,IndexError):return 'Local NVIDIA compute'
+    except (OSError,ValueError,subprocess.SubprocessError,IndexError):return 'No NVIDIA GPU detected'
 GPU_DESCRIPTION=gpu_description()
 PROFILES = ProfileStore(os.environ.get('TRELLIS_PROFILES_FILE', str(ROOT / 'config' / 'generation-profiles.json')))
 OUTPUT = Path(os.environ.get('TRELLIS_OUTPUT_DIR', str(ROOT / 'outputs'))).resolve()
@@ -54,6 +57,7 @@ LOG_HANDLE = None
 LOCK = asyncio.Lock()
 PORT = int(os.environ.get('TRELLIS_PORT', '7860'))
 SERVER = None
+SHUTTING_DOWN = False
 EXPORTING = set()
 EXPORT_PROCESS = None
 EXPORT_TASK = None
@@ -100,7 +104,7 @@ async def lifespan(app):
         await asyncio.to_thread(stop_export)
     if EXPORT_LOG:EXPORT_LOG.close()
 
-app = FastAPI(title='TRELLIS Studio API', version='3.1.0', description='Local asset studio. Typed JSON contracts are under /api/v1. Computation is asynchronous; poll job/export status. UI compatibility routes remain available.', lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url='/api/openapi.json')
+app = FastAPI(title='TRELLIS Studio API', version=VERSION, description='Local asset studio. Typed JSON contracts are under /api/v1. Computation is asynchronous; poll job/export status. UI compatibility routes remain available.', lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url='/api/openapi.json')
 
 @app.middleware('http')
 async def local_requests(request: Request, call_next):
@@ -111,6 +115,8 @@ async def local_requests(request: Request, call_next):
         origin = request.headers.get('origin')
         if origin and urlparse(origin).netloc != request.headers.get('host'):
             return JSONResponse({'detail': 'Origin rejected.'}, status_code=403)
+        if SHUTTING_DOWN and request.url.path!='/api/shutdown':
+            return JSONResponse({'detail': 'Studio is stopping.'},status_code=503)
     response = await call_next(request)
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
@@ -182,14 +188,16 @@ def status():
     pixal3d=pixal3d_capabilities()
     return dict(ready=ready, gpu=GPU_DESCRIPTION, ram_free_gib=round(psutil.virtual_memory().available/1024**3,1),
                 active=ACTIVE if PROCESS is not None and PROCESS.poll() is None else TERRAIN_ACTIVE,
-                resolution=DEFAULT_GENERATION['resolution'], default_profile=DEFAULT_PROFILE, local=True, studio_version='3.1.0',source_revision=SOURCE_REVISION,ui_revision=UI_REVISION,multi_view=pixal3d['ready'],pixal3d=pixal3d,
+                export_active=EXPORT_PROCESS is not None and EXPORT_PROCESS.poll() is None,
+                resolution=DEFAULT_GENERATION['resolution'], default_profile=DEFAULT_PROFILE, local=True, studio_version=VERSION,source_revision=SOURCE_REVISION,ui_revision=UI_REVISION,multi_view=pixal3d['ready'],pixal3d=pixal3d,
                 features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','rig_landmarks','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','collection_transfer','rest_api_v1','mcp','refinish','pixal3d_multiview','pixal3d_face_projection'], texture_sizes=textures,supported_resolutions=resolutions)
 
 @app.get('/api/components')
 def components():
     try: runtime=json.loads((ROOT/'logs'/'components.json').read_text(encoding='utf-8-sig'))
     except (OSError,ValueError): runtime={}
-    return dict(blender=bool(find_blender()), import_formats=list(FORMATS), max_import_bytes=MAX_BYTES,
+    blender=bool(find_blender())
+    return dict(blender=blender, import_formats=list(FORMATS) if blender else ['.glb'], max_import_bytes=MAX_BYTES,
                 unirig=runtime.get('unirig',{'ready':False,'message':'Run Open TRELLIS.cmd to check UniRig.'}),
                 rig_pilot=(RIG_PILOT/'tira_animated.glb').is_file())
 
@@ -205,6 +213,7 @@ def launch_worker(folder, script, source_id=None):
     FINISH_SOURCE = source_id
 
 def require_idle():
+    if SHUTTING_DOWN:raise HTTPException(503,'Studio is stopping.')
     if TERRAIN_ACTIVE or (PROCESS is not None and PROCESS.poll() is None):
         raise HTTPException(409,'Wait for the current computation to finish.')
 
@@ -212,9 +221,9 @@ def require_idle():
 async def import_model(model: UploadFile=File(...), name: str=Form('')):
     async with LOCK:
         require_idle()
-        if find_blender() is None: raise HTTPException(503,'Blender is required to import a model.')
         suffix=Path(model.filename or '').suffix.lower()
         if suffix not in FORMATS: raise HTTPException(400,'Choose a model GLB, FBX, OBJ, STL ou PLY.')
+        if suffix!='.glb' and find_blender() is None: raise HTTPException(503,'Blender is required for this format. You can import a self-contained GLB without it.')
         if len(name)>80: raise HTTPException(400,'Name too long (80 characters maximum).')
         identifier=uuid.uuid4().hex;folder=OUTPUT/identifier;folder.mkdir()
         source=folder/('original'+suffix)
@@ -550,14 +559,53 @@ def stop_export():
         except psutil.NoSuchProcess:pass
     refresh_export()
 
+@app.post('/api/exports/preflight')
+async def export_preflight(request: Request):
+    from export_preflight import asset_report, options
+    from target_export import TARGETS
+    try:
+        data = await request.json()
+        target = data.get('target')
+        if not isinstance(target, str) or target not in TARGETS or target == 'library':
+            raise ValueError('Choose a model export destination.')
+        ids = validate_ids(data.get('ids'), 50)
+        budget = options(data.get('budget'), target)
+    except (ValueError, TypeError, AttributeError) as error:
+        raise HTTPException(400, str(error))
+    reports = []
+    async with LOCK:
+        for identifier in ids:
+            folder = job_path(identifier)
+            record = job_record(folder)
+            if not record or record['state'] != 'done' or active_job(identifier):
+                raise HTTPException(409, 'Every selected model must be complete.')
+            if target == 'print' and record['settings'].get('asset_type') != 'print':
+                raise HTTPException(409, 'Prepare a dedicated print copy first.')
+            try:
+                reports.append(await asyncio.to_thread(
+                    asset_report, folder, target, budget, metadata=record['metadata']
+                ))
+            except (ValueError, OSError, KeyError, TypeError, IndexError, OverflowError) as error:
+                name = record['metadata'].get('display_name', record['settings']['name'])
+                raise HTTPException(422, f'Could not check {name}: {error}')
+    return dict(target=target, budget=budget, models=reports)
+
+
 @app.post('/api/exports',status_code=202)
 async def create_export(request: Request):
     global EXPORT_PROCESS,EXPORT_TASK,EXPORT_LOG
+    from export_preflight import options, verified_hashes
     from target_export import TARGETS
     async with LOCK:
         try:
             data=await request.json();target=data.get('target');ids=validate_ids(data.get('ids'),500 if target=='library' else 50)
             if target not in TARGETS:raise ValueError('Unknown export target.')
+            preflight = data.get('preflight')
+            if preflight is not None:
+                if target == 'library' or not isinstance(preflight, dict):
+                    raise ValueError('Use export checks for model packages.')
+                preflight = dict(budget=options(preflight.get('budget'), target),
+                                 source_hashes=verified_hashes(preflight.get('source_hashes'), ids))
         except (ValueError,TypeError,AttributeError) as error:raise HTTPException(400,str(error))
         refresh_export()
         if EXPORT_PROCESS is not None and EXPORT_PROCESS.poll() is None:raise HTTPException(409,'An export is already running.')
@@ -592,7 +640,7 @@ async def create_export(request: Request):
                     if (folder/child).is_dir():shutil.copytree(folder/child,snapshot/child)
                 for filename in ('lod-manifest.json','physics.json','motion-report.json'):
                     if (folder/filename).is_file():shutil.copy2(folder/filename,snapshot/filename)
-        write_json(task/'request.json',dict(ids=ids,target=target,created=time.time(),include_revisions=bool(data.get('include_revisions')),workspace=STUDIO.workspace.data,profiles=PROFILES.list()))
+        write_json(task/'request.json',dict(ids=ids,target=target,created=time.time(),include_revisions=bool(data.get('include_revisions')),workspace=STUDIO.workspace.data,profiles=PROFILES.list(),preflight=preflight))
         write_json(task/'status.json',dict(state='queued',progress=0,stage='Preparing export',target=target,count=len(ids)))
         if EXPORT_LOG:EXPORT_LOG.close()
         EXPORT_LOG=(task/'export.log').open('w',encoding='utf-8');env=os.environ.copy();env['PYTHONUTF8']='1'
@@ -952,9 +1000,15 @@ def rig_pilot_file(filename: str):
     return FileResponse(path, media_type={'tira_animated.glb': 'model/gltf-binary', 'preview.png': 'image/png', 'report.json': 'application/json'}.get(filename))
 
 @app.post('/api/shutdown')
-async def shutdown():
-    if SERVER is not None:
-        asyncio.get_running_loop().call_later(0.3, setattr, SERVER, 'should_exit', True)
+async def shutdown(idle_only:bool=False):
+    global SHUTTING_DOWN
+    async with LOCK:
+        if idle_only and (TERRAIN_ACTIVE or PROCESS is not None and PROCESS.poll() is None or
+                          EXPORT_PROCESS is not None and EXPORT_PROCESS.poll() is None):
+            raise HTTPException(409,'Wait for computation or export to finish.')
+        if SERVER is not None:
+            SHUTTING_DOWN=True
+            asyncio.get_running_loop().call_later(0.3, setattr, SERVER, 'should_exit', True)
     return {'ok': True}
 
 from studio_api import install
