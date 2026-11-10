@@ -37,11 +37,17 @@ def configure_runtime():
     comfy.options.enable_args_parsing()
 
 
-def prepared_views(job, views):
-    import numpy as np
+def prepared_views(job, views, reviewed=False):
     from PIL import Image, ImageOps
+    from reference_preparation import PREPARED_VIEWS, frame_pixal, pixal_silhouette, premultiplied_rgb
 
-    cutouts = []
+    if reviewed:
+        for view in views:
+            with Image.open(job / PREPARED_VIEWS[view['role']]) as frame:
+                yield premultiplied_rgb(frame.convert('RGBA'))
+        return
+
+    cutouts = {}
     session = None
     for view in views:
         with Image.open(job / view['file']) as original:
@@ -54,26 +60,11 @@ def prepared_views(job, views):
             if session is None:
                 session = new_session('u2net', providers=['CPUExecutionProvider'])
             image = remove(image, session=session).convert('RGBA')
-            alpha = image.getchannel('A')
-        bounds = alpha.point(lambda value: 255 if value >= 128 else 0).getbbox()
-        if bounds is None or bounds[2] - bounds[0] < 16 or bounds[3] - bounds[1] < 16:
-            raise ValueError(f"No usable silhouette in the {view['role']} view.")
-        cutouts.append(image.crop(bounds))
+        cutouts[view['role']] = pixal_silhouette(image, view['role'])
     del session
-    # Use the same body height in every view. Widen the framing of all views
-    # together if a subject's arm span would otherwise leave the square.
-    height = min(920, min(944 * image.height // image.width for image in cutouts))
-    if height < 128:
-        raise ValueError('The reference silhouette is too wide. Use a full-body character image.')
-    for image, view in zip(cutouts, views):
-        width = max(1, round(image.width * height / image.height))
-        image = image.resize((width, height), Image.Resampling.LANCZOS)
-        canvas = Image.new('RGBA', (1024, 1024))
-        canvas.paste(image, ((1024 - width) // 2, (1024 - height) // 2))
-        filename = 'prepared.png' if view['role'] == 'front' else f"prepared-{view['role']}.png"
-        canvas.save(job / filename)
-        rgba = np.asarray(canvas, dtype=np.float32) / 255
-        yield rgba[..., :3] * rgba[..., 3:4]
+    for role, frame in frame_pixal(cutouts).items():
+        frame.save(job / PREPARED_VIEWS[role])
+        yield premultiplied_rgb(frame)
 
 
 def sampling_options(options, seed, settings_version=2):
@@ -91,7 +82,7 @@ def sampling_options(options, seed, settings_version=2):
     }
 
 
-def generate_source(torch, job, views, options, sampling, status):
+def generate_source(torch, job, views, options, sampling, status, reviewed=False):
     import comfy.clip_vision
     import comfy.model_management as mm
     import comfy.sd
@@ -121,7 +112,7 @@ def generate_source(torch, job, views, options, sampling, status):
                                'euler', scheduler, positive, negative, latent)[0]
 
     status('running', 'Preparing Pixal3D reference views', 4)
-    images = torch.from_numpy(np.stack(list(prepared_views(job, views))))
+    images = torch.from_numpy(np.stack(list(prepared_views(job, views, reviewed))))
     matrices = torch.tensor([camera_matrix(view['azimuth']) for view in views], dtype=torch.float32)
     fov = torch.full((len(views),), CAMERA_FOV)
     scale = torch.tensor([1.], dtype=torch.float32)
@@ -222,7 +213,8 @@ def run_job():
         settings_version = settings.get('settings_version', 2)
         sampling = sampling_options(options, settings['seed'], settings_version)
         with torch.inference_mode():
-            source = generate_source(torch, JOB, views, options, sampling, status)
+            source = generate_source(torch, JOB, views, options, sampling, status,
+                                     reviewed='reference_edits' in settings)
         mm.unload_all_models()
         mm.soft_empty_cache()
         gc.collect()

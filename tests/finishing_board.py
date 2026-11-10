@@ -126,6 +126,18 @@ def run():
                     send('PATCH', '/api/queue/' + identifier, json={'retry': True})
                     assert wait_for(identifier, 'done')['result']['neural_inferences'] == 0
                 assert calls == response['ids']
+                send('PATCH', '/api/queue', json={'paused': True})
+                refinish_route = f'/api/jobs/{SOURCE}/refinish'
+                send('POST', refinish_route, 400, json={'triangles': 8000001, 'adaptive_finishing': True})
+                adaptive = send('POST', refinish_route, 202, json={'triangles': 8000000, 'adaptive_finishing': True})
+                state = wait_for(adaptive['id'], 'queued')
+                assert adaptive['queued'] and adaptive['paused']
+                assert state['settings']['adaptive_finishing'] is True
+                assert state['settings']['triangles'] == 8000000
+                options = state['settings']['generation_options']
+                assert options['mesh_mode'] == 'direct' and not options['pre_simplify'] and not options['repair_holes']
+                send('PATCH', '/api/queue', json={'paused': False})
+                assert wait_for(adaptive['id'], 'done')['result']['neural_inferences'] == 0
                 chosen = response['ids'][1]
                 assert send('PATCH', route, json={'selected_id': chosen})['selected_id'] == chosen
                 assert send('GET', f'/api/jobs/{chosen}/finishing-board')['selected_id'] == chosen

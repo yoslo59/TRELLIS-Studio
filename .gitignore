@@ -13,7 +13,12 @@
 !/asset_work.py
 !/export_blender.py
 !/export_worker.py
+!/reference_preparation.py
 !/generation_options.py
+!/adaptive_finishing.py
+!/normal_bake.py
+!/normal_bake_blender.py
+!/normal_glb.py
 !/generation_profiles.py
 !/glb_data.py
 !/humanoid_mapping.py
@@ -55,6 +60,7 @@
 /tests/*
 !/tests/pixal3d_sampling.py
 !/tests/pixal3d_generation.py
+!/tests/queue_retry.py
 !/tests/rig_landmarks.py
 !/tests/rig_landmarks_api.py
 !/tests/rig_landmarks_blender.py
@@ -112,6 +118,8 @@
 !/web/multiview-inputs.js
 !/web/polish.css
 !/web/preparation-preview.js
+!/web/reference-preview.js
+!/web/reference-preview.css
 !/web/presentation-studio.js
 !/web/print-copy.js
 !/web/profiles.js

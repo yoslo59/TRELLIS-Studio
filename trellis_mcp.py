@@ -84,7 +84,7 @@ async def queue_generation(recipe:Generation)->dict[str,Any]:
 
 @tool()
 async def queue_multiview_generation(recipe:MultiViewGeneration)->dict[str,Any]:
-    """Queue Pixal3D from a front image and at least one posed side/back image. Upload images first. Standard character_pixal is default; humanoid_experimental keeps a dense finishing source. Poll get_model; anatomy requires visual review."""
+    """Queue Pixal3D from a front image and at least one posed side/back image. Upload images first. character_pixal is default; humanoid_experimental and dense_master keep the finishing source. Poll get_model; anatomy requires visual review."""
     return await api('POST','/generations/multiview',recipe.model_dump(exclude_none=True))
 
 @tool()

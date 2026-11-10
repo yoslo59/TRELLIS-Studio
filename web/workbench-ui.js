@@ -1,4 +1,4 @@
-import {icon} from './card-menu.js?v=3.2.0';
+import {icon} from './card-menu.js?v=3.3.1';
 export const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
 export function button(text,glyph,cls='secondary',action){const b=el('button',cls);b.type='button';b.append(icon(glyph),document.createTextNode(text));if(action)b.onclick=action;return b;}
 export function dialog(id,title,kicker,description,cls=''){

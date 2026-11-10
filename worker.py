@@ -35,14 +35,20 @@ def status(state, stage, progress, **extra):
 def generate_source(torch):
     status('running', 'Preparing image', 3)
     from PIL import Image, ImageOps
-    image = ImageOps.exif_transpose(Image.open(JOB / 'input.png')).convert('RGBA')
-    if settings.get('remove_bg') and image.getchannel('A').getextrema()[0] == 255:
-        from rembg import new_session, remove
-        session = new_session('u2net', providers=['CPUExecutionProvider'])
-        image = remove(image, session=session)
-        del session
-        gc.collect()
-    image.save(JOB / 'prepared.png')
+    reviewed = 'reference_edits' in settings
+    if reviewed:
+        with Image.open(JOB / 'conditioning.png') as prepared:
+            image = prepared.convert('RGB')
+    else:
+        with Image.open(JOB / 'input.png') as original:
+            image = ImageOps.exif_transpose(original).convert('RGBA')
+        if settings.get('remove_bg') and image.getchannel('A').getextrema()[0] == 255:
+            from rembg import new_session, remove
+            session = new_session('u2net', providers=['CPUExecutionProvider'])
+            image = remove(image, session=session)
+            del session
+            gc.collect()
+        image.save(JOB / 'prepared.png')
     status('running', 'Loading model weights', 8)
     from api_spz.core.state_manage import _apply_patches
     _apply_patches()
@@ -51,7 +57,7 @@ def generate_source(torch):
     config_folder,pipeline_kind=prepare_pipeline_config(ROOT,JOB,requested_resolution)
     pipeline = Trellis2ImageTo3DPipeline.from_pretrained(str(config_folder))
     pipeline.cuda()
-    if settings.get('keep_finishing_source'):
+    if settings.get('keep_finishing_source') and not reviewed:
         prepare_image = pipeline.preprocess_image
         def record_conditioning(image):
             prepared = prepare_image(image)
@@ -76,6 +82,7 @@ def generate_source(torch):
     print('GENERATION_OPTIONS '+json.dumps(options,ensure_ascii=False),flush=True)
     shape, texture, resolution = pipeline.run(
         image, seed=settings['seed'], pipeline_type=pipeline_kind, return_before_decode=True,
+        preprocess_image=not reviewed,
         sparse_structure_sampler_params=samplers['structure'],
         shape_slat_sampler_params=samplers['shape'], tex_slat_sampler_params=samplers['texture'],
     )
@@ -120,29 +127,55 @@ def finish_mesh(torch, source):
     import cumesh
     import o_voxel
     configure_simplifier(cumesh, options)
+    export = o_voxel.postprocess.to_glb
+    export_kwargs = export_options(options)
+    if settings.get('adaptive_finishing'):
+        # Load the Studio exporter from the application, including on an existing
+        # installation with an older O-Voxel runtime package.
+        from importlib.util import module_from_spec, spec_from_file_location
+        from adaptive_finishing import choose_mesh
+        spec = spec_from_file_location('o_voxel._studio_postprocess',
+            ROOT / 'runtime' / 'engine-overrides' / 'o_voxel' / 'postprocess.py')
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        export = module.to_glb
+        export_kwargs.update(remesh=False, repair_holes=False, adaptive_mesh=choose_mesh)
+        status('running', 'Measuring detail against the master mesh', 84)
     vertices, faces = source['vertices'].cuda(), source['faces'].cuda()
-    if options['pre_simplify'] and len(faces) > 2000000:
+    if not settings.get('adaptive_finishing') and options['pre_simplify'] and len(faces) > 2000000:
         mesh = cumesh.CuMesh()
         mesh.init(vertices, faces)
         mesh.simplify(2000000)
         vertices, faces = mesh.read()
         del mesh
         torch.cuda.empty_cache()
-    result = o_voxel.postprocess.to_glb(
+    result = export(
         vertices=vertices, faces=faces, attr_volume=source['attr_volume'], coords=source['coords'],
         attr_layout=source['attr_layout'], voxel_size=source['voxel_size'],
         aabb=[[-0.5]*3, [0.5]*3], decimation_target=settings['triangles'],
-        texture_size=settings['texture_size'], **export_options(options), verbose=True,
+        texture_size=settings['texture_size'], **export_kwargs, verbose=True,
     )
     if source.get('coordinate_system') == 'y_up':
         # Pixal3D is already Y-up. Undo O-Voxel's Z-up to Y-up export conversion.
         result.apply_transform([[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
     bounds = result.bounds
     height = max(float(bounds[1,1]-bounds[0,1]), 1e-6)
-    result.vertices -= [(bounds[0,0]+bounds[1,0])/2, bounds[0,1], (bounds[0,2]+bounds[1,2])/2]
-    result.vertices *= settings['height_m']/height
-    result.export(JOB / 'model.pending.glb')
-    (JOB / 'model.pending.glb').replace(JOB / 'model.glb')
+    center = [(bounds[0,0]+bounds[1,0])/2, bounds[0,1], (bounds[0,2]+bounds[1,2])/2]
+    scale = settings['height_m'] / height
+    result.vertices -= center
+    result.vertices *= scale
+    pending = JOB / 'model.pending.glb'
+    try:
+        result.export(pending)
+        if settings.get('bake_normals'):
+            from normal_bake import bake_master_normals
+            status('running', 'Transferring master detail to the normal map', 93)
+            result.metadata['normal_bake'] = bake_master_normals(
+                pending, source, scale, [-coordinate * scale for coordinate in center], settings['texture_size'],
+            )
+        pending.replace(JOB / 'model.glb')
+    finally:
+        pending.unlink(missing_ok=True)
     return result
 
 
@@ -201,6 +234,12 @@ def main():
         stats['face_projection'] = face_report
     if source_id:
         stats['finish_source_id'] = source_id
+    if 'adaptive_finishing' in result.metadata:
+        stats['adaptive_finishing'] = result.metadata['adaptive_finishing']
+    if 'normal_bake' in result.metadata:
+        report = result.metadata['normal_bake']
+        stats['normal_bake'] = report
+        stats['vertices'] += report['tangent_vertex_splits']
     write(JOB / 'result.json', stats)
     status('done', 'Finishing variant ready' if source_id else 'Model ready', 100, result=stats)
 
@@ -211,8 +250,10 @@ if __name__ == '__main__':
     except Exception as error:
         traceback.print_exc()
         message = str(error)
+        finishing = settings.get('source_kind') == 'refinish'
         if 'out of memory' in message.lower():
-            message = 'Insufficient GPU memory. Reduce 3D resolution (1536 → 1024 → 512) or texture size (4K → 2K), then try again.'
-        stage = 'Finishing failed' if settings.get('source_kind') == 'refinish' else 'Generation failed'
+            message = ('Insufficient GPU memory. Reduce the triangle budget or texture size, then try again.'
+                       if finishing else 'Insufficient GPU memory. Reduce 3D resolution (1536 → 1024 → 512) or texture size (4K → 2K), then try again.')
+        stage = 'Finishing failed' if finishing else 'Generation failed'
         status('error', stage, 0, error=message[:1400])
         sys.exit(1)

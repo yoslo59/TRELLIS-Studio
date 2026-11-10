@@ -3,6 +3,7 @@ from typing import Literal,Annotated
 from pydantic import BaseModel,ConfigDict,Field,field_validator,model_validator
 
 from studio_version import VERSION
+from generation_options import DENSE_MASTER, HUMANOID_EXPERIMENTAL, TRIANGLE_MIN, TRIANGLE_MAX
 Identifier=Annotated[str,Field(pattern=r'^[a-f0-9]{32}$')]
 
 class Contract(BaseModel):
@@ -19,7 +20,8 @@ class Generation(Contract):
 
 class MultiViewGeneration(Contract):
     upload_id: Identifier = Field(description='Front-view upload ID.')
-    profile_id: Literal['character_pixal', 'humanoid_experimental'] = Field(default='character_pixal', description='Optional experimental dense master profile; standard Pixal3D remains the default.')
+    profile_id: Literal['character_pixal', HUMANOID_EXPERIMENTAL, DENSE_MASTER] = Field(
+        default='character_pixal', description='Standard Pixal3D, Humanoid Experimental or Dense Master.')
     left_upload_id: Identifier | None = None
     back_upload_id: Identifier | None = None
     right_upload_id: Identifier | None = None
@@ -27,7 +29,7 @@ class MultiViewGeneration(Contract):
     name: str = Field(default='Character', min_length=1, max_length=80)
     height_m: float = Field(default=1.7, ge=.01, le=100)
     seed: int = Field(default=42, ge=0, le=2147483647)
-    triangles: int | None = Field(default=None, ge=1000, le=500000)
+    triangles: int | None = Field(default=None, ge=TRIANGLE_MIN, le=TRIANGLE_MAX)
     texture_size: Literal[1024, 2048] | None = None
     parent_id: Identifier | None = None
     reference_prompt: str = Field(default='', max_length=6000)

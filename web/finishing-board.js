@@ -1,4 +1,4 @@
-import {button, dialog, el, field, input, select} from './workbench-ui.js?v=3.2.0';
+import {button, dialog, el, field, input, select} from './workbench-ui.js?v=3.3.1';
 
 const number = value => Number.isFinite(value) ? value.toLocaleString('en-US') : '—';
 const nameOf = job => job?.metadata?.display_name || job?.settings?.name || 'Source model';
@@ -66,7 +66,7 @@ export function createFinishingBoard({api, getRecords, refresh, compare}) {
                 && base.settings.texture_size === textureDefault
                 && base.generation_options?.mesh_mode === recipe.mesh_mode
                 && base.generation_options?.repair_holes === recipe.repair_holes);
-            const triangles = input('number', recipe.triangles, {min: 1000, max: 500000, step: 1, required: ''});
+            const triangles = input('number', recipe.triangles, {min: 1000, max: 8000000, step: 1, required: ''});
             const texture = select(textureChoices, textureDefault);
             const mode = select([['remesh', 'Remesh and simplify'], ['direct', 'Direct simplification']], recipe.mesh_mode);
             const repair = input('checkbox', '');

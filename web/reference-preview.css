@@ -1,0 +1,130 @@
+.reference-preview-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+}
+
+.reference-preview-entry button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+}
+
+.reference-preview-entry small { color: #b5d99a; }
+.reference-preview.studio-dialog { max-width: 1030px; }
+.reference-preview .studio-dialog-head button { align-self: flex-start; }
+.reference-preview .studio-dialog-actions { margin-top: 0; }
+.reference-preview-body { padding: 18px 25px 12px; }
+
+.reference-preview-views, .reference-preview-choices, .reference-preview-brushes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reference-preview-views { margin-bottom: 12px; }
+.reference-preview-views button, .reference-preview-brushes button { padding: 6px 13px; }
+
+.reference-preview-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 252px;
+  align-items: start;
+  gap: 16px;
+}
+
+.reference-preview-stage {
+  display: grid;
+  place-items: center;
+  min-height: 300px;
+  height: min(50vh, 540px);
+  background-color: #212620;
+  background-image: conic-gradient(#2c332b 25%, #212620 0 50%, #2c332b 0 75%, #212620 0);
+  background-size: 16px 16px;
+  overflow: hidden;
+  border: 1px solid #42513d;
+  border-radius: 10px;
+}
+
+.reference-preview-image { position: relative; max-width: 100%; }
+
+.reference-preview-image img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: max(298px, min(49vh, 538px));
+  margin: 0;
+  border: 0;
+  background: none;
+  user-select: none;
+}
+
+.reference-preview-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.reference-preview-overlay.painting { pointer-events: all; cursor: crosshair; touch-action: none; }
+.reference-preview-overlay .reference-preview-marks { pointer-events: none; }
+.reference-crop-shade { fill: #10150ed9; fill-rule: evenodd; }
+.reference-crop-edge { fill: none; stroke: #d2ffa4; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.reference-keep-stroke { color: #adf875; }
+.reference-erase-stroke { color: #ff868a; }
+.reference-preview-overlay circle { fill: currentColor; opacity: .6; }
+.reference-preview-overlay polyline { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; opacity: .6; }
+
+.reference-preview-choices { margin-top: 9px; }
+.reference-preview-choices button > .ui-icon, .reference-preview-views button > .ui-icon { display: none; }
+
+.reference-preview-choices button {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 5px 8px;
+  text-align: left;
+  border: 1px solid #45513e;
+  border-radius: 8px;
+  background: #262e25;
+}
+
+.reference-preview-choices img { width: 30px; height: 32px; margin: 0; object-fit: contain; background: #171d16; }
+
+.reference-preview button[aria-pressed="true"] {
+  color: #deffc8;
+  border-color: #9fd174;
+  background: #364c2e;
+}
+
+.reference-preview-controls { display: grid; gap: 12px; }
+
+.reference-preview-controls fieldset {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 9px 12px 12px;
+  border: 1px solid #414d3a;
+  border-radius: 9px;
+}
+
+.reference-preview-controls legend { padding: 0 4px; font-size: 12px; font-weight: 650; }
+.reference-preview-controls .hint { margin: 0; }
+.reference-preview-controls .quiet { justify-self: start; text-align: left; }
+.reference-preview-range { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; font-size: 11px; }
+.reference-preview-range input { grid-column: 1 / -1; margin: 4px 0; }
+.reference-preview-crop { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.reference-preview-status { min-height: 1.4em; margin: 12px 0 0; color: #b9c8b1; font-size: 12px; }
+.reference-preview-status.error { color: #ffb3b5; }
+.reference-preview [hidden] { display: none; }
+
+@media (max-width: 700px) {
+  .reference-preview-body { padding: 12px 16px; }
+  .reference-preview-content { grid-template-columns: minmax(0, 1fr); }
+}

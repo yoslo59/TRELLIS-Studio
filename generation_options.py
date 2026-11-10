@@ -1,10 +1,20 @@
 """Validated generation controls shared by the API, worker and studio schema."""
 import math
 
+TRIANGLE_MIN = 1_000
+TRIANGLE_MAX = 8_000_000
+
 DEFAULT_PROFILE = 'game_d'
 HUMANOID_EXPERIMENTAL = 'humanoid_experimental'
-GENERATION_PRESETS = {'game_d': (20, 28000, 2048), 'high_detail': (20, 250000, 2048), HUMANOID_EXPERIMENTAL: (20, 250000, 2048), 'fast': (8, 25000, 1024),
-                      'balanced': (12, 50000, 2048), 'detail': (20, 100000, 2048)}
+DENSE_MASTER = 'dense_master'
+DENSE_MASTER_NAME = 'Dense Master'
+DENSE_MASTER_TRIANGLES = 1_000_000
+DENSE_MASTER_FINISHING = dict(mesh_mode='direct', pre_simplify=False, repair_holes=False)
+GENERATION_PRESETS = {
+    'game_d': (20, 28000, 2048), 'high_detail': (20, 250000, 2048),
+    HUMANOID_EXPERIMENTAL: (20, 250000, 2048), DENSE_MASTER: (20, DENSE_MASTER_TRIANGLES, 2048),
+    'fast': (8, 25000, 1024), 'balanced': (12, 50000, 2048), 'detail': (20, 100000, 2048),
+}
 DEFAULT_GENERATION = dict(preset=DEFAULT_PROFILE, resolution=1024, triangles=28000, texture_size=2048)
 
 GROUPS = [
@@ -55,7 +65,8 @@ BY_KEY={f['key']:f for f in FIELDS}
 GAME_D_ADVANCED={f['key']:f['default'] for f in FIELDS}
 GAME_D_ADVANCED.update(texture_guidance=2.0,repair_holes=True)
 PROFILE_ADVANCED = {'game_d': GAME_D_ADVANCED, 'high_detail': {**GAME_D_ADVANCED, 'mesh_mode': 'direct'},
-                    HUMANOID_EXPERIMENTAL: {**GAME_D_ADVANCED, 'mesh_mode': 'direct'}}
+                    HUMANOID_EXPERIMENTAL: {**GAME_D_ADVANCED, 'mesh_mode': 'direct'},
+                    DENSE_MASTER: {**GAME_D_ADVANCED, **DENSE_MASTER_FINISHING}}
 
 def normalize_options(overrides=None,base_steps=12):
     if overrides is None:overrides={}
@@ -112,5 +123,5 @@ def configure_simplifier(cumesh,options):
 
 def schema():
     return dict(version=2,groups=GROUPS,fields=[dict(f,default=GAME_D_ADVANCED[f['key']]) for f in FIELDS],
-        default_generation=DEFAULT_GENERATION,default_profile=DEFAULT_PROFILE,triangle_min=1000,triangle_max=500000,
+        default_generation=DEFAULT_GENERATION,default_profile=DEFAULT_PROFILE,triangle_min=TRIANGLE_MIN,triangle_max=TRIANGLE_MAX,
         note='Experimental settings: compare geometry, materials and UVs. Settings alone do not guarantee quality.')

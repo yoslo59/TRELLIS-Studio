@@ -116,8 +116,9 @@ export function createMultiviewInputs({ changed, invalid }) {
   }
 
   toggle.addEventListener('change', () => {
-    if(toggle.checked&&$('preset').value==='humanoid_experimental'&&[...profileChoice.options].some(o=>o.value==='humanoid_experimental')){
-      profileChoice.value='humanoid_experimental';$('pixalTriangles').value='';$('pixalTextureSize').value='';renderProfile();
+    const monoPreset=$('preset').value;
+    if(toggle.checked&&['humanoid_experimental','dense_master'].includes(monoPreset)&&[...profileChoice.options].some(o=>o.value===monoPreset)){
+      profileChoice.value=monoPreset;$('pixalTriangles').value='';$('pixalTextureSize').value='';renderProfile();
     }
     renderMode();
     changed({ mode: true });
@@ -147,13 +148,17 @@ export function createMultiviewInputs({ changed, invalid }) {
     for (const option of $('pixalTextureSize').options) option.disabled = !!option.value && !textures.includes(Number(option.value));
   }
 
-  function buildRequest() {
+  function referenceRequest() {
     const form = new FormData();
-    form.set('image', slots.get('front').file);
-    for (const role of roles.slice(1)) {
+    for (const role of toggle.checked ? roles : ['front']) {
       const file = slots.get(role).file;
-      if (file) form.set(`${role}_image`, file);
+      if (file) form.set(role === 'front' ? 'image' : `${role}_image`, file);
     }
+    return form;
+  }
+
+  function buildRequest() {
+    const form = referenceRequest();
     for (const [field, id] of Object.entries({
       name: 'name', height_m: 'height', parent_id: 'parentId', side_angle: 'sideAngle', seed: 'pixalSeed',
       triangles: 'pixalTriangles', texture_size: 'pixalTextureSize',
@@ -163,7 +168,7 @@ export function createMultiviewInputs({ changed, invalid }) {
       if (value !== '') form.set(field, value);
     }
     if (reprojectFace.checked && !reprojectFace.disabled) form.set('reproject_face', 'true');
-    if ($('keepFinishingSource').checked||profileChoice.value==='humanoid_experimental') form.set('keep_finishing_source', 'true');
+    if ($('keepFinishingSource').checked || selectedProfile()?.keep_finishing_source) form.set('keep_finishing_source', 'true');
     return form;
   }
 
@@ -197,7 +202,7 @@ export function createMultiviewInputs({ changed, invalid }) {
 
   renderMode();
   return {
-    accept, restore, buildRequest, setCapabilities,
+    accept, restore, referenceRequest, buildRequest, setCapabilities,
     get active() { return toggle.checked; },
     get hasFront() { return !!slots.get('front').file; },
     get ready() { return !!capabilities?.ready && countViews() >= 2 && !$('pixalTextureSize').selectedOptions[0]?.disabled; },

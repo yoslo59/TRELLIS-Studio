@@ -93,7 +93,7 @@ def install(app,g):
         return accepted(dict(id=result['ids'][0]))
 
     @router.post('/generations/multiview', tags=['Generation'], status_code=202,
-                 response_model=JobAccepted, summary='Queue a Pixal3D character using a standard or experimental profile')
+                 response_model=JobAccepted, summary='Queue a Pixal3D character using a supported profile')
     async def generate_multiview(data: MultiViewGeneration):
         recipe = data.model_dump(exclude={'upload_id', 'left_upload_id', 'back_upload_id',
                                           'right_upload_id', 'priority'}, exclude_none=True)

@@ -28,6 +28,19 @@ export async function createAssetDetails(){
     $('detailThumbnail').src=j?`/api/jobs/${j.id}/files/${j.settings.asset_type==='terrain_unity'?'heightmap.png':'input.png'}?v=${j.result?.revision||j.state}`:'/web/asset-placeholder.svg';
     $('detailThumbnail').onerror=()=>{$('detailThumbnail').onerror=null;$('detailThumbnail').src='/web/asset-placeholder.svg';};
     $('detailTriangles').textContent=r.triangles?Number(r.triangles).toLocaleString('en-US'):'—';
+    const adaptive=r.adaptive_finishing,adaptiveNotice=$('adaptiveFinishingReport');
+    adaptiveNotice.hidden=!adaptive;
+    if(adaptive){
+      const sample=adaptive.trials.at(-1);
+      const outcome=adaptive.target_met?'tolerance met':'tolerance missed within the triangle ceiling';
+      adaptiveNotice.textContent=`Adaptive finishing · ${outcome} · sampled surface error (p99): ${sample.p99_voxels.toFixed(2)} / ${adaptive.tolerance_voxels} source voxels.`;
+    }
+    const normalBake = r.normal_bake;
+    const normalNotice = $('normalBakeReport');
+    normalNotice.hidden = normalBake?.state !== 'applied';
+    if (!normalNotice.hidden) {
+      normalNotice.textContent = `Master detail baked into a ${normalBake.width} × ${normalBake.height} normal map. View in PBR.`;
+    }
     $('detailHeight').textContent=r.height_m?Number(r.height_m*100).toLocaleString('en-US',{maximumFractionDigits:1})+' cm':'—';
     $('detailClips').textContent=String(r.animations??r.animation_set?.length??j?.settings.animation_clips?.length??0);
     const report=r.print_report;$('printReportCard').hidden=!report;

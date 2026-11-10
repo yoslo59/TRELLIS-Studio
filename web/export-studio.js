@@ -1,5 +1,5 @@
-import {icon} from './card-menu.js?v=3.2.0';
-import {createExportPreflight} from './export-preflight.js?v=3.2.0';
+import {icon} from './card-menu.js?v=3.3.1';
+import {createExportPreflight} from './export-preflight.js?v=3.3.1';
 const nameOf=j=>j?.metadata?.display_name||j?.settings.name||'Model';
 export function createExportStudio({api,printCopy,openAction}){
  const dialog=document.createElement('dialog');dialog.id='exportDialog';dialog.className='studio-dialog export-dialog';dialog.setAttribute('aria-labelledby','exportTitle');

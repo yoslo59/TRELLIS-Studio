@@ -4,7 +4,7 @@ from studio_workspace import finishing_source
 from studio_version import VERSION
 from contextlib import asynccontextmanager
 from tempfile import TemporaryDirectory
-import asyncio, hashlib, io, json, os, re, shutil, subprocess, sys, time, uuid
+import asyncio, base64, hashlib, io, json, os, re, shutil, subprocess, sys, time, uuid
 from urllib.parse import urlparse
 from typing import Annotated
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -12,14 +12,18 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps, UnidentifiedImageError
 from generation_options import (normalize_options, options_for_job, schema as generation_schema,
-                                DEFAULT_PROFILE, DEFAULT_GENERATION, GENERATION_PRESETS, GAME_D_ADVANCED, PROFILE_ADVANCED, HUMANOID_EXPERIMENTAL)
+                                DEFAULT_PROFILE, DEFAULT_GENERATION, GENERATION_PRESETS, GAME_D_ADVANCED, PROFILE_ADVANCED,
+                                DENSE_MASTER, DENSE_MASTER_NAME, DENSE_MASTER_TRIANGLES, DENSE_MASTER_FINISHING,
+                                HUMANOID_EXPERIMENTAL, TRIANGLE_MIN, TRIANGLE_MAX)
 from asset_taxonomy import ASSET_TYPES, SYSTEM_TYPES, schema as taxonomy_schema
-from generation_profiles import ProfileStore, builtin_profiles
+from generation_profiles import DENSE_MASTER_DESCRIPTION, ProfileStore, builtin_profiles
 from studio_import import FORMATS, MAX_BYTES, find_blender, validate_glb, copy_version
 from animation_edits import recover as recover_animation
 from glb_data import media as model_media
 from library_actions import validate_metadata,validate_ids
 from pixal3d_runtime import VIEW_FILES, runtime_status as pixal3d_runtime_status
+from reference_preparation import (BackgroundRemovalError, PREPARED_VIEWS, parse_reference_edits,
+                                   prepare_references, premultiplied_rgb)
 
 ROOT = Path(__file__).resolve().parent
 PIXAL_CHARACTER_PROFILE = dict(id='character_pixal', name='Character · Pixal3D',
@@ -31,7 +35,10 @@ PIXAL_HUMANOID_PROFILE = dict(id=HUMANOID_EXPERIMENTAL, name='Humanoid · Experi
                               resolution=1024, triangles=250000, texture_size=2048,
                               experimental=True, asset_type='humanoid', keep_finishing_source=True,
                               description='Dense comparison master. Keeps the finishing source; review anatomy before reducing. No automatic local reconstruction or rig.')
-PIXAL_PROFILES = (PIXAL_CHARACTER_PROFILE, PIXAL_HUMANOID_PROFILE)
+PIXAL_DENSE_MASTER_PROFILE = dict(id=DENSE_MASTER, name=DENSE_MASTER_NAME, resolution=1024,
+                                  triangles=DENSE_MASTER_TRIANGLES, texture_size=2048,
+                                  keep_finishing_source=True, description=DENSE_MASTER_DESCRIPTION)
+PIXAL_PROFILES = (PIXAL_CHARACTER_PROFILE, PIXAL_HUMANOID_PROFILE, PIXAL_DENSE_MASTER_PROFILE)
 REFERENCE_FILES = tuple(VIEW_FILES.values())
 # Studio 3.1 adds typed agent access and a self-hosted developer reference.
 _bundle = ROOT/'bundled-web.json'
@@ -713,6 +720,74 @@ async def read_generation_image(upload, label='Image', restrict_formats=False):
         raise HTTPException(400, f'{label} could not be read: {error}') from error
 
 
+async def reference_sources(uploads, engine):
+    multiview = engine == 'pixal3d'
+    sources = {}
+    for role, upload in zip(VIEW_FILES, uploads):
+        if upload is None:
+            continue
+        label = f'{role.title()} view' if multiview else 'Image'
+        source = await read_generation_image(upload, label, restrict_formats=multiview)
+        if source.getchannel('A').getextrema()[1] == 0:
+            raise HTTPException(400, f'{label} is fully transparent.')
+        sources[role] = source
+    return sources
+
+
+async def prepare_reference_uploads(sources, raw_edits, engine, remove_bg):
+    try:
+        edits = parse_reference_edits(raw_edits, sources)
+        cutouts, frames = await asyncio.to_thread(
+            prepare_references, sources, edits, engine, remove_bg, ROOT / 'models' / 'rembg' / 'u2net.onnx')
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
+    except BackgroundRemovalError as error:
+        raise HTTPException(503, str(error)) from error
+    return edits, cutouts, frames
+
+
+def encode_reference_preview(image, downsample=False):
+    if downsample:
+        image = image.copy()
+        image.thumbnail((768, 768), Image.Resampling.LANCZOS)
+    buffer = io.BytesIO()
+    image.save(buffer, format='PNG')
+    return 'data:image/png;base64,' + base64.b64encode(buffer.getvalue()).decode('ascii')
+
+
+def reference_preview_views(sources, cutouts, frames, engine):
+    views = []
+    for role, source in sources.items():
+        frame = frames[role]
+        if engine == 'pixal3d':
+            frame = Image.fromarray((premultiplied_rgb(frame) * 255).astype('uint8'))
+        views.append(dict(role=role, width=source.width, height=source.height,
+                          original=encode_reference_preview(source, downsample=True),
+                          cutout=encode_reference_preview(cutouts[role], downsample=True),
+                          framed=encode_reference_preview(frame)))
+    return views
+
+
+@app.post('/api/reference-preview')
+async def reference_preview(
+    image: Annotated[UploadFile, File()],
+    left_image: Annotated[UploadFile | None, File()] = None,
+    back_image: Annotated[UploadFile | None, File()] = None,
+    right_image: Annotated[UploadFile | None, File()] = None,
+    engine: Annotated[str, Form()] = 'trellis2',
+    remove_bg: Annotated[bool, Form()] = True,
+    reference_edits: Annotated[str, Form()] = '',
+):
+    if engine not in ('trellis2', 'pixal3d'):
+        raise HTTPException(400, 'Unknown reference engine.')
+    if engine == 'trellis2' and any((left_image, back_image, right_image)):
+        raise HTTPException(400, 'Additional views are only supported by Pixal3D.')
+    sources = await reference_sources((image, left_image, back_image, right_image), engine)
+    _, cutouts, frames = await prepare_reference_uploads(sources, reference_edits, engine, remove_bg)
+    views = await asyncio.to_thread(reference_preview_views, sources, cutouts, frames, engine)
+    return dict(engine=engine, views=views)
+
+
 @app.post('/api/generate-multiview', status_code=202)
 async def generate_multiview(
     image: Annotated[UploadFile, File()],
@@ -731,16 +806,15 @@ async def generate_multiview(
     keep_finishing_source: Annotated[bool, Form()] = False,
     reproject_face: Annotated[bool, Form()] = False,
     queue_priority: Annotated[int, Form()] = 0,
+    reference_edits: Annotated[str, Form()] = '',
 ):
     profile = next((p for p in PIXAL_PROFILES if p['id'] == profile_id), None)
     if profile is None:
         raise HTTPException(400, 'Unknown Pixal3D profile. Choose a profile advertised by Studio.')
-    experimental = profile['id'] == HUMANOID_EXPERIMENTAL
-    if experimental:
-        keep_finishing_source = True
+    keep_finishing_source = keep_finishing_source or profile.get('keep_finishing_source', False)
     if (side_angle not in (40, 90) or not 0.01 <= height_m <= 100
         or not 0 <= seed <= 2147483647 or not -2 <= queue_priority <= 2
-        or (triangles and not 1000 <= triangles <= 500000)
+        or (triangles and not TRIANGLE_MIN <= triangles <= TRIANGLE_MAX)
         or (texture_size and texture_size not in PIXAL_TEXTURE_SIZES)
         or len(name) > 80 or len(reference_prompt) > 6000):
         raise HTTPException(400, 'Invalid character generation settings.')
@@ -751,25 +825,18 @@ async def generate_multiview(
         raise HTTPException(503, runtime['message'])
     if reproject_face and not runtime['face_projection']['ready']:
         raise HTTPException(503, runtime['face_projection']['message'])
-    view_uploads = (
-        ('front', 0, image),
-        ('left', side_angle, left_image),
-        ('back', 180, back_image),
-        ('right', -side_angle, right_image),
-    )
-    views, sources = [], []
-    for role, azimuth, upload in view_uploads:
-        if upload is None:
-            continue
-        source = await read_generation_image(upload, f'{role.title()} view', restrict_formats=True)
-        if source.getchannel('A').getextrema()[1] == 0:
-            raise HTTPException(400, f'{role.title()} view is fully transparent.')
-        filename = VIEW_FILES[role]
-        views.append(dict(role=role, azimuth=azimuth, file=filename))
-        sources.append((filename, source))
+    sources = await reference_sources((image, left_image, back_image, right_image), 'pixal3d')
+    azimuths = dict(front=0, left=side_angle, back=180, right=-side_angle)
+    views = [dict(role=role, azimuth=azimuths[role], file=VIEW_FILES[role]) for role in sources]
+    if reference_edits:
+        edits, _, frames = await prepare_reference_uploads(sources, reference_edits, 'pixal3d', True)
+    else:
+        frames = {}
     generation_options = dict(PIXAL_CHARACTER_OPTIONS)
-    if experimental:
+    if profile['id'] == HUMANOID_EXPERIMENTAL:
         generation_options['mesh_mode'] = 'direct'
+    elif profile['id'] == DENSE_MASTER:
+        generation_options.update(DENSE_MASTER_FINISHING)
     safe_name = re.sub(r'[^A-Za-z0-9_-]+', '-', name.strip()).strip('-')[:50] or 'Character'
     settings = dict(name=safe_name, engine='pixal3d', preset=profile['id'],
                     profile=dict(id=profile['id'], name=profile['name']),
@@ -782,6 +849,8 @@ async def generate_multiview(
     settings['profile_snapshot'] = dict(profile, engine='pixal3d', triangles=settings['triangles'],
         texture_size=settings['texture_size'], generation_options=generation_options,
         keep_finishing_source=keep_finishing_source)
+    if reference_edits:
+        settings['reference_edits'] = edits
     if reproject_face:
         settings['reproject_face'] = True
     if parent_id:
@@ -793,8 +862,10 @@ async def generate_multiview(
             job_path(parent_id)
         with TemporaryDirectory(prefix='.pixal3d-', dir=OUTPUT) as staging:
             staged = Path(staging)
-            for filename, source in sources:
-                source.save(staged / filename)
+            for role, source in sources.items():
+                source.save(staged / VIEW_FILES[role])
+            for role, frame in frames.items():
+                frame.save(staged / PREPARED_VIEWS[role])
             write_json(staged / 'settings.json', settings)
             write_json(staged / 'metadata.json', dict(
                 display_name=name.strip() or safe_name, category='Characters',
@@ -816,15 +887,17 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
                    triangles: int = Form(0), asset_type: str = Form('object'), texture_size: int = Form(0),
                    reference_prompt: str = Form(''), resolution: int = Form(DEFAULT_GENERATION['resolution']), advanced_settings: str = Form(''),
                    keep_finishing_source: Annotated[bool,Form()]=False,
-                   profile_id: str = Form(''), parent_id: Annotated[str,Form()]='', queue_only: Annotated[bool,Form()]=False, queue_priority: Annotated[int,Form()]=0, queue_hold: Annotated[bool,Form()]=False):
+                   profile_id: str = Form(''), parent_id: Annotated[str,Form()]='', queue_only: Annotated[bool,Form()]=False, queue_priority: Annotated[int,Form()]=0, queue_hold: Annotated[bool,Form()]=False,
+                   reference_edits: Annotated[str, Form()] = ''):
     # Legacy multipart profile_id is provenance; an edited base preset wins.
     experimental = preset == HUMANOID_EXPERIMENTAL
-    if experimental:
-        preset = HUMANOID_EXPERIMENTAL
+    cache_required = preset in (HUMANOID_EXPERIMENTAL, DENSE_MASTER)
+    if cache_required:
         keep_finishing_source = True
+    if experimental:
         asset_type = 'humanoid'
     if (preset not in GENERATION_PRESETS or not 0.01 <= height_m <= 100 or not 0 <= seed <= 2147483647
-        or (triangles!=0 and not 1000<=triangles<=500000) or asset_type not in ASSET_TYPES
+        or (triangles!=0 and not TRIANGLE_MIN<=triangles<=TRIANGLE_MAX) or asset_type not in ASSET_TYPES
         or texture_size not in (0,1024,2048,4096) or resolution not in (512,1024,1536) or len(reference_prompt)>6000 or len(name)>80):
         raise HTTPException(400, 'Invalid settings.')
     try:
@@ -834,13 +907,15 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
         advanced=normalize_options({**PROFILE_ADVANCED.get(preset,{}),**incoming},GENERATION_PRESETS[preset][0])
     except (ValueError,TypeError) as error:
         raise HTTPException(400,str(error))
-    profile = None
+    base_profile = next((p for p in builtin_profiles() if p['id'] == preset), None) if cache_required else None
+    profile = base_profile
     if profile_id:
         try: profile = next((p for p in PROFILES.list() if p['id'] == profile_id), None)
         except ValueError as error: raise HTTPException(422, str(error))
         if profile is None: raise HTTPException(400, 'Profile not found; reload profiles.')
-    elif experimental:
-        profile = next(p for p in builtin_profiles() if p['id'] == HUMANOID_EXPERIMENTAL)
+    if reference_edits:
+        sources = await reference_sources((image,), 'trellis2')
+        edits, cutouts, frames = await prepare_reference_uploads(sources, reference_edits, 'trellis2', remove_bg)
     async with LOCK:
         if parent_id:job_path(parent_id)
         if not queue_only and (TERRAIN_ACTIVE or (PROCESS is not None and PROCESS.poll() is None)):
@@ -850,11 +925,9 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
         supported,textures=generation_capabilities()
         if resolution not in supported:raise HTTPException(400,'This 3D resolution is not available or validated in this installation.')
         if texture_size and texture_size not in textures:raise HTTPException(400,'This texture size is not validated in this installation.')
-        source = await read_generation_image(image)
+        source = sources['front'] if reference_edits else await read_generation_image(image)
         identifier = uuid.uuid4().hex
         folder = OUTPUT / identifier
-        folder.mkdir()
-        source.save(folder / 'input.png')
         safe_name = re.sub(r'[^A-Za-z0-9_-]+', '-', name.strip()).strip('-')[:50] or 'Objet'
         steps, default_triangles, texture = GENERATION_PRESETS[preset]
         texture = texture_size or texture
@@ -864,19 +937,36 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
                         resolution=resolution,pipeline_type={512:'512',1024:'1024_cascade',1536:'1536_cascade'}[resolution],
                         generation_options=advanced,settings_version=2)
         if keep_finishing_source: settings['keep_finishing_source'] = True
+        if reference_edits:
+            settings['reference_edits'] = edits
         if profile: settings['profile'] = dict(id=profile['id'], name=profile['name'])
-        if experimental:
-            settings['profile_snapshot'] = dict(id=HUMANOID_EXPERIMENTAL, name='Humanoid · Experimental',
-                engine='trellis2', experimental=True, asset_type='humanoid', keep_finishing_source=True,
+        if base_profile:
+            settings['profile_snapshot'] = dict(id=preset, name=base_profile['name'],
+                engine='trellis2', asset_type=asset_type, keep_finishing_source=True,
                 preset=preset, resolution=resolution, triangles=triangles, texture_size=texture,
                 generation_options=advanced)
+            if experimental:
+                settings['profile_snapshot']['experimental'] = True
         if parent_id:settings['parent_id']=parent_id
-        (folder / 'settings.json').write_text(json.dumps(settings, indent=2), encoding='utf-8')
-        write_json(folder/'metadata.json',dict(display_name=name.strip()[:80] or safe_name,
-                   reference_prompt=reference_prompt.strip(),review_state='review',favorite=False,tags=[]))
+        with TemporaryDirectory(prefix='.trellis2-', dir=OUTPUT) as staging:
+            staged = Path(staging)
+            source.save(staged / 'input.png')
+            if reference_edits:
+                cutouts['front'].save(staged / 'prepared.png')
+                frames['front'].save(staged / 'conditioning.png')
+            write_json(staged / 'settings.json', settings)
+            write_json(staged / 'metadata.json', dict(display_name=name.strip()[:80] or safe_name,
+                       reference_prompt=reference_prompt.strip(), review_state='review', favorite=False, tags=[]))
+            if queue_only:
+                write_json(staged / 'status.json', dict(state='queued', stage='Waiting in queue', progress=0))
+            staged.rename(folder)
         if queue_only:
-            write_json(folder/'status.json',dict(state='queued',stage='Waiting in queue',progress=0))
-            STUDIO.workspace.enqueue(identifier,queue_priority,queue_hold)
+            try:
+                STUDIO.workspace.enqueue(identifier, queue_priority, queue_hold)
+            except OSError as error:
+                write_json(folder / 'status.json', dict(state='error', stage='Unable to save queue',
+                           progress=0, error=str(error)))
+                raise HTTPException(503, 'Unable to save the generation queue.') from error
             return {'id':identifier,'queued':True}
         launch_worker(folder, 'worker.py')
         return {'id': identifier}
@@ -966,7 +1056,7 @@ async def files(identifier: str, filename: str):
         name=json.loads((folder/'settings.json').read_text(encoding='utf-8'))['name']
         return FileResponse(folder/'Blender.zip',filename='TRELLIS-'+name+'-Blender.zip',media_type='application/zip',
                             background=BackgroundTask(EXPORTING.discard,identifier))
-    if filename not in (*REFERENCE_FILES,'prepared.png','conditioning.png','model.glb','model.stl','print-report.json','Unity.zip','Blender.zip','settings.json','result.json','heightmap.png','heightmap.raw','original.glb','original.fbx','original.obj','original.stl','original.ply') or not (folder / filename).exists():
+    if filename not in (*REFERENCE_FILES,*PREPARED_VIEWS.values(),'conditioning.png','model.glb','model.stl','print-report.json','Unity.zip','Blender.zip','settings.json','result.json','heightmap.png','heightmap.raw','original.glb','original.fbx','original.obj','original.stl','original.ply') or not (folder / filename).exists():
         raise HTTPException(404)
     download_name = 'TRELLIS-' + json.loads((folder/'settings.json').read_text(encoding='utf-8'))['name']
     if filename == 'model.glb': download_name += '.glb'

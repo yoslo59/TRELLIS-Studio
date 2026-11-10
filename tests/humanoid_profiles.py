@@ -1,4 +1,4 @@
-"""Experimental master profile through UI/REST contracts; no inference or real jobs."""
+"""Cached profiles through UI/REST contracts; no inference or real jobs."""
 from pathlib import Path
 from contextlib import contextmanager
 from tempfile import TemporaryDirectory
@@ -28,7 +28,7 @@ with isolated_workspace('humanoid_profiles'):
     import app
     from api_contract import Generation, MultiViewGeneration
     from generation_profiles import builtin_profiles
-    from generation_options import DEFAULT_GENERATION, DEFAULT_PROFILE, options_for_job
+    from generation_options import DENSE_MASTER, DEFAULT_GENERATION, DEFAULT_PROFILE, options_for_job
     from pixal3d_worker import sampling_options
 
     before = copy.deepcopy(builtin_profiles()[0])
@@ -86,9 +86,17 @@ with isolated_workspace('humanoid_profiles'):
         assert experimental['settings']['triangles']==250000
         assert experimental['settings']['advanced']['mesh_mode']=='direct'
         assert experimental['settings']['advanced']['texture_guidance']==2
+        dense = next(p for p in profiles['profiles'] if p['id'] == DENSE_MASTER)
+        assert dense['builtin'] and dense['keep_finishing_source'] and dense['name'] == 'Dense Master'
+        dense_settings = dense['settings']
+        dense_finish = dict(mesh_mode='direct', pre_simplify=False, repair_holes=False)
+        assert dense_settings['resolution'] == 1024 and dense_settings['triangles'] == 1_000_000
+        assert dense_settings['advanced'] == {**d, **dense_finish}
         send(client,'/api/profiles/humanoid_experimental',expected=405,json={})
         denied=client.put('/api/profiles/humanoid_experimental',json={'name':'Overwrite','settings':before['settings']})
         assert denied.status_code==403
+        denied = client.put(f'/api/profiles/{DENSE_MASTER}', json={'name':'Overwrite','settings':before['settings']})
+        assert denied.status_code == 403
 
         front=send(client,'/api/v1/uploads',expected=201,files={'file':image()})['id']
         side=send(client,'/api/v1/uploads',expected=201,files={'file':image()})['id']
@@ -113,9 +121,21 @@ with isolated_workspace('humanoid_profiles'):
         s=settings(result['id'])
         assert s['preset']=='game_d' and s['triangles']==28000 and not s.get('keep_finishing_source',False)
 
+        typed_mono = send(client, '/api/v1/generations', json={
+            'upload_id': front, 'profile_id': DENSE_MASTER, 'overrides': {'keep_finishing_source': False}})
+        multipart_mono = send(client, '/api/generate', expected=200, files={'image': image()}, data={
+            'preset': DENSE_MASTER, 'queue_only': 'true', 'keep_finishing_source': 'false'})
+        for result in (typed_mono, multipart_mono):
+            s = settings(result['id'])
+            assert s['preset'] == s['profile']['id'] == s['profile_snapshot']['id'] == DENSE_MASTER
+            assert s['keep_finishing_source'] is True and s['asset_type'] == 'object'
+            assert s['resolution'] == 1024 and s['triangles'] == 1_000_000 and s['texture_size'] == 2048
+            assert s['generation_options'] == {**options_for_job({'preset':'game_d'}), **dense_finish}
+            assert s['profile_snapshot']['generation_options'] == s['generation_options']
+
         cap=app.pixal3d_capabilities()
         assert cap['profile']==standard_profile and cap['default_profile']=='character_pixal'
-        assert [p['id'] for p in cap['profiles']]==['character_pixal','humanoid_experimental']
+        assert [p['id'] for p in cap['profiles']]==['character_pixal','humanoid_experimental',DENSE_MASTER]
         files={'image':image(),'left_image':image()}
         for profile in ('character_pixal','humanoid_experimental'):
             result=send(client,'/api/generate-multiview',files=files,data={'profile_id':profile,'keep_finishing_source':'false'})
@@ -131,10 +151,18 @@ with isolated_workspace('humanoid_profiles'):
             'upload_id':front,'left_upload_id':side,'profile_id':'humanoid_experimental','triangles':12000})
         s=settings(typed['id'])
         assert s['preset']=='humanoid_experimental' and s['triangles']==12000 and s['keep_finishing_source']
+        typed_dense = send(client, '/api/v1/generations/multiview', json={
+            'upload_id': front, 'left_upload_id': side, 'profile_id': DENSE_MASTER, 'keep_finishing_source': False})
+        s = settings(typed_dense['id'])
+        assert s['preset'] == s['profile']['id'] == s['profile_snapshot']['id'] == DENSE_MASTER
+        assert s['keep_finishing_source'] is True and s['asset_type'] == 'humanoid'
+        assert s['resolution'] == 1024 and s['triangles'] == 1_000_000 and s['texture_size'] == 2048
+        assert s['generation_options'] == {**standard_options, **dense_finish}
+        assert s['profile_snapshot']['generation_options'] == s['generation_options']
         send(client,'/api/generate-multiview',expected=400,files=files,data={'profile_id':'unknown'})
         send(client,'/api/v1/generations/multiview',expected=422,json={'upload_id':front,'left_upload_id':side,'profile_id':'unknown'})
         assert builtin_profiles()[0]==before
         assert app.PIXAL_CHARACTER_OPTIONS==standard_options and app.PIXAL_CHARACTER_PROFILE==standard_profile
         launch.assert_not_called()
     assert 'torch' not in sys.modules
-    print('PASS: immutable D and standard Pixal, optional mono/multiview master, forced source retention, snapshots, overrides and REST contracts; no GPU/inference.')
+    print('PASS: unchanged D, standard Pixal and Humanoid Experimental; Dense Master mono/multiview recipes, forced cache, snapshots and REST contracts.')

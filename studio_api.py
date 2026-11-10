@@ -1,6 +1,7 @@
 """Studio 3 workspace services. All state is local and scoped to the library."""
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import NamedTuple
 import asyncio,copy,json,math,os,re,shutil,time,uuid
 from fastapi import HTTPException,Request,UploadFile,File,Form
 from fastapi.responses import FileResponse
@@ -8,7 +9,34 @@ from PIL import Image
 from studio_workspace import Workspace,read,write,name,checkpoint,revisions,ID,SNAPSHOT_FILES,SNAPSHOT_DIRS,finishing_source
 from library_actions import validate_ids
 from glb_data import read as read_glb,animation_info
-from generation_options import options_for_job
+from generation_options import GENERATION_PRESETS, TRIANGLE_MAX, TRIANGLE_MIN, options_for_job
+from pixal3d_runtime import validate_views
+from reference_preparation import PREPARED_VIEWS
+
+RETRY_STATES = {'error', 'cancelled'}
+RETRY_FIELDS = {'resolution', 'texture_size', 'triangles', 'height_m', 'priority',
+                'mesh_mode', 'pre_simplify', 'repair_holes', 'bake_normals'}
+RETRY_FINISHING_FIELDS = ('mesh_mode', 'pre_simplify', 'repair_holes')
+PREPARED_REFERENCES = (*PREPARED_VIEWS.values(), 'conditioning.png')
+
+
+class FinishingRecipe(NamedTuple):
+    triangles: int
+    texture_size: int
+    mesh_mode: str
+    repair_holes: bool
+    pre_simplify: bool
+    adaptive: bool
+    preset: str | None
+    bake_normals: bool
+
+
+def triangle_presets(record):
+    asset_type = record['metadata'].get('asset_type') or record['settings'].get('asset_type')
+    if asset_type == 'humanoid':
+        return dict(low=6_000, medium=14_000, high=100_000, ultra=TRIANGLE_MAX)
+    return dict(low=12_000, medium=28_000, high=150_000, ultra=TRIANGLE_MAX)
+
 
 def install(app,g):
     return StudioServices(app,g)
@@ -89,36 +117,64 @@ class StudioServices:
             raise HTTPException(409, 'This model has no reusable finishing source.')
         return folder, record, source_id
 
-    def finishing_recipe(self, data, settings, options):
-        if not isinstance(data, dict) or set(data) - {'triangles', 'texture_size', 'mesh_mode', 'repair_holes'}:
+    def finishing_recipe(self, data, record, options):
+        if not isinstance(data, dict) or set(data) - {'triangles', 'texture_size', 'mesh_mode', 'repair_holes',
+                                                        'pre_simplify', 'adaptive_finishing',
+                                                        'budget_preset', 'bake_normals'}:
             raise ValueError('Only finishing settings can be changed.')
+        settings = record['settings']
+        preset = data.get('budget_preset')
         triangles = data.get('triangles', settings['triangles'])
+        if 'budget_preset' in data:
+            budgets = triangle_presets(record)
+            if not isinstance(preset, str) or preset not in budgets or 'triangles' in data:
+                raise ValueError('Choose one triangle preset or enter a manual triangle target.')
+            triangles = budgets[preset]
         texture_size = data.get('texture_size', settings['texture_size'])
         mesh_mode = data.get('mesh_mode', options['mesh_mode'])
         repair = data.get('repair_holes', options['repair_holes'])
-        if type(triangles) is not int or not 1000 <= triangles <= 500000:
-            raise ValueError('Choose a target of 1,000–500,000 triangles.')
+        pre_simplify = data.get('pre_simplify', options['pre_simplify'])
+        adaptive = data.get('adaptive_finishing', False)
+        bake_normals = data.get('bake_normals', preset == 'medium' and bool(self.g['find_blender']()))
+        if type(triangles) is not int or not TRIANGLE_MIN <= triangles <= TRIANGLE_MAX:
+            raise ValueError(f'Choose a target of {TRIANGLE_MIN:,}–{TRIANGLE_MAX:,} triangles.')
         if type(texture_size) is not int or texture_size not in self.g['generation_capabilities']()[1]:
             raise ValueError('Choose a supported texture size.')
-        if mesh_mode not in ('direct', 'remesh') or type(repair) is not bool:
-            raise ValueError('Choose a valid mesh finishing method and hole setting.')
-        return triangles, texture_size, mesh_mode, repair
+        if mesh_mode not in ('direct', 'remesh') or any(type(flag) is not bool for flag in (repair, pre_simplify, adaptive, bake_normals)):
+            raise ValueError('Choose valid mesh finishing options.')
+        if bake_normals and not self.g['find_blender']():
+            raise HTTPException(503, 'Install Blender to bake detail from the master, or disable the normal map.')
+        if adaptive or preset:
+            mesh_mode, repair, pre_simplify = 'direct', False, False
+        return FinishingRecipe(triangles, texture_size, mesh_mode, repair, pre_simplify, adaptive, preset, bake_normals)
 
     def create_finishing_variant(self, variant, folder, record, source_id, options, recipe):
-        triangles, texture_size, mesh_mode, repair = recipe
+        triangles, texture_size, mesh_mode, repair, pre_simplify, adaptive, preset, bake_normals = recipe
         variant.mkdir()
         settings = dict(record['settings'])
         settings.pop('keep_finishing_source', None)
+        settings.pop('adaptive_finishing', None)
+        settings.pop('budget_preset', None)
+        settings.pop('bake_normals', None)
+        if adaptive:
+            settings['adaptive_finishing'] = True
+        if preset:
+            settings['budget_preset'] = preset
+        if bake_normals:
+            settings['bake_normals'] = True
         settings.update(created=time.time(), parent_id=folder.name, source_kind='refinish',
                         finish_source_id=source_id, triangles=triangles, texture_size=texture_size,
-                        generation_options={**options, 'mesh_mode': mesh_mode, 'repair_holes': repair})
+                        generation_options={**options, 'mesh_mode': mesh_mode, 'repair_holes': repair,
+                                            'pre_simplify': pre_simplify})
         write(variant / 'settings.json', settings)
-        for filename in (*self.g['REFERENCE_FILES'], 'prepared.png', 'conditioning.png'):
+        for filename in (*self.g['REFERENCE_FILES'], *PREPARED_REFERENCES):
             if (folder / filename).is_file():
                 shutil.copy2(folder / filename, variant / filename)
         metadata = dict(record['metadata'])
         label = metadata.get('display_name') or settings['name']
-        suffix = f' · {mesh_mode} {triangles / 1000:g}k · {texture_size // 1024}K'
+        mode_label = 'adaptive ≤' if adaptive else preset.title() if preset else mesh_mode
+        normal_label = ' + normal map' if bake_normals else ''
+        suffix = f' · {mode_label} {triangles / 1000:g}k · {texture_size // 1024}K{normal_label}'
         metadata.update(display_name=label[:80-len(suffix)] + suffix, review_state='review', favorite=False)
         write(variant / 'metadata.json', metadata)
         write(variant / 'status.json', dict(state='queued', stage='Waiting for finishing', progress=0))
@@ -146,6 +202,122 @@ class StudioServices:
                                                         progress=0, error='The batch was not submitted.'))
                 raise
         return identifiers
+
+    def retry_recipe(self, folder, saved, priority, changes):
+        if not isinstance(changes, dict) or set(changes) - RETRY_FIELDS:
+            raise ValueError('Choose only editable queue settings.')
+
+        refinish = saved.get('source_kind') == 'refinish'
+        pixal = saved.get('engine') == 'pixal3d'
+        resolution = changes.get('resolution', saved.get('resolution', 512))
+        supported_resolutions, supported_textures = self.g['generation_capabilities']()
+        reference_files = ['input.png']
+        if refinish:
+            if not finishing_source(folder, saved):
+                raise HTTPException(409, 'Restore the source model and its finishing cache before retrying.')
+            supported_resolutions = [saved.get('resolution', 512)]
+        elif pixal:
+            runtime = self.g['pixal3d_capabilities']()
+            if not runtime['ready']:
+                raise HTTPException(503, runtime['message'])
+            if saved.get('reproject_face') and not runtime['face_projection']['ready']:
+                raise HTTPException(503, runtime['face_projection']['message'])
+            supported_resolutions = [1024]
+            supported_textures = runtime['texture_sizes']
+            reference_files = [view['file'] for view in validate_views(saved.get('views'))]
+        else:
+            if saved.get('preset') not in GENERATION_PRESETS:
+                raise HTTPException(409, 'This queued item has no saved generation recipe.')
+            if not self.g['status']()['ready']:
+                raise HTTPException(503, 'Install the TRELLIS.2 model weights before retrying.')
+
+        if type(resolution) is not int or resolution not in supported_resolutions:
+            raise ValueError('Choose a geometry resolution available for this job.')
+        texture_size = changes.get('texture_size', saved.get('texture_size'))
+        if type(texture_size) is not int or texture_size not in supported_textures:
+            raise ValueError('Choose a texture size available for this job.')
+        triangles = changes.get('triangles', saved.get('triangles'))
+        if type(triangles) is not int or not TRIANGLE_MIN <= triangles <= TRIANGLE_MAX:
+            raise ValueError(f'Choose a triangle target between {TRIANGLE_MIN:,} and {TRIANGLE_MAX:,}.')
+        height = changes.get('height_m', saved.get('height_m'))
+        if type(height) not in (int, float) or not .01 <= height <= 100:
+            raise ValueError('Choose a height between 0.01 and 100 metres.')
+        priority = changes.get('priority', priority)
+        if type(priority) is not int or not -2 <= priority <= 2:
+            raise ValueError('Choose a valid queue priority.')
+
+        settings = dict(saved, created=time.time(), parent_id=folder.name, retry_of=folder.name,
+                        resolution=resolution, triangles=triangles, texture_size=texture_size, height_m=height)
+        if triangles != saved.get('triangles'):
+            settings.pop('budget_preset', None)
+        if 'bake_normals' in changes:
+            bake_normals = changes['bake_normals']
+            if not refinish or type(bake_normals) is not bool:
+                raise ValueError('Normal baking is only available when refinishing a saved master.')
+            if bake_normals:
+                settings['bake_normals'] = True
+            else:
+                settings.pop('bake_normals', None)
+        if settings.get('bake_normals') and not self.g['find_blender']():
+            raise HTTPException(503, 'Install Blender to bake detail from the master, or disable the normal map.')
+        if not refinish and not pixal:
+            settings['pipeline_type'] = {512: '512', 1024: '1024_cascade', 1536: '1536_cascade'}[resolution]
+        finishing = {key: changes[key] for key in RETRY_FINISHING_FIELDS if key in changes}
+        if finishing:
+            if saved.get('adaptive_finishing'):
+                raise ValueError('Adaptive finishing uses the original master without pre-simplification or hole filling.')
+            if 'mesh_mode' in finishing and finishing['mesh_mode'] not in ('direct', 'remesh'):
+                raise ValueError('Choose a valid mesh finishing method.')
+            if any(type(finishing[key]) is not bool for key in ('pre_simplify', 'repair_holes') if key in finishing):
+                raise ValueError('Choose valid options for pre-simplification and hole repair.')
+            settings['generation_options'] = {**options_for_job(saved), **finishing}
+        profile = saved.get('profile_snapshot')
+        if isinstance(profile, dict):
+            settings['profile_snapshot'] = dict(profile, resolution=resolution, triangles=triangles,
+                                                texture_size=texture_size)
+            if finishing:
+                settings['profile_snapshot']['generation_options'] = settings['generation_options']
+
+        required = set() if refinish and not saved.get('reproject_face') else set(reference_files)
+        if 'reference_edits' in saved and not refinish:
+            required.update(filename.replace('input', 'prepared', 1) for filename in reference_files)
+            if not pixal:
+                required.add('conditioning.png')
+        files = []
+        for filename in (*self.g['REFERENCE_FILES'], *PREPARED_REFERENCES):
+            source = folder / filename
+            if source.is_file() and not source.is_symlink():
+                files.append(source)
+            elif filename in required:
+                raise HTTPException(409, f'Restore the saved reference {filename} before retrying.')
+        return settings, priority, files
+
+    def queue_retry(self, folder, record, settings, priority, files):
+        identifier = uuid.uuid4().hex
+        target = self.output / identifier
+        with TemporaryDirectory(prefix='.queue-retry-', dir=self.output) as staging:
+            staged = Path(staging) / identifier
+            staged.mkdir()
+            for source in files:
+                shutil.copy2(source, staged / source.name)
+            write(staged / 'settings.json', settings)
+            metadata = record['metadata']
+            label = metadata.get('display_name') or settings['name']
+            suffix = f' · Retry {identifier[:6]}'
+            write(staged / 'metadata.json', dict(metadata, display_name=label[:80 - len(suffix)] + suffix,
+                                                 review_state='review', favorite=False))
+            write(staged / 'status.json', dict(state='queued', stage='Waiting in queue', progress=0))
+            staged.rename(target)
+            try:
+                self.workspace.enqueue(identifier, priority)
+            except OSError:
+                try:
+                    target.rename(staged)
+                except OSError:
+                    write(target / 'status.json', dict(state='error', stage='Unable to save queue', progress=0,
+                                                       error='The retry was not submitted.'))
+                raise
+        return identifier
 
     def register(self,app):
         @app.get('/api/workspace')
@@ -196,7 +368,12 @@ class StudioServices:
                 folder=self.output/entry['id']
                 if not folder.is_dir():continue
                 record=self.g['job_record'](folder)
-                if record:items.append({**entry,'name':record['metadata'].get('display_name',record['settings']['name']),'state':record['state'],'stage':record['stage'],'progress':record.get('progress',0),'settings':record['settings'],'error':record.get('error')})
+                if record:
+                    items.append({**entry,'name':record['metadata'].get('display_name',record['settings']['name']),
+                                  'state':record['state'],'stage':record['stage'],'progress':record.get('progress',0),
+                                  'settings':record['settings'],'error':record.get('error'),
+                                  'retry_finishing': {key: record['generation_options'][key] for key in RETRY_FINISHING_FIELDS}
+                                  if record.get('generation_options') else {}})
             return dict(paused=self.workspace.queue['paused'],items=items)
         @app.patch('/api/queue')
         async def pause_queue(request:Request):
@@ -216,6 +393,28 @@ class StudioServices:
                     if state.get('state') not in ('error','cancelled'):raise HTTPException(409,'Only interrupted, failed or cancelled jobs can be retried.')
                     entry['cancelled']=False;entry['held']=False;write(folder/'status.json',dict(state='queued',stage='Waiting in queue',progress=0))
                 self.workspace.save_queue();return queue()
+        @app.post('/api/queue/{identifier}/retry', status_code=202)
+        async def retry_queue(identifier: str, request: Request):
+            try:
+                changes = await request.json()
+            except ValueError as error:
+                raise HTTPException(400, 'Choose valid queue settings.') from error
+            async with self.g['LOCK']:
+                entry = next((item for item in self.workspace.queue['items'] if item['id'] == identifier), None)
+                if not entry:
+                    raise HTTPException(404, 'Queue entry not found.')
+                folder = self.g['job_path'](identifier)
+                record = self.g['job_record'](folder)
+                if not record or record['state'] not in RETRY_STATES:
+                    raise HTTPException(409, 'Only interrupted, failed or cancelled jobs can be retried.')
+                try:
+                    settings, priority, files = self.retry_recipe(folder, record['settings'], entry['priority'], changes)
+                    new_id = self.queue_retry(folder, record, settings, priority, files)
+                except (ValueError, TypeError) as error:
+                    raise HTTPException(400, str(error)) from error
+                except OSError as error:
+                    raise HTTPException(503, 'Unable to save the retry to the generation queue.') from error
+                return dict(id=new_id, retry_of=identifier, paused=self.workspace.queue['paused'])
         @app.post('/api/queue/batch',status_code=201)
         async def queue_batch(images:list[UploadFile]=File(...),specifications:str=Form(...)):
             try:
@@ -225,7 +424,7 @@ class StudioServices:
                 for spec in specs:
                     for key,limit in [('name',80),('profile_id',80),('asset_type',80),('reference_prompt',6000),('parent_id',32)]:
                         if key in spec and (not isinstance(spec[key],str) or len(spec[key])>limit):raise ValueError('Invalid '+key+'.')
-                    for key,low,high in [('seed',0,2147483647),('priority',-2,2),('triangles',0,500000),('texture_size',0,4096),('resolution',512,1536)]:
+                    for key,low,high in [('seed',0,2147483647),('priority',-2,2),('triangles',0,TRIANGLE_MAX),('texture_size',0,4096),('resolution',512,1536)]:
                         if key in spec and (type(spec[key]) is not int or not low<=spec[key]<=high):raise ValueError('Invalid '+key+'.')
                     if 'height_m' in spec and (type(spec['height_m']) not in (int,float) or not math.isfinite(spec['height_m']) or not .01<=spec['height_m']<=100):raise ValueError('Invalid height.')
                     if 'remove_bg' in spec and type(spec['remove_bg']) is not bool:raise ValueError('Invalid background removal setting.')
@@ -257,26 +456,22 @@ class StudioServices:
         @app.post('/api/jobs/{identifier}/refinish', status_code=202)
         async def refinish(identifier: str, request: Request):
             async with self.g['LOCK']:
-                self.g['require_idle']()
                 folder, record, source_id = self.finishing_model(identifier, available=True)
                 try:
                     settings = record['settings']
                     options = options_for_job(settings)
-                    recipe = self.finishing_recipe(await request.json(), settings, options)
+                    recipe = self.finishing_recipe(await request.json(), record, options)
                 except (ValueError, TypeError) as error:
                     raise HTTPException(400, str(error)) from error
-                variant = self.output / uuid.uuid4().hex
-                self.create_finishing_variant(variant, folder, record, source_id, options, recipe)
                 try:
-                    self.g['launch_worker'](variant, 'worker.py', source_id=source_id)
+                    variant_id, = self.queue_finishing_variants(folder, record, source_id, options, [recipe])
                 except OSError as error:
-                    write(variant / 'status.json', dict(state='error', stage='Unable to start finishing', progress=0, error=str(error)))
-                    raise HTTPException(503, 'Unable to start finishing.') from error
-                return dict(id=variant.name)
+                    raise HTTPException(503, 'Unable to queue the finishing variant.') from error
+                return dict(id=variant_id, queued=True, paused=self.workspace.queue['paused'])
 
         @app.get('/api/jobs/{identifier}/finishing-board')
         def finishing_board(identifier: str):
-            _, _, source_id = self.finishing_model(identifier)
+            _, record, source_id = self.finishing_model(identifier)
             source = self.output / source_id
             try:
                 cache_bytes = (source/'raw_state.pt').stat().st_size
@@ -285,6 +480,9 @@ class StudioServices:
                 raise HTTPException(409, 'Unable to read the finishing cache or choice.') from error
             return dict(source_id=source_id, cache_bytes=cache_bytes,
                         texture_sizes=self.g['generation_capabilities']()[1],
+                        triangle_limits=dict(min=TRIANGLE_MIN, max=TRIANGLE_MAX),
+                        triangle_presets=triangle_presets(record),
+                        normal_bake=bool(self.g['find_blender']()),
                         selected_id=selection.get('id') if isinstance(selection, dict) else None)
 
         @app.post('/api/jobs/{identifier}/finishing-board', status_code=202)
@@ -300,7 +498,7 @@ class StudioServices:
                         raise ValueError('Choose one to three finishing recipes.')
                     settings = record['settings']
                     options = options_for_job(settings)
-                    recipes = [self.finishing_recipe(value, settings, options) for value in variants]
+                    recipes = [self.finishing_recipe(value, record, options) for value in variants]
                     if len(set(recipes)) != len(recipes):
                         raise ValueError('Choose different finishing recipes for each variant.')
                 except (ValueError, TypeError) as error:

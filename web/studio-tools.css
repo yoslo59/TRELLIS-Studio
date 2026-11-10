@@ -24,7 +24,89 @@ button.has-icon{gap:7px}button>.ui-icon{flex-shrink:0;vertical-align:middle}#sav
 .export-beacon{position:static;z-index:auto;margin-left:auto;padding:7px 10px;border-radius:7px;box-shadow:none;font-size:10px;color:#c3e99d;background:#b8e38b0b;border-color:#9cba6d4d;white-space:nowrap}.export-beacon .ui-icon{width:13px;height:13px}
 .library-top h2 #collectionTitle{font:inherit;color:inherit;letter-spacing:inherit;margin:0}
 
-.refinish-body { padding: 0 24px; }
+.refinish-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: min(370px, calc(100vw - 20px));
+  max-height: calc(100dvh - 20px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid #515a4d;
+  border-radius: 16px;
+  background: #232823;
+  color: #e2e9dd;
+  box-shadow: 0 16px 44px #0008;
+}
+.refinish-popover [hidden] { display: none !important; }
+.refinish-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.refinish-head > div { min-width: 0; }
+.refinish-head h2 { margin: 0; font-size: 19px; font-weight: 600; }
+.refinish-head p { margin: 5px 0 0; font-size: 11px; color: #a9b6a2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#closeRefinish { display: grid; place-items: center; width: 30px; height: 30px; padding: 4px; border-radius: 7px; color: #b8c4b1; }
+#closeRefinish:hover { background: #ffffff13; }
+#closeRefinish .ui-icon { width: 16px; height: 16px; }
+#refinishControls { margin-top: 14px; }
+.refinish-popover fieldset { min-width: 0; padding: 0; margin: 0 0 7px; border: 0; }
+.refinish-popover legend { padding: 0; margin: 0 0 6px; font-size: 12px; font-weight: 600; }
+.refinish-segments {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9px;
+  background: #171c17;
+}
+.refinish-presets { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.refinish-segments label { cursor: pointer; }
+.refinish-segments label > span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 32px;
+  padding: 4px 2px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #b2bdae;
+  font-size: 12px;
+}
+.refinish-segments label:hover > span { background: #ffffff0b; }
+.refinish-segments label input:checked + span {
+  border-color: #abce7d49;
+  background: #394533;
+  color: #d7f4ad;
+}
+.refinish-segments input:focus-visible + span { outline: 2px solid #c4f58a; outline-offset: -2px; }
+.refinish-segments small { font-size: 10px; font-variant-numeric: tabular-nums; }
+.refinish-manual,
+.refinish-popover .check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #d0ddc7;
+  font-size: 11px;
+  cursor: pointer;
+}
+.refinish-manual { margin-top: 9px; }
+.refinish-manual input,
+.refinish-popover .check input { width: 14px; height: 14px; padding: 0; margin: 0; flex: none; accent-color: #c4f58a; }
+.refinish-popover .hint { margin: 7px 0 11px; font-size: 11px; line-height: 1.5; color: #a6b5a0; }
+.refinish-popover .field { margin: 8px 0; font-size: 11px; }
+.refinish-popover .field :is(input, select) { min-height: 33px; padding: 5px 8px; }
+#refinishStatus { margin-top: 12px; }
+#refinishOptions { margin-top: 10px; }
+#refinishOptions summary { cursor: pointer; font-size: 11px; color: #b5c1ae; }
+#refinishManualOptions .check { margin: 8px 0; }
+#refinishError { margin: 8px 0 0; font-size: 11px; }
+#startRefinish { justify-content: center; width: 100%; margin-top: 13px; }
+#startRefinish .ui-icon { width: 16px; height: 16px; }
+#viewport:has(#toolbarRefinishControl:not([hidden])) .viewport-docks { width: max-content; }
+#viewerTools:has(#toolbarRefinishControl:not([hidden])) { max-width: 100%; flex-wrap: wrap; justify-content: center; }
+#toolbarRefinishControl { display: inline-flex; flex: none; }
+#viewerTools #toolbarRefinish:disabled { pointer-events: none; opacity: .35; }
+#viewerTools #toolbarRefinish[aria-expanded=true] { background: #c4f58a14; color: #c8ee9a; border-color: #c4f58a42; }
 
 .export-preflight { margin: 0 25px 20px; padding: 14px 16px; border: 1px solid #455640; border-radius: 10px; }
 .export-preflight [hidden] { display: none !important; }

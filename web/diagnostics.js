@@ -1,4 +1,4 @@
-import {icon} from './card-menu.js?v=3.2.0';
+import {icon} from './card-menu.js?v=3.3.1';
 const nameOf=j=>j?.metadata?.display_name||j?.settings.name||'Model';
 export function createDiagnostics({api}){
  const dialog=document.createElement('dialog');dialog.id='diagnosticsDialog';dialog.className='studio-dialog diagnostics-dialog';dialog.setAttribute('aria-labelledby','diagnosticsTitle');dialog.innerHTML=`<header class="studio-dialog-head"><div><span class="eyebrow">MODEL HEALTH</span><h2 id="diagnosticsTitle">Model diagnostics</h2><p id="diagnosticModelName"></p></div><button type="button" class="dialog-x" data-close aria-label="Close diagnostics"></button></header><div class="diagnostic-summary" id="diagnosticSummary"></div><div id="diagnosticContent" class="diagnostic-content"></div><footer class="studio-dialog-actions"><span id="diagnosticTime"></span><a id="downloadDiagnostic" class="secondary action-link" hidden download></a><button id="rerunDiagnostics" class="secondary" type="button">Re-run checks</button></footer>`;document.body.append(dialog);const $=id=>dialog.querySelector('#'+id);let job=null,version=0;
@@ -27,7 +27,7 @@ export function createDiagnostics({api}){
    }
    toggle.disabled=true;notice.textContent='';view.hidden=false;
    try{
-    const {createPreparationPreview}=await import('./preparation-preview.js?v=3.2.0');
+    const {createPreparationPreview}=await import('./preparation-preview.js?v=3.3.1');
     const preview=await createPreparationPreview(view,`/api/jobs/${id}/files/model.glb?v=${report.source_sha256}`);
     if(own!==version){preview.dispose();return;}
     edgePreview=preview;preview.showEdges(data);toggle.setAttribute('aria-expanded','true');toggle.textContent='Hide edge overlay';

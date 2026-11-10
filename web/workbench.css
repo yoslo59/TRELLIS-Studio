@@ -54,3 +54,33 @@
   .finishing-row-actions{justify-content:start}
   .finishing-board .studio-dialog-actions{flex-wrap:wrap}
 }
+
+.queue-failure {
+  margin: 0;
+  color: #f3b3a3;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.queue-job .queue-failure {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+#queueRetryDialog .queue-failure {
+  margin-top: 8px;
+  max-height: 9em;
+  overflow: auto;
+}
+.queue-log {
+  max-height: 230px;
+  overflow: auto;
+  padding: 12px;
+  background: #161b15;
+  border: 1px solid #394837;
+  border-radius: 8px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

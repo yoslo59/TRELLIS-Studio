@@ -1,19 +1,20 @@
-import {createStudioWorkbench} from './studio-workbench.js?v=3.2.0';
-import {createViewerLighting} from './viewer-lighting.js?v=3.2.0';
-import {createStudioTools} from './studio-tools.js?v=3.2.0';
-import {createAssetDetails,assetTypeName} from './asset-details.js?v=3.2.0';
-import {createPrintCopy} from './print-copy.js?v=3.2.0';
-import {createAnimationStudio} from './animation-studio.js?v=3.2.0';
-import {createRigSetupViewer} from './rig-setup-viewer.js?v=3.2.0';
-import {createModelImport} from './import-model.js?v=3.2.0';
-import {createMultiviewInputs} from './multiview-inputs.js?v=3.2.0';
+import {createStudioWorkbench} from './studio-workbench.js?v=3.3.1';
+import {createViewerLighting} from './viewer-lighting.js?v=3.3.1';
+import {createStudioTools} from './studio-tools.js?v=3.3.1';
+import {createAssetDetails,assetTypeName} from './asset-details.js?v=3.3.1';
+import {createPrintCopy} from './print-copy.js?v=3.3.1';
+import {createAnimationStudio} from './animation-studio.js?v=3.3.1';
+import {createRigSetupViewer} from './rig-setup-viewer.js?v=3.3.1';
+import {createModelImport} from './import-model.js?v=3.3.1';
+import {createMultiviewInputs} from './multiview-inputs.js?v=3.3.1';
+import {createReferencePreview} from './reference-preview.js?v=3.3.1';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createAdvancedControls } from './advanced-controls.js?v=3.2.0';
-import { createProfileControls } from './profiles.js?v=3.2.0';
-import {createCardMenu,updateCardStatus,icon} from './card-menu.js?v=3.2.0';
+import { createAdvancedControls } from './advanced-controls.js?v=3.3.1';
+import { createProfileControls } from './profiles.js?v=3.3.1';
+import {createCardMenu,updateCardStatus,icon} from './card-menu.js?v=3.3.1';
 const $=id=>document.getElementById(id);
 const cardMenu=createCardMenu({version:reuseJob,remove:requestDelete,details:openDetails,print:j=>printCopy.open(j),compare:j=>studioTools.compare.open(j),diagnostics:j=>studioTools.diagnostics.open(j),export:j=>studioTools.exports.open(j),history:j=>workbench.history.open(j),folder:j=>workbench.workspace.move(j),lod:j=>workbench.prepare.open(j,'lod'),game:j=>workbench.prepare.open(j,'game'),refinish:openRefinish,finishingBoard:j=>workbench.finishingBoard.open(j)});
 const labels={done:'Completed',running:'Generating',error:'Failed',cancelled:'Cancelled',queued:'Queued'},reviews={review:'To review',retouch:'Needs changes',retained:'Retained',rejected:'Rejected'};
@@ -34,6 +35,7 @@ studioTools=createStudioTools({api,getRecords:()=>records,getJob:jobOf,refresh:a
 const advancedControls=await createAdvancedControls($('advancedControls'));
 const multiview=createMultiviewInputs({
   changed({role,file,mode}){
+    if(role||mode)referencePreview.discard(role);
     if(role==='front'){
       $('parentId').value='';
       if(file&&$('name').value==='New model')$('name').value=file.name.replace(/\.[^.]+$/,'').slice(0,80);
@@ -44,6 +46,8 @@ const multiview=createMultiviewInputs({
   },
   invalid:message=>errorAt('notice',message),
 });
+const referencePreview=createReferencePreview({api,multiview,removeBackground:$('removeBg')});
+$('removeBg').addEventListener('change',()=>{referencePreview.discard();updateButtons();});
 function applyDefaultGeneration(){const d=advancedControls.defaults;if(!d)return;for(const[id,value]of Object.entries({preset:d.preset,resolution:d.resolution,triangles:d.triangles,textureSize:d.texture_size}))$(id).value=String(value);}
 applyDefaultGeneration();
 const settingsDownload=document.createElement('a');settingsDownload.className='download-settings';settingsDownload.textContent='Download settings JSON ↓';settingsDownload.download='trellis-reglages.json';settingsDownload.hidden=true;$('assetDetails').after(settingsDownload);
@@ -144,6 +148,8 @@ function updateButtons(){
   const supported=multiview.active?multiview.ready:ready&&advancedControls.ready&&profileControls?.ready&&
     availableResolutions.includes(Number($('resolution').value))&&availableTextures.includes(Number($('textureSize').value)||($('preset').value==='fast'?1024:2048));
   $('generate').disabled=!multiview.hasFront||!supported||shutDown||submittingGeneration||restoringReferences;
+  referencePreview.sync(shutDown||submittingGeneration||restoringReferences);
+  updateRefinishTool(jobOf());
   if(multiview.active)$('generationSummary').textContent=multiview.summary;
   $('cancel').hidden=!busy;
   $('cancel').disabled=!activeId||jobOf()?.settings.asset_type==='terrain_unity';
@@ -164,6 +170,7 @@ $('form').onsubmit=async event=>{
       form.set('queue_only','true');
       form.set('advanced_settings',JSON.stringify(advancedControls.read()));
     }
+    referencePreview.append(form);
     const v=await api(usePixal?'/api/generate-multiview':'/api/generate',{method:'POST',body:form});
     if(!selectedId){selectedId=v.id;metadataId=null;}
     revealNewCreation();
@@ -197,6 +204,7 @@ async function reuseJob(j){
   updateButtons();
   try{
     await multiview.restore(j);
+    referencePreview.restore(s.reference_edits,s.remove_bg);
     setMode(false);
     $('parentId').value=j.id;
     $('name').value=(nameOf(j)+' version').slice(0,80);
@@ -219,35 +227,178 @@ async function reuseJob(j){
   finally{restoringReferences=false;updateButtons();}
 }
 
-let refinishBase=null;
-function openRefinish(job){
- if(busy||!job?.can_refinish)return;
- refinishBase=job;
- const form=$('refinishForm'),fields=form.elements,options=job.generation_options||job.settings.generation_options||{};
- fields.mesh_mode.value=options.mesh_mode||'remesh';
- fields.triangles.value=job.settings.triangles;
- fields.repair_holes.checked=!!options.repair_holes;
- fields.texture_size.replaceChildren(...availableTextures.map(size=>new Option(`${size/1024}K`,size)));
- fields.texture_size.value=availableTextures.includes(job.settings.texture_size)?job.settings.texture_size:2048;
- $('refinishSource').textContent=nameOf(job);
- $('refinishError').textContent='';
- $('startRefinish').disabled=false;
- $('refinishDialog').showModal();
+function updateRefinishTool(job){
+  const control=$('toolbarRefinishControl'),button=$('toolbarRefinish');
+  control.hidden=job?.state!=='done';
+  button.disabled=control.hidden||!job.can_refinish||busy||shutDown;
+  const panel=$('refinishDialog');
+  if(panel.matches(':popover-open')&&(button.disabled||panel.dataset.source!==job?.id))panel.hidePopover();
+  if(control.hidden)return;
+  control.title=shutDown?'Restart TRELLIS Studio to remesh.':!job.can_refinish?
+    'Finishing source unavailable. Enable “Keep source for finishing variants” when generating a new model.':
+    busy?'Wait for the active computation to finish.':'Remesh · choose triangle budget';
+  if(button.disabled){control.tabIndex=0;control.setAttribute('aria-label',`Remesh. ${control.title}`);}
+  else{control.removeAttribute('tabindex');control.removeAttribute('aria-label');}
 }
-$('closeRefinish').onclick=()=>$('refinishDialog').close();
-$('refinishForm').onsubmit=async e=>{
- e.preventDefault();
- const fields=e.currentTarget.elements,source=refinishBase;
- if(!source)return;
- $('startRefinish').disabled=true;
- $('refinishError').textContent='';
- try{
-  const data={triangles:Number(fields.triangles.value),texture_size:Number(fields.texture_size.value),mesh_mode:fields.mesh_mode.value,repair_holes:fields.repair_holes.checked};
-  const result=await api(`/api/jobs/${source.id}/refinish`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-  $('refinishDialog').close();
-  await startStudioJob(result.id);
- }catch(error){$('refinishError').textContent=error.message;}
- finally{$('startRefinish').disabled=false;}
+
+const refinishPanel = $('refinishDialog');
+const refinishButton = $('toolbarRefinish');
+const refinishForm = $('refinishForm');
+const refinishFields = refinishForm.elements;
+let refinishRequest = 0;
+let submittingRefinish = false;
+
+function positionRefinish() {
+  if (!refinishPanel.matches(':popover-open')) return;
+  const anchor = refinishButton.getBoundingClientRect();
+  if (!anchor.width || anchor.bottom < 0 || anchor.top > innerHeight) {
+    refinishPanel.hidePopover();
+    return;
+  }
+  const {width, height} = refinishPanel.getBoundingClientRect();
+  const gap = 10;
+  const left = anchor.left + (anchor.width - width) / 2;
+  const above = anchor.top - height - gap;
+  const below = anchor.bottom + gap;
+  const top = above >= gap || below + height > innerHeight - gap ? above : below;
+  refinishPanel.style.left = Math.max(gap, Math.min(innerWidth - width - gap, left)) + 'px';
+  refinishPanel.style.top = Math.max(gap, Math.min(innerHeight - height - gap, top)) + 'px';
+}
+
+function syncRefinishMode() {
+  const adaptive = refinishFields.budget_mode.value === 'adaptive';
+  const preset = refinishFields.budget_preset.value;
+  const manual = preset === 'manual';
+  $('refinishBudgetField').hidden = !manual;
+  refinishFields.triangles.disabled = !manual;
+  $('refinishBudgetLabel').textContent = adaptive ? 'Maximum triangles' : 'Target triangles';
+  $('refinishManualOptions').hidden = !manual || adaptive;
+  const budgetHint = adaptive ? 'Tests lighter variants up to the chosen ceiling.' : 'The output count depends on the retained source.';
+  const presetHint = {
+    medium: 'Budget for a game model.',
+    ultra: 'Can exceed the preview mesh. Dense variants take longer to process.',
+  }[preset];
+  $('refinishBudgetHint').textContent = [presetHint, budgetHint].filter(Boolean).join(' ');
+}
+
+async function openRefinish(job) {
+  if (busy || shutDown || submittingRefinish || !job?.can_refinish) return;
+  if (selectedId !== job.id || document.body.classList.contains('library-mode')) selectJob(job.id);
+  setView(false);
+  refinishButton.scrollIntoView({block: 'nearest', inline: 'nearest'});
+  const request = ++refinishRequest;
+  refinishPanel.dataset.source = job.id;
+  $('refinishSource').textContent = nameOf(job);
+  $('refinishSource').title = nameOf(job);
+  $('refinishControls').hidden = true;
+  $('refinishStatus').hidden = false;
+  $('refinishStatus').textContent = 'Loading triangle budgets…';
+  $('refinishError').hidden = true;
+  $('startRefinish').disabled = true;
+  $('refinishOptions').open = false;
+  if (!refinishPanel.matches(':popover-open')) refinishPanel.showPopover({source: refinishButton});
+  positionRefinish();
+
+  try {
+    const config = await api(`/api/jobs/${job.id}/finishing-board`);
+    if (request !== refinishRequest || !refinishPanel.matches(':popover-open')) return;
+    const {triangle_limits: limits, triangle_presets: presets, texture_sizes: textures} = config;
+    for (const item of refinishPanel.querySelectorAll('[data-budget]')) {
+      const count = presets[item.dataset.budget];
+      item.textContent = count >= 1000000 ? `${count / 1000000}M` : `${count / 1000}k`;
+      item.closest('label').title = `${count.toLocaleString('en-US')} triangles`;
+    }
+    refinishFields.budget_mode.value = 'fixed';
+    refinishFields.budget_preset.value = 'medium';
+    refinishFields.triangles.min = limits.min;
+    refinishFields.triangles.max = limits.max;
+    const suggested = job.result?.triangles || job.settings.triangles || presets.medium;
+    refinishFields.triangles.value = Math.max(limits.min, Math.min(limits.max, suggested));
+    const options = job.generation_options || job.settings.generation_options || {};
+    refinishFields.mesh_mode.value = options.mesh_mode || 'direct';
+    refinishFields.repair_holes.checked = !!options.repair_holes;
+    refinishFields.pre_simplify.checked = !!options.pre_simplify;
+    refinishFields.texture_size.replaceChildren(...textures.map(size => new Option(`${size / 1024}K`, size)));
+    refinishFields.texture_size.value = textures.includes(job.settings.texture_size) ? job.settings.texture_size : textures[0];
+    refinishFields.bake_normals.disabled = !config.normal_bake;
+    refinishFields.bake_normals.checked = !!config.normal_bake;
+    $('refinishBake').hidden = !config.normal_bake;
+    $('refinishStatus').hidden = true;
+    $('refinishControls').hidden = false;
+    $('startRefinish').disabled = false;
+    syncRefinishMode();
+    positionRefinish();
+    if ([document.body, refinishButton, $('closeRefinish')].includes(document.activeElement)) {
+      refinishForm.querySelector('[name="budget_mode"]:checked').focus({preventScroll: true});
+    }
+  } catch (error) {
+    if (request === refinishRequest && refinishPanel.matches(':popover-open')) {
+      $('refinishStatus').textContent = error.message || String(error);
+      positionRefinish();
+    }
+  }
+}
+
+refinishButton.onclick = event => {
+  event.preventDefault();
+  if (refinishPanel.matches(':popover-open')) refinishPanel.hidePopover();
+  else openRefinish(jobOf());
+};
+$('closeRefinish').onclick = () => refinishPanel.hidePopover();
+refinishPanel.addEventListener('toggle', event => {
+  const open = event.newState === 'open';
+  refinishButton.setAttribute('aria-expanded', open);
+  if (!open && refinishPanel.contains(document.activeElement)) refinishButton.focus({preventScroll: true});
+});
+new ResizeObserver(positionRefinish).observe(refinishPanel);
+window.addEventListener('resize', positionRefinish);
+window.addEventListener('scroll', positionRefinish, {capture: true, passive: true});
+
+refinishForm.addEventListener('change', event => {
+  if (event.target.name === 'budget_preset') {
+    refinishFields.bake_normals.checked = !refinishFields.bake_normals.disabled && refinishFields.budget_preset.value === 'medium';
+  }
+  if (['budget_mode', 'budget_preset'].includes(event.target.name)) syncRefinishMode();
+});
+
+refinishForm.onsubmit = async event => {
+  event.preventDefault();
+  const source = refinishPanel.dataset.source;
+  if (!source || submittingRefinish || $('startRefinish').disabled) return;
+  const preset = refinishFields.budget_preset.value;
+  const data = {
+    texture_size: Number(refinishFields.texture_size.value),
+    adaptive_finishing: refinishFields.budget_mode.value === 'adaptive',
+  };
+  if (!refinishFields.bake_normals.disabled) data.bake_normals = refinishFields.bake_normals.checked;
+  if (preset === 'manual') {
+    data.triangles = refinishFields.triangles.valueAsNumber;
+    if (!data.adaptive_finishing) {
+      data.mesh_mode = refinishFields.mesh_mode.value;
+      data.repair_holes = refinishFields.repair_holes.checked;
+      data.pre_simplify = refinishFields.pre_simplify.checked;
+    }
+  } else data.budget_preset = preset;
+
+  submittingRefinish = true;
+  $('startRefinish').disabled = true;
+  $('refinishError').hidden = true;
+  try {
+    const result = await api(`/api/jobs/${source}/refinish`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data),
+    });
+    if (refinishPanel.matches(':popover-open')) refinishPanel.hidePopover();
+    await startStudioJob(result.id);
+  } catch (error) {
+    errorAt('refinishError', error);
+    $('refinishError').hidden = false;
+    if (!refinishPanel.matches(':popover-open')) errorAt('notice', error);
+  } finally {
+    submittingRefinish = false;
+    $('startRefinish').disabled = false;
+  }
 };
 
 async function refreshLog(){if(!selectedId)return;try{const d=await api(`/api/jobs/${selectedId}/log`);$('log').textContent=d.text||'No log entries yet.';}catch{}}
@@ -261,7 +412,7 @@ function openAnimationStudio(){setMode(false);animationMode=true;document.body.c
 $('rigTab').onclick=openAnimationStudio;$('animateModel').onclick=openAnimationStudio;
 
 document.addEventListener('paste',event=>{
-  if(event.target.closest('input:not([type=file]),textarea,[contenteditable=true]'))return;
+  if(referencePreview.open||event.target.closest('input:not([type=file]),textarea,[contenteditable=true]'))return;
   const file=[...(event.clipboardData?.files||[])].find(value=>value.type.startsWith('image/'));
   if(file){
     event.preventDefault();

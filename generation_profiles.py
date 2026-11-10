@@ -3,7 +3,11 @@ from pathlib import Path
 import json
 import time
 import uuid
-from generation_options import GENERATION_PRESETS, GAME_D_ADVANCED, HUMANOID_EXPERIMENTAL, normalize_options
+from generation_options import (DENSE_MASTER, DENSE_MASTER_NAME, GENERATION_PRESETS, HUMANOID_EXPERIMENTAL,
+                                PROFILE_ADVANCED, TRIANGLE_MIN, TRIANGLE_MAX, normalize_options)
+
+DENSE_MASTER_DESCRIPTION = ('Keeps the complete decoded geometry and materials before finishing. '
+                            'Makes a Direct working copy targeting 1 million triangles.')
 
 
 def profile_options(overrides, steps):
@@ -14,15 +18,20 @@ def profile_options(overrides, steps):
 
 def builtin_profiles():
     # Historical presets stay readable by old jobs, but are no longer offered.
-    recipes = [('game_d', 'Game - Default', GAME_D_ADVANCED),
-               ('high_detail', 'High Detail', {**GAME_D_ADVANCED, 'mesh_mode': 'direct'}),
-               (HUMANOID_EXPERIMENTAL, 'Humanoid · Experimental', {**GAME_D_ADVANCED, 'mesh_mode': 'direct'})]
-    profiles = [dict(id=key, name=name, builtin=True, settings=dict(
-        preset=key, resolution=1024, triangles=GENERATION_PRESETS[key][1],
-        texture_size=2048, remove_bg=True, advanced=profile_options(options,20)))
-        for key,name,options in recipes]
-    profiles[-1].update(experimental=True, asset_type='humanoid', keep_finishing_source=True,
-                       description='Dense comparison master. Keeps the finishing source; review anatomy before reducing. No automatic local reconstruction or rig.')
+    recipes = [
+        ('game_d', 'Game - Default', {}),
+        ('high_detail', 'High Detail', {}),
+        (HUMANOID_EXPERIMENTAL, 'Humanoid · Experimental', dict(
+            experimental=True, asset_type='humanoid', keep_finishing_source=True,
+            description='Dense comparison master. Keeps the finishing source; review anatomy before reducing. No automatic local reconstruction or rig.')),
+        (DENSE_MASTER, DENSE_MASTER_NAME, dict(keep_finishing_source=True, description=DENSE_MASTER_DESCRIPTION)),
+    ]
+    profiles = []
+    for key, name, flags in recipes:
+        steps, triangles, texture_size = GENERATION_PRESETS[key]
+        settings = dict(preset=key, resolution=1024, triangles=triangles, texture_size=texture_size,
+                        remove_bg=True, advanced=profile_options(PROFILE_ADVANCED[key], steps))
+        profiles.append(dict(id=key, name=name, builtin=True, settings=settings, **flags))
     return profiles
 
 
@@ -41,8 +50,8 @@ def validate_recipe(data):
     for key, choices in [('resolution', (512, 1024, 1536)), ('texture_size', (1024, 2048, 4096))]:
         if type(s[key]) is not int or s[key] not in choices:
             raise ValueError('Invalid resolution or texture size.')
-    if type(s['triangles']) is not int or not 1000 <= s['triangles'] <= 500000:
-        raise ValueError('Target must be between 1,000 and 500,000 triangles.')
+    if type(s['triangles']) is not int or not TRIANGLE_MIN <= s['triangles'] <= TRIANGLE_MAX:
+        raise ValueError(f'Target must be between {TRIANGLE_MIN:,} and {TRIANGLE_MAX:,} triangles.')
     if type(s['remove_bg']) is not bool:
         raise ValueError('Background removal must be true or false.')
     s = dict(s, advanced=profile_options(s['advanced'], GENERATION_PRESETS[s['preset']][0]))

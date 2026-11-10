@@ -1,11 +1,11 @@
-import {createQueueStudio} from './queue-studio.js?v=3.2.0';
-import {createWorkspaceLibrary} from './workspace-library.js?v=3.2.0';
-import {createVersionHistory} from './version-history.js?v=3.2.0';
-import {createModelWorkbench} from './model-workbench.js?v=3.2.0';
-import {createPresentationStudio} from './presentation-studio.js?v=3.2.0';
-import {createCollectionTransfer} from './collection-transfer.js?v=3.2.0';
-import {createFinishingBoard} from './finishing-board.js?v=3.2.0';
-import {button,el} from './workbench-ui.js?v=3.2.0';
+import {createQueueStudio} from './queue-studio.js?v=3.3.1';
+import {createWorkspaceLibrary} from './workspace-library.js?v=3.3.1';
+import {createVersionHistory} from './version-history.js?v=3.3.1';
+import {createModelWorkbench} from './model-workbench.js?v=3.3.1';
+import {createPresentationStudio} from './presentation-studio.js?v=3.3.1';
+import {createCollectionTransfer} from './collection-transfer.js?v=3.3.1';
+import {createFinishingBoard} from './finishing-board.js?v=3.3.1';
+import {button,el} from './workbench-ui.js?v=3.3.1';
 export async function createStudioWorkbench(context){
  const {getJob,tools}=context,queue=createQueueStudio(context),workspace=createWorkspaceLibrary({...context,getSelection:()=>tools.selection.ids}),history=createVersionHistory({...context,compare:tools.compare}),prepare=createModelWorkbench({...context,compare:tools.compare}),presentation=createPresentationStudio(context),transfer=createCollectionTransfer({...context,getSelection:()=>tools.selection.ids,workspace,exports:tools.exports});
  const finishingBoard=createFinishingBoard({...context,compare:tools.compare});

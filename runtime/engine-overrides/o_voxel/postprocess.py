@@ -43,6 +43,7 @@ def to_glb(
     mesh_cluster_smooth_strength=1,
     verbose: bool = False,
     use_tqdm: bool = False,
+    adaptive_mesh: Optional[Callable] = None,
 ):
     """
     Convert an extracted mesh to a GLB file.
@@ -156,7 +157,14 @@ def to_glb(
         print(f"[DIAG] VRAM allocated: {torch.cuda.memory_allocated()/(1024**2):.0f}MB, reserved: {torch.cuda.memory_reserved()/(1024**2):.0f}MB")
     
     # --- Branch 1: Standard Pipeline (Simplification & Cleaning) ---
-    if not remesh:
+    adaptive_report = None
+    if adaptive_mesh is not None:
+        # Keep the original BVH for reprojection and choose the output before UV baking.
+        del mesh
+        mesh, adaptive_report = adaptive_mesh(
+            vertices, faces, bvh, decimation_target, float(voxel_size.min()), verbose,
+        )
+    elif not remesh:
         # Step 1: Aggressive simplification (3x target)
         mesh.simplify(decimation_target * 3, verbose=verbose)
         if verbose:
@@ -441,6 +449,8 @@ def to_glb(
         process=False,
         visual=trimesh.visual.TextureVisuals(uv=uvs_np, material=material)
     )
+    if adaptive_report is not None:
+        textured_mesh.metadata['adaptive_finishing'] = adaptive_report
     
     if use_tqdm:
         pbar.update(1)

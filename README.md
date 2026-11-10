@@ -37,8 +37,8 @@ Read the [Windows Setup guide](docs/WINDOWS_SETUP.md) for component installation
 
 | Workspace | Features |
 | --- | --- |
-| **Create** | Local TRELLIS.2 single-image generation, plus optional Pixal3D multi-view characters. Drag, drop or paste references and adjust the recipe, size and seed. |
-| **Queue** | Prepare batches of up to 30 images with individual recipes and priorities; schedule sequentially; pause, cancel or explicitly retry a task. Progress appears on its collection card. |
+| **Create** | Local TRELLIS.2 single-image generation and optional Pixal3D multi-view characters. Preview the cutout and the model's framing, then crop or correct the mask without changing the original. |
+| **Queue** | Schedule batches of up to 30 images. Correct the recipe of a failed job and create a linked retry with the same references and seed. The original failure remains available for review. |
 | **Collection** | Search, category/type/review filters, favourites, tags, notes, nested folders, saved views, multiple selection, restorable trash and per-card action menus. |
 | **Review** | PBR/clay/normals/wireframe views, camera presets, adjustable preview lighting, synchronised before/after comparison, topology/UV/material/dimension diagnostics. |
 | **Animate** | UniRig skeleton and skin-weight prediction, size comparison with a flat 1.70 m human silhouette, editable frontal joint markers, visible skeleton inspection and 83 authored humanoid animation entries. |
@@ -50,7 +50,18 @@ Read the [Windows Setup guide](docs/WINDOWS_SETUP.md) for component installation
 
 ### Try another finish
 
-Select **Keep source for finishing variants** before generating if you want to retain the decoded geometry and materials. On a completed model, open its card menu and choose **Refinish model**. Adjust remeshing or direct simplification, triangle target, texture size and small-hole repair. The new card is linked to the original and can be opened in **Compare**. Variants reuse the saved source and run mesh processing and UV baking without loading the generation model.
+Select **Dense Master** in single-image or multi-view mode to retain the full decoded geometry and material volume. Its working GLB uses Direct finishing at a target of 1 million triangles, without pre-simplification or small-hole repair. The **Keep source for finishing variants** option also works with other profiles. Use **Preview reference** to verify how thin parts, hands and feet survive the cutout.
+
+On a completed model with a saved source, open **Remesh** in the viewer toolbar or **Refinish model** in the card menu.
+
+| Model | Low | Medium (game) | High | Ultra |
+| --- | ---: | ---: | ---: | ---: |
+| Props and other models | 12,000 | 28,000 | 150,000 | 8,000,000 |
+| Humanoids | 6,000 | 14,000 | 100,000 | 8,000,000 |
+
+In **Fixed**, the value is a target. In **Adaptive**, it is a ceiling for the sampled surface tolerance. **Manual** accepts a custom budget and offers Direct simplification or surface rebuilding. Ultra can retain more triangles than the displayed working copy when the decoded master contains them. Large targets can take significantly longer to unwrap and bake.
+
+**Transfer master detail to a normal map** is enabled by default for Medium when Blender is available. It transfers the master’s surface relief into the GLB's tangent-space normal texture while keeping the finished geometry and the original material textures. View the result in **PBR** and use **Compare** to review details. Thin cables, holes and other silhouette details still depend on the finished geometry. The new card is linked to the original and variants run without neural inference.
 
 Open **Finishing board** from the same card or from **Prepare** to queue several editable finishing recipes from one cache. Compare the measured results at their original scale with the camera held in place, then mark the preferred version. That choice is recorded separately from the asset's visual review.
 

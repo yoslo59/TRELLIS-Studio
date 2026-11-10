@@ -1,27 +1,32 @@
 // Recipes are persisted by the local server, independently from object history.
 const $=id=>document.getElementById(id);
-const steps={game_d:20,high_detail:20,humanoid_experimental:20,fast:8,balanced:12,detail:20};
+const steps={game_d:20,high_detail:20,humanoid_experimental:20,dense_master:20,fast:8,balanced:12,detail:20};
 export async function createProfileControls(advanced,{changed=()=>{}}={}){
   let profiles=[],selected=null,saving=false,edit=false,sourceRequired=false,previousKeep=false;
   function read(){const {texture_seed,...options}=advanced.read();return {preset:$('preset').value,resolution:Number($('resolution').value),
-    triangles:Number($('triangles').value)||({game_d:28000,high_detail:250000,humanoid_experimental:250000,fast:25000,balanced:50000,detail:100000}[$('preset').value]),
+    triangles:Number($('triangles').value)||({game_d:28000,high_detail:250000,humanoid_experimental:250000,dense_master:1000000,fast:25000,balanced:50000,detail:100000}[$('preset').value]),
     texture_size:Number($('textureSize').value)||($('preset').value==='fast'?1024:2048),
     remove_bg:$('removeBg').checked,advanced:options};}
   function resolved(s){const copy=structuredClone(s);for(const key of ['structure_steps','shape_steps','texture_steps'])if(copy.advanced[key]===0)copy.advanced[key]=steps[copy.preset];return copy;}
   const equal=(a,b)=>{const x=resolved(a),y=resolved(b);return Object.keys(x).every(k=>k==='advanced'?Object.keys(x[k]).every(f=>x[k][f]===y[k][f]):x[k]===y[k]);};
   function sync(){
     if(!selected)return;
-    const experimental=($('pixalMode').checked?$('pixalProfileChoice').value:$('preset').value)==='humanoid_experimental';
-    if(experimental!==sourceRequired){
-      if(experimental){previousKeep=$('keepFinishingSource').checked;$('keepFinishingSource').checked=true;}
+    const activePreset=$('pixalMode').checked?$('pixalProfileChoice').value:$('preset').value;
+    const experimental=activePreset==='humanoid_experimental', dense=activePreset==='dense_master';
+    const requiresSource=experimental||dense;
+    if(requiresSource!==sourceRequired){
+      if(requiresSource){previousKeep=$('keepFinishingSource').checked;$('keepFinishingSource').checked=true;}
       else $('keepFinishingSource').checked=previousKeep;
-      sourceRequired=experimental;
+      sourceRequired=requiresSource;
     }
-    $('keepFinishingSource').disabled=experimental;$('humanoidProfileHelp').hidden=!experimental;$('finishingSourceHelp').hidden=experimental;
+    $('keepFinishingSource').disabled=requiresSource;
+    $('humanoidProfileHelp').hidden=!experimental;
+    if($('denseMasterProfileHelp'))$('denseMasterProfileHelp').hidden=!dense;
+    $('finishingSourceHelp').hidden=requiresSource;
     if(experimental&&!$('pixalMode').checked)$('assetType').value='humanoid';
     const recipe=read(),dirty=!equal(recipe,selected.settings);
     $('profileId').value=recipe.preset===selected.settings.preset?selected.id:'';
-    $('profileState').textContent=dirty?'MODIFIED':selected.variant?'VARIANT':selected.experimental?'EXPERIMENTAL':selected.builtin?'REFERENCE':'CUSTOM';
+    $('profileState').textContent=dirty?'MODIFIED':selected.variant?'VARIANT':selected.experimental?'EXPERIMENTAL':selected.id==='dense_master'?'MASTER':selected.builtin?'REFERENCE':'CUSTOM';
     $('profileState').classList.toggle('dirty',dirty);
     $('profileSummary').textContent=`${recipe.resolution}³ · ${recipe.triangles.toLocaleString('en-US')} triangles · texture ${recipe.texture_size/1024}K`;
     $('generationSummary').textContent=`${selected.name.replace(' · recommended','')}${dirty?' · modified':''} · local compute`;
