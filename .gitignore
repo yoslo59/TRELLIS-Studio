@@ -2,6 +2,9 @@
 /*
 !/.gitignore
 !/.gitattributes
+!/.github/
+/.github/*
+!/.github/FUNDING.yml
 !/animation_edits.py
 !/animation_worker.py
 !/api_contract.py
