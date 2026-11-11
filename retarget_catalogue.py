@@ -1,4 +1,4 @@
-"""Only authored CC0 motions obtained from Quaternius' free Standard packs."""
+"""Authored humanoid animation catalogue and bundled source metadata."""
 from pathlib import Path
 import json
 ROOT=Path(__file__).resolve().parent

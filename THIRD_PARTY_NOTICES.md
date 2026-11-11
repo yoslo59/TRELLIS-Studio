@@ -64,6 +64,7 @@ The original TRELLIS Studio code is MIT, Copyright 2026 yoslo59. Third-party com
 | U2-Net | [U2-Net](https://github.com/xuebinqin/U-2-Net), distributed through [rembg releases](https://github.com/danielgatis/rembg/releases/tag/v0.0.0) | Apache-2.0 upstream license; downloaded separately. |
 | Universal Animation Library 1 Standard | [Quaternius author page](https://quaternius.com/packs/universalanimationlibrary.html), [free source](https://opengameart.org/content/universal-animation-library) | CC0-1.0. Quaternius; free Standard edition only. |
 | Universal Animation Library 2 Standard | [Quaternius author page](https://quaternius.com/packs/universalanimationlibrary2.html), [free source](https://opengameart.org/content/universal-animation-library-2) | CC0-1.0. Quaternius; free Standard edition only. |
+| KayKit Character Animations 1.1 | [Kay Lousberg's Free 1.1 release](https://kaylousberg.itch.io/kaykit-character-animations/devlog/1139588/character-animations-update-11) | [CC0-1.0](licenses/KayKit-Character-Animations-CC0.txt). The bundled GLB keeps the original Rig_Medium mannequin, skin and four clips from the Tools and Simulation sets. |
 
 Quaternius distributes these asset packs through the author website/OpenGameArt rather than a corresponding official Git repository; the links above are the actual sources. The screenshots use an isolated demonstration collection and the CC0 animation mannequin. The Tira pilot and all personal models are excluded.
 

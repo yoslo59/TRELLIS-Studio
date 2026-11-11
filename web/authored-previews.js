@@ -4,15 +4,27 @@ import {clone} from 'three/addons/utils/SkeletonUtils.js';
 export function createMotionPreviews(){
  let renderer;try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}catch{return {attach(){},clear(){}};}
  renderer.setSize(240,270,false);renderer.toneMapping=THREE.ACESFilmicToneMapping;
- const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,240/270,.01,20);camera.position.set(1.85,1.35,3.05);camera.lookAt(0,.86,0);
+ const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,240/270,.01,20);
+ const previewEye=new THREE.Vector3(1.85,1.35,3.05),previewCenter=new THREE.Vector3(0,.86,0);
  scene.add(new THREE.HemisphereLight(0xeef7ff,0x404c35,3));const light=new THREE.DirectionalLight(0xfff5dd,3);light.position.set(2,4,3);scene.add(light);const rim=new THREE.DirectionalLight(0xd4efbb,2);rim.position.set(-2,2,-2);scene.add(rim);
  const floor=new THREE.Mesh(new THREE.CylinderGeometry(.6,.64,.025,56),new THREE.MeshStandardMaterial({color:0x44533b,roughness:.9}));floor.position.y=-.025;scene.add(floor);
  const cache=new Map();let cards=[],last=0;
  const load=url=>{if(!cache.has(url))cache.set(url,new GLTFLoader().loadAsync(url));return cache.get(url);};
- function render(card,time){if(!card.model)return;scene.add(card.model);card.mixer.setTime(time%Math.max(card.clipDuration,.001));renderer.render(scene,camera);card.context.clearRect(0,0,240,270);card.context.drawImage(renderer.domElement,0,0);scene.remove(card.model);}
+ function frameRootMotion(card,clip,animation){
+  if(!clip.preview_root)return;
+  const track=animation.tracks.find(track=>track.name===`${clip.preview_root}.position`);
+  if(!track)return;
+  const start=new THREE.Vector3().fromArray(track.values);
+  const end=new THREE.Vector3().fromArray(track.values,track.values.length-3);
+  const travel=end.sub(start);
+  card.center=previewCenter.clone().add(travel.clone().multiplyScalar(.5));
+  const offset=previewEye.clone().sub(previewCenter);
+  card.eye=offset.setLength(offset.length()+travel.length()).add(card.center);
+ }
+ function render(card,time){if(!card.model)return;scene.add(card.model);card.mixer.setTime(time%Math.max(card.clipDuration,.001));camera.position.copy(card.eye??previewEye);camera.lookAt(card.center??previewCenter);renderer.render(scene,camera);card.context.clearRect(0,0,240,270);card.context.drawImage(renderer.domElement,0,0);scene.remove(card.model);}
  function tick(time){requestAnimationFrame(tick);if(time-last<90||document.hidden)return;last=time;for(const card of cards){const rect=card.canvas.getBoundingClientRect();if(rect.bottom>0&&rect.top<innerHeight)render(card,time/1000);}}
  requestAnimationFrame(tick);
  return {attach(container,clip){const canvas=document.createElement('canvas');canvas.width=240;canvas.height=270;canvas.setAttribute('role','img');canvas.setAttribute('aria-label','Animated preview: '+clip.name);container.append(canvas);const card={canvas,context:canvas.getContext('2d')};cards.push(card);
-  load(clip.preview_url).then(gltf=>{if(!cards.includes(card))return;const model=clone(gltf.scene),mixer=new THREE.AnimationMixer(model),action=gltf.animations.find(c=>c.name===clip.source_clip);if(!action)return;card.model=model;card.mixer=mixer;card.clipDuration=action.duration;mixer.clipAction(action).play();render(card,.25);}).catch(()=>{container.dataset.error='Preview unavailable';});
+  load(clip.preview_url).then(gltf=>{if(!cards.includes(card))return;const model=clone(gltf.scene),mixer=new THREE.AnimationMixer(model),action=gltf.animations.find(c=>c.name===clip.source_clip);if(!action)return;card.model=model;card.mixer=mixer;card.clipDuration=action.duration;frameRootMotion(card,clip,action);mixer.clipAction(action).play();render(card,.25);}).catch(()=>{container.dataset.error='Preview unavailable';});
  },clear(){cards.forEach(c=>c.mixer?.stopAllAction());cards=[];}};
 }

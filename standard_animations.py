@@ -120,6 +120,6 @@ if 'previous_animation_set' in settings:
     replaced={r['id'] for r in requests};authored=[r for r in settings['previous_animation_set'] if r['id'] not in replaced]+authored
 result=dict(bones=len(bones),vertices=sum(len(o.data.vertices) for o in meshes),triangles=sum(len(p.vertices)-2 for o in meshes for p in o.data.polygons),
             height_m=height,animation_set=authored,humanoid_mapping=mapping,animation_warning=warning,
-            limitations='Authored Quaternius motions retargeted to this rig. Review foot contacts, proportions, clothing and transitions on each character.',rigged=True)
+            limitations='Authored humanoid motions retargeted to this rig. Review contacts, proportions, clothing and transitions on each character.',rigged=True)
 (job/'result.json').write_text(json.dumps(result,indent=2,ensure_ascii=False),encoding='utf-8')
 print('ANIMATION_SET',json.dumps(result,ensure_ascii=False),flush=True)

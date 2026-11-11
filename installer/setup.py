@@ -156,12 +156,12 @@ def install_workshop(uv):
 
 def verify(rig=True,workshop_only=False):
     python=ROOT/'.venv/Scripts/python.exe'
-    run(python,'-c',"import cv2,fastapi,uvicorn,numpy,psutil,scipy,trimesh; from PIL import Image; from studio_rest import install; from retarget_catalogue import ANIMATIONS; assert callable(cv2.QRCodeEncoder_create); assert len(ANIMATIONS)==83; print('Workshop libraries, QR encoder and animation catalogue ready')")
+    run(python,'-c',"import cv2,fastapi,uvicorn,numpy,psutil,scipy,trimesh; from PIL import Image; from studio_rest import install; from retarget_catalogue import ANIMATIONS, BY_ID; assert callable(cv2.QRCodeEncoder_create); assert len(ANIMATIONS)==len(BY_ID)==88; print('Workshop libraries, QR encoder and animation catalogue ready')")
     run(ROOT/'.mcp-venv/Scripts/python.exe','-c','from mcp.server import MCPServer;import httpx;print("MCP ready")')
     if not bundled_web():run('node','--check','web/studio.js')
     if workshop_only:return
     run(python,'-c',"import torch,cumesh,flex_gemm,rembg; assert torch.cuda.is_available(),'CUDA is unavailable'; print('GPU:',torch.cuda.get_device_name());print('TORCH:',torch.__version__)")
-    check="from pathlib import Path;import json;from studio_import import find_blender;from retarget_catalogue import ANIMATIONS;assert find_blender(),'Blender not found';assert len(ANIMATIONS)==83;print('Blender and 83 animations ready')"
+    check="from studio_import import find_blender; from retarget_catalogue import ANIMATIONS, ROOT; assert find_blender(),'Blender not found'; assert all((ROOT / a['source_model']).is_file() for a in ANIMATIONS),'Animation source missing'; print(f'Blender and {len(ANIMATIONS)} animations ready')"
     run(python,'-c',check)
     if rig:
         settings=json.loads((ROOT/'config/runtime.json').read_text(encoding='utf-8-sig'))

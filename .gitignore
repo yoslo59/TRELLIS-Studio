@@ -178,6 +178,7 @@
 !/UniRig/transfer-skin.py
 /animations/*
 !/animations/library.json
+!/animations/KayKit-Rig-Medium.glb
 /integrations/*
 !/integrations/Register-Codex.ps1
 /unity/*
@@ -210,6 +211,7 @@
 !/licenses/DINOv3-LICENSE.md
 !/licenses/Quaternius-UAL1-CC0.txt
 !/licenses/Quaternius-UAL2-CC0.txt
+!/licenses/KayKit-Character-Animations-CC0.txt
 !/licenses/Threejs-MIT.txt
 !/licenses/TRELLIS-MIT.txt
 !/licenses/U2Net-LICENSE.txt

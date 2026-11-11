@@ -1,5 +1,5 @@
 import {icon} from './card-menu.js?v=2.6.1';
-import {createMotionPreviews} from './authored-previews.js?v=2.6';
+import {createMotionPreviews} from './authored-previews.js?v=3.3.6';
 export async function createAnimationStudio({api,getJob,isBusy,startJob,refresh,rigSetup,getClips,playClip}){
  const $=id=>document.getElementById(id),data=await api('/api/animations');
  let tab='library';const catalog=data.animations,previews=createMotionPreviews();

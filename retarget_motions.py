@@ -1,4 +1,4 @@
-"""Retarget authored Quaternius rotations, timing and contacts onto a fitted rig."""
+"""Retarget authored humanoid rotations, timing and contacts onto a fitted rig."""
 from pathlib import Path
 import bpy,math,itertools
 from mathutils import Vector,Quaternion
@@ -8,18 +8,27 @@ from studio_import import animation_recipe
 ROOT=Path(__file__).resolve().parent
 
 def source_map(pack):
-    if pack=='UAL1':
+    if pack=='KayKit':
+        result = dict(root='hips', spine_1='spine', spine='chest', head='head')
+        limbs = dict(arm='upperarm', forearm='lowerarm', hand='hand',
+                     leg='upperleg', shin='lowerleg', foot='foot', toe='toes')
+        for side, suffix in [('left', 'l'), ('right', 'r')]:
+            result.update({f'{side}_{part}': f'{bone}.{suffix}' for part, bone in limbs.items()})
+    elif pack=='UAL1':
         result=dict(root='DEF-hips',spine_1='DEF-spine.001',spine_2='DEF-spine.002',spine='DEF-spine.003',neck='DEF-neck',head='DEF-head')
         for side,suffix in [('left','L'),('right','R')]:
             for semantic,bone in [('clavicle','shoulder'),('arm','upper_arm'),('forearm','forearm'),('hand','hand'),('leg','thigh'),('shin','shin'),('foot','foot'),('toe','toe')]:result[side+'_'+semantic]='DEF-'+bone+'.'+suffix
-    else:
+    elif pack=='UAL2':
         result=dict(root='pelvis',spine_1='spine_01',spine_2='spine_02',spine='spine_03',neck='neck_01',head='Head')
         for side,suffix in [('left','l'),('right','r')]:
             for semantic,bone in [('clavicle','clavicle'),('arm','upperarm'),('forearm','lowerarm'),('hand','hand'),('leg','thigh'),('shin','calf'),('foot','foot'),('toe','ball')]:result[side+'_'+semantic]=bone+'_'+suffix
+    else:
+        raise ValueError(f'Unknown animation source pack: {pack}')
     return result
 
-def author(scene,target,mapping,requests,height):
+def author(scene,target,target_mapping,requests,height):
     packs={};original_actions=set(bpy.data.actions);original_objects=set(bpy.data.objects)
+    base_mapping=target_mapping.copy()
     for request in requests:
         recipe=BY_ID.get(request['id'])
         if not recipe or recipe['source_pack'] in packs:continue
@@ -32,9 +41,10 @@ def author(scene,target,mapping,requests,height):
             base=action.name.rsplit('.',1)[0] if action.name[-3:].isdigit() else action.name
             actions.setdefault(base,action)
         smap=source_map(recipe['source_pack'])
+        target_map=base_mapping.copy()
         for side in ('left','right'):
-            if side+'_hand' not in mapping:continue
-            target_hand=target.data.bones[mapping[side+'_hand']];source_hand=source.data.bones[smap[side+'_hand']]
+            if side+'_hand' not in target_map:continue
+            target_hand=target.data.bones[target_map[side+'_hand']];source_hand=source.data.bones[smap[side+'_hand']]
             target_roots=list(target_hand.children);source_roots=list(source_hand.children)
             if len(target_roots)!=5 or len(source_roots)!=5:continue
             tpoints=[target.matrix_world@b.head_local-target.matrix_world@target_hand.head_local for b in target_roots]
@@ -44,10 +54,10 @@ def author(scene,target,mapping,requests,height):
             for finger,index in enumerate(permutation):
                 tb=target_roots[finger];sb=source_roots[index]
                 for segment in range(3):
-                    key=side+'_finger_'+str(finger)+'_'+str(segment);mapping[key]=tb.name;smap[key]=sb.name
+                    key=side+'_finger_'+str(finger)+'_'+str(segment);target_map[key]=tb.name;target_mapping[key]=tb.name;smap[key]=sb.name
                     if not tb.children or not sb.children:break
                     tb=max(tb.children,key=lambda b:b.length);sb=max(sb.children,key=lambda b:b.length)
-        packs[recipe['source_pack']]=(source,actions,smap)
+        packs[recipe['source_pack']]=(source,actions,smap,target_map)
     target.animation_data_clear();target.animation_data_create()
     rest={b.name:(target.matrix_world@b.matrix_local).to_quaternion() for b in target.data.bones}
     rest_heads={b.name:target.matrix_world@b.head_local for b in target.data.bones}
@@ -66,7 +76,7 @@ def author(scene,target,mapping,requests,height):
         if not recipe:
             authored.append(dict(id=request['id'],name=request['id'],duration_s=request['duration'],source='Legacy animation preserved'))
             continue
-        source,actions,smap=packs[recipe['source_pack']]
+        source,actions,smap,mapping=packs[recipe['source_pack']]
         src_rest={key:(source.matrix_world@source.data.bones[name].matrix_local).to_quaternion() for key,name in smap.items() if name in source.data.bones}
         src_heads={key:source.matrix_world@source.data.bones[name].head_local for key,name in smap.items() if name in source.data.bones}
         src_action=actions[recipe['source_clip']];activate(source,src_action)
@@ -143,10 +153,12 @@ def author(scene,target,mapping,requests,height):
                 for bag in strip.channelbags:
                     for curve in bag.fcurves:
                         for key in curve.keyframe_points:key.interpolation='LINEAR'
-        authored.append(dict(id=request['id'],name=recipe['name'],clip=action_name,duration_s=frames/24,source='Quaternius · CC0 · retarget',source_clip=recipe['source_clip'],cycles=cycles,foot_ik=True))
+        authored.append(dict(id=request['id'],name=recipe['name'],clip=action_name,duration_s=frames/24,
+                             source=f"{recipe['author']} · {recipe['license']} · retarget",
+                             source_clip=recipe['source_clip'],cycles=cycles,foot_ik=True))
     # Source rigs and their actions are never exported onto the target.
     source_actions=set()
-    for source,actions,_ in packs.values():source.animation_data_clear();source_actions.update(actions.values())
+    for source,actions,_,_ in packs.values():source.animation_data_clear();source_actions.update(actions.values())
     for obj in set(bpy.data.objects)-original_objects:bpy.data.objects.remove(obj,do_unlink=True)
     for action in source_actions:
         if action.name in bpy.data.actions:bpy.data.actions.remove(action)
