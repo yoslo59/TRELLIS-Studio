@@ -29,12 +29,18 @@ export async function createAssetDetails(){
     $('detailThumbnail').onerror=()=>{$('detailThumbnail').onerror=null;$('detailThumbnail').src='/web/asset-placeholder.svg';};
     $('detailTriangles').textContent=r.triangles?Number(r.triangles).toLocaleString('en-US'):'—';
     const adaptive=r.adaptive_finishing,adaptiveNotice=$('adaptiveFinishingReport');
-    adaptiveNotice.hidden=!adaptive;
-    if(adaptive){
+    const finishingNotes=[];
+    if(r.surface_repair){
+      finishingNotes.push('Surface rebuilt from the saved master to close holes.');
+    }
+    if(adaptive?.trials?.length){
       const sample=adaptive.trials.at(-1);
       const outcome=adaptive.target_met?'tolerance met':'tolerance missed within the triangle ceiling';
-      adaptiveNotice.textContent=`Adaptive finishing · ${outcome} · sampled surface error (p99): ${sample.p99_voxels.toFixed(2)} / ${adaptive.tolerance_voxels} source voxels.`;
+      const reference=adaptive.reference||'master mesh';
+      finishingNotes.push(`Adaptive finishing · ${outcome} · sampled error against ${reference} ${sample.p99_voxels.toFixed(2)} / ${adaptive.tolerance_voxels} source voxels.`);
     }
+    adaptiveNotice.hidden=!finishingNotes.length;
+    adaptiveNotice.textContent=finishingNotes.join(' ');
     const normalBake = r.normal_bake;
     const normalNotice = $('normalBakeReport');
     normalNotice.hidden = normalBake?.state !== 'applied';

@@ -22,10 +22,15 @@ export function createMultiviewInputs({ changed, invalid }) {
   function selectedProfile(){return (capabilities?.profiles||[capabilities?.profile]).find(p=>p?.id===profileChoice.value)||capabilities?.profile;}
   function renderProfile(){
     const profile=selectedProfile();
+    const dense=profile?.id==='dense_master';
+    const triangles=Number($('pixalTriangles').value)||profile?.triangles;
     $('pixalProfileSummary').textContent=profile?
-      `${profile.resolution}³ · ${Number(profile.triangles).toLocaleString('en-US')} target triangles · texture ${profile.texture_size/1024}K`:'Dedicated recipe for characters.';
+      `${profile.resolution}³ · ${dense?'up to ':''}${Number(triangles).toLocaleString('en-US')} ${dense?'triangles':'target triangles'} · texture ${profile.texture_size/1024}K`:'Dedicated recipe for characters.';
+    $('pixalTrianglesLabel').textContent=dense?'Maximum triangles':'Target triangles';
+    $('pixalTrianglesHint').textContent=dense?'Leave blank for the profile ceiling':'Leave blank for the character profile';
     $('pixalTriangles').placeholder=profile?String(profile.triangles):'Profile default';
   }
+  $('pixalTriangles').addEventListener('input',renderProfile);
   profileChoice.addEventListener('change',()=>{
     $('pixalTriangles').value='';$('pixalTextureSize').value='';renderProfile();changed({profile:true});
   });
@@ -191,11 +196,12 @@ export function createMultiviewInputs({ changed, invalid }) {
     toggle.checked = active;
     reprojectFace.checked = active && settings.reproject_face === true;
     if (active) {
-      profileChoice.value=settings.profile?.id||settings.preset||'character_pixal';renderProfile();
+      profileChoice.value=settings.profile?.id||settings.preset||'character_pixal';
       $('sideAngle').value = String(settings.side_angle ?? 40);
       $('pixalSeed').value = String(settings.seed ?? 42);
       $('pixalTriangles').value = settings.triangles ?? '';
       $('pixalTextureSize').value = String(settings.texture_size ?? '');
+      renderProfile();
     }
     renderMode();
   }

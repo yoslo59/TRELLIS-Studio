@@ -38,6 +38,10 @@
 !/rig_joint_placement.py
 !/standard_animations.py
 !/studio_api.py
+!/server_app.py
+!/server_runtime.py
+!/server_store.py
+!/server_setup.py
 !/studio_assets.py
 !/studio_import.py
 !/studio_pipeline.py
@@ -61,6 +65,9 @@
 !/tests/pixal3d_sampling.py
 !/tests/pixal3d_generation.py
 !/tests/queue_retry.py
+!/tests/presentation_turntable.py
+!/tests/server_store.py
+!/tests/server_lan.py
 !/tests/rig_landmarks.py
 !/tests/rig_landmarks_api.py
 !/tests/rig_landmarks_blender.py
@@ -76,10 +83,13 @@
 !/Install TRELLIS Studio.cmd
 !/Install-Studio.ps1
 !/Open TRELLIS.cmd
+!/Open TRELLIS Server.cmd
 !/Ouvrir TRELLIS.cmd
 !/Arreter TRELLIS.cmd
 !/Arreter-TRELLIS.ps1
 !/Start-Studio.ps1
+!/Start-Server.ps1
+!/Stop-Server.ps1
 !/web/
 !/docs/
 !/licenses/
@@ -100,6 +110,7 @@
 !/web/authored-previews.js
 !/web/button-icons.js
 !/web/card-menu.js
+!/web/card-turntable.js
 !/web/collection-transfer.js
 !/web/compare-studio.js
 !/web/details.css
@@ -130,6 +141,10 @@
 !/web/studio.css
 !/web/studio.html
 !/web/studio.js
+!/web/server.html
+!/web/server.css
+!/web/server.js
+!/web/server-shell.js
 !/web/trellis-mark.svg
 !/web/turntable-webm.js
 !/web/validation-en.js
@@ -214,9 +229,11 @@
 !/web/export-preflight.js
 !/web/finishing-board.js
 !/docs/WINDOWS_SETUP.md
+!/docs/SERVER.md
 !/installer/windows/
 /installer/windows/*
 !/installer/windows/Build-Setup.ps1
+!/installer/windows/Configure-Server.ps1
 !/installer/windows/StudioSetup.nsi
 !/installer/windows/Launch-Installed.ps1
 !/installer/windows/Launch.cmd

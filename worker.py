@@ -129,20 +129,29 @@ def finish_mesh(torch, source):
     configure_simplifier(cumesh, options)
     export = o_voxel.postprocess.to_glb
     export_kwargs = export_options(options)
-    if settings.get('adaptive_finishing'):
-        # Load the Studio exporter from the application, including on an existing
-        # installation with an older O-Voxel runtime package.
+    adaptive = settings.get('adaptive_finishing') is True
+    adaptive_master = adaptive and settings.get('source_kind') != 'refinish'
+    repair_surface = settings.get('repair_surface') is True
+    if adaptive or repair_surface:
+        # Use the bundled exporter even when the installed engine is older.
         from importlib.util import module_from_spec, spec_from_file_location
-        from adaptive_finishing import choose_mesh
         spec = spec_from_file_location('o_voxel._studio_postprocess',
             ROOT / 'runtime' / 'engine-overrides' / 'o_voxel' / 'postprocess.py')
         module = module_from_spec(spec)
         spec.loader.exec_module(module)
         export = module.to_glb
-        export_kwargs.update(remesh=False, repair_holes=False, adaptive_mesh=choose_mesh)
-        status('running', 'Measuring detail against the master mesh', 84)
+    if adaptive:
+        from adaptive_finishing import choose_master_mesh, choose_mesh
+        export_kwargs['adaptive_mesh'] = choose_master_mesh if adaptive_master else choose_mesh
+        if not adaptive_master and not repair_surface:
+            export_kwargs.update(remesh=False, repair_holes=False)
+        if not repair_surface:
+            status('running', 'Measuring detail against the master mesh', 84)
+    if repair_surface:
+        export_kwargs['repair_surface'] = True
+        status('running', 'Reconstructing the surface to close holes', 84)
     vertices, faces = source['vertices'].cuda(), source['faces'].cuda()
-    if not settings.get('adaptive_finishing') and options['pre_simplify'] and len(faces) > 2000000:
+    if (not adaptive or adaptive_master) and options['pre_simplify'] and len(faces) > 2000000:
         mesh = cumesh.CuMesh()
         mesh.init(vertices, faces)
         mesh.simplify(2000000)
@@ -220,7 +229,7 @@ def main():
     result = finish_mesh(torch, source)
     face_report = project_requested_face()
     stats = dict(name=settings['name'], height_m=settings['height_m'], seed=settings['seed'],
-                 triangles=len(result.faces), vertices=len(result.vertices),
+                 triangles=len(result.faces), vertices=len(result.vertices), raw_triangles=len(source['faces']),
                  engine='Pixal3D' if settings.get('engine') == 'pixal3d' else 'TRELLIS.2',
                  dimensions_m=result.extents.tolist(), resolution=resolution,
                  requested_resolution=requested_resolution, pipeline_type=pipeline_kind,
@@ -236,6 +245,8 @@ def main():
         stats['finish_source_id'] = source_id
     if 'adaptive_finishing' in result.metadata:
         stats['adaptive_finishing'] = result.metadata['adaptive_finishing']
+    if 'surface_repair' in result.metadata:
+        stats['surface_repair'] = result.metadata['surface_repair']
     if 'normal_bake' in result.metadata:
         report = result.metadata['normal_bake']
         stats['normal_bake'] = report

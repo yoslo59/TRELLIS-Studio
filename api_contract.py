@@ -9,6 +9,48 @@ Identifier=Annotated[str,Field(pattern=r'^[a-f0-9]{32}$')]
 class Contract(BaseModel):
     model_config=ConfigDict(extra='forbid',allow_inf_nan=False)
 
+Coordinate = Annotated[float, Field(ge=0, le=1)]
+ViewRole = Literal['front', 'left', 'back', 'right']
+
+
+class ReferenceStroke(Contract):
+    mode: Literal['keep', 'erase']
+    radius: float = Field(ge=.001, le=.5)
+    points: list[tuple[Coordinate, Coordinate]] = Field(min_length=1, max_length=128)
+
+
+class ReferenceEdit(Contract):
+    crop: tuple[Coordinate, Coordinate, Coordinate, Coordinate] | None = None
+    strokes: list[ReferenceStroke] = Field(default_factory=list, max_length=48)
+
+
+class ReferenceUploads(Contract):
+    upload_id: Identifier = Field(description='Front-view upload ID.')
+    left_upload_id: Identifier | None = None
+    back_upload_id: Identifier | None = None
+    right_upload_id: Identifier | None = None
+    reference_edits: dict[ViewRole, ReferenceEdit] | None = None
+
+
+class ReferencePreview(ReferenceUploads):
+    engine: Literal['trellis2', 'pixal3d'] = 'trellis2'
+    remove_bg: bool = True
+
+
+class ReferencePreviewView(Contract):
+    role: ViewRole
+    width: int
+    height: int
+    original: str
+    cutout: str
+    framed: str
+
+
+class ReferencePreviewResult(Contract):
+    engine: Literal['trellis2', 'pixal3d']
+    views: list[ReferencePreviewView]
+
+
 class Generation(Contract):
     upload_id:Identifier
     name:str=Field(default='New model',min_length=1,max_length=80)
@@ -16,15 +58,12 @@ class Generation(Contract):
     height_m:float=Field(default=1,ge=.01,le=100)
     seed:int=Field(default=42,ge=0,le=2147483647)
     priority:int=Field(default=0,ge=-2,le=2)
-    overrides:dict=Field(default_factory=dict,examples=[{}],description='Optional recipe overrides: triangles, texture_size, resolution, remove_bg, advanced_settings, asset_type, reference_prompt, parent_id, keep_finishing_source.')
+    overrides:dict=Field(default_factory=dict,examples=[{}],description='Optional recipe overrides: triangles, texture_size, resolution, remove_bg, advanced_settings, asset_type, reference_prompt, parent_id, keep_finishing_source, repair_surface (Dense Master only).')
+    reference_edits: dict[Literal['front'], ReferenceEdit] | None = None
 
-class MultiViewGeneration(Contract):
-    upload_id: Identifier = Field(description='Front-view upload ID.')
+class MultiViewGeneration(ReferenceUploads):
     profile_id: Literal['character_pixal', HUMANOID_EXPERIMENTAL, DENSE_MASTER] = Field(
         default='character_pixal', description='Standard Pixal3D, Humanoid Experimental or Dense Master.')
-    left_upload_id: Identifier | None = None
-    back_upload_id: Identifier | None = None
-    right_upload_id: Identifier | None = None
     side_angle: Literal[40, 90] = 40
     name: str = Field(default='Character', min_length=1, max_length=80)
     height_m: float = Field(default=1.7, ge=.01, le=100)
@@ -34,6 +73,7 @@ class MultiViewGeneration(Contract):
     parent_id: Identifier | None = None
     reference_prompt: str = Field(default='', max_length=6000)
     keep_finishing_source: bool = False
+    repair_surface: bool = False
     reproject_face: bool = False
     priority: int = Field(default=0, ge=-2, le=2)
 
@@ -108,7 +148,65 @@ class QueueControl(Contract):
 
 class QueueEdit(Contract):
     priority:int|None=Field(default=None,ge=-2,le=2)
-    retry:bool=False
+    retry:bool=Field(default=False,description='In-place retry is available in the desktop edition. Use POST /queue/{identifier}/retry for a new attempt.')
+
+
+class JobRetry(Contract):
+    resolution: Literal[512, 1024, 1536] | None = None
+    texture_size: Literal[1024, 2048, 4096] | None = None
+    triangles: int | None = Field(default=None, ge=TRIANGLE_MIN, le=TRIANGLE_MAX)
+    height_m: float | None = Field(default=None, ge=.01, le=100)
+    priority: int | None = Field(default=None, ge=-2, le=2)
+    mesh_mode: Literal['direct', 'remesh'] | None = None
+    pre_simplify: bool | None = None
+    repair_holes: bool | None = None
+    bake_normals: bool | None = None
+    repair_surface: bool | None = None
+
+
+class Refinish(Contract):
+    triangles: int | None = Field(default=None, ge=TRIANGLE_MIN, le=TRIANGLE_MAX)
+    budget_preset: Literal['low', 'medium', 'high', 'ultra'] | None = None
+    texture_size: Literal[1024, 2048, 4096] | None = None
+    mesh_mode: Literal['direct', 'remesh'] | None = None
+    pre_simplify: bool | None = None
+    repair_holes: bool | None = None
+    adaptive_finishing: bool | None = None
+    bake_normals: bool | None = None
+    repair_surface: bool | None = None
+
+    @model_validator(mode='after')
+    def validate_budget(self):
+        if self.triangles is not None and self.budget_preset is not None:
+            raise ValueError('Choose either a triangle count or a preset.')
+        return self
+
+
+class FinishingBatch(Contract):
+    variants: list[Refinish] = Field(min_length=1, max_length=3)
+
+
+class FinishingSelection(Contract):
+    selected_id: Identifier | None
+
+
+class FinishingOptions(Contract):
+    source_id: Identifier
+    source_triangles: int | None
+    cache_bytes: int
+    texture_sizes: list[int]
+    triangle_limits: dict[str, int]
+    triangle_presets: dict[str, int]
+    normal_bake: bool
+    repair_surface: bool
+    selected_id: Identifier | None
+
+
+class FinishingBatchAccepted(Contract):
+    ids: list[Identifier]
+    source_id: Identifier
+    count: int
+    paused: bool
 
 class Folder(Contract):
     name:str=Field(min_length=1,max_length=80)
@@ -137,6 +235,10 @@ class JobAccepted(Contract):
     id:str
     state:str
     status_url:str
+
+class JobRetryAccepted(JobAccepted):
+    retry_of: Identifier
+    paused: bool
 
 class ModelPage(Contract):
     total:int

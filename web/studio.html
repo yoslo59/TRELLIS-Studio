@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="trellis-ui-revision" content="3.3.1">
+<meta name="trellis-ui-revision" content="3.3.4">
 <title>TRELLIS Studio — Local 3D workspace</title>
 <link rel="icon" type="image/svg+xml" href="/web/trellis-mark.svg">
 <link rel="stylesheet" href="/web/studio.css?v=2.3">
-<link rel="stylesheet" href="/web/reference-preview.css?v=3.3.1">
-<link rel="stylesheet" href="/web/workspace.css?v=3.3.1"><link rel="stylesheet" href="/web/polish.css?v=3.3.1">
+<link rel="stylesheet" href="/web/reference-preview.css?v=3.3.4">
+<link rel="stylesheet" href="/web/workspace.css?v=3.3.4"><link rel="stylesheet" href="/web/polish.css?v=3.3.4">
 <script type="importmap">{"imports":{"three":"/vendor/build/three.module.js","three/addons/":"/vendor/examples/jsm/"}}</script>
-<link rel="stylesheet" href="/web/animation-studio.css?v=3.3.1"><link rel="stylesheet" href="/web/details.css?v=3.3.1"><link rel="stylesheet" href="/web/studio-tools.css?v=3.3.1"><link rel="stylesheet" href="/web/lighting.css?v=3.3.1"><link rel="stylesheet" href="/web/workbench.css?v=3.3.1"></head><body>
+<link rel="stylesheet" href="/web/animation-studio.css?v=3.3.4"><link rel="stylesheet" href="/web/details.css?v=3.3.4"><link rel="stylesheet" href="/web/studio-tools.css?v=3.3.4"><link rel="stylesheet" href="/web/lighting.css?v=3.3.4"><link rel="stylesheet" href="/web/workbench.css?v=3.3.4"></head><body>
 <header class="topbar"><a class="brand" href="/"><img class="brand-logo" src="/web/trellis-mark.svg" alt=""><strong>TRELLIS <em>Studio</em></strong><span class="version">LOCAL / 03.3</span></a><span class="top-context">IMAGE → MATERIAL → VOLUME</span><div class="top-status"><span class="online-dot"></span><span id="runtime">Connecting to the engine…</span><a class="developer-link" href="/developers" title="API & MCP documentation" aria-label="API and MCP documentation"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#details"/></svg></a><button id="shutdown" class="quiet" type="button" title="Stop the local server">Stop</button></div></header>
 <div id="versionNotice" class="version-notice" role="status" hidden><span id="versionNoticeText"></span> <a id="reloadStudio" href="/" hidden>Reload Studio</a></div>
 <div class="app-shell">
@@ -18,8 +18,8 @@
 <form id="form">
 <div class="profile-box" id="monoProfile"><div class="section-label"><span>Generation profile</span><span id="profileState" class="profile-state">REFERENCE</span></div>
 <label class="sr-only" for="profileChoice">Generation profile</label><select id="profileChoice" disabled><option>Loading profiles…</option></select>
-<p id="profileSummary" class="hint">Game - Default · 1024³ · 28 000 triangles · texture 2K</p>
-<div class="profile-actions"><button id="saveProfileAs" type="button" disabled>＋ Save a copy</button><button id="updateProfile" type="button" hidden>Edit this profile</button></div><p id="profileNotice" role="status" aria-live="polite"></p></div>
+<p id="profileSummary" class="hint">Loading the startup profile…</p>
+<div class="profile-actions"><button id="saveProfileAs" type="button" disabled>＋ Save a copy</button><button id="updateProfile" type="button" hidden>Edit this profile</button><button id="useProfileAtStartup" type="button" aria-pressed="false" disabled>Use at startup</button></div><p id="profileNotice" role="status" aria-live="polite"></p></div>
 <div class="profile-box" id="pixalProfile" hidden>
   <div class="section-label"><span>Character profile</span><span id="pixalRuntimeState" class="profile-state">OPTIONAL</span></div>
   <label class="sr-only" for="pixalProfileChoice">Character profile</label><select id="pixalProfileChoice"><option value="character_pixal">Character · Pixal3D</option></select>
@@ -90,19 +90,20 @@
 </fieldset>
 <fieldset id="pixalQuality" class="mode-fields" hidden disabled>
   <div class="two-fields">
-    <label class="field">Target triangles<input id="pixalTriangles" type="number" min="1000" max="8000000" step="1" placeholder="Profile default"><small>Leave blank for the character profile</small></label>
+    <label class="field"><span id="pixalTrianglesLabel">Target triangles</span><input id="pixalTriangles" type="number" min="1000" max="8000000" step="1" placeholder="Profile default"><small id="pixalTrianglesHint">Leave blank for the character profile</small></label>
     <label class="field">3D seed<input id="pixalSeed" type="number" value="42" min="0" max="2147483647" step="1"></label>
   </div>
 </fieldset>
 <label class="check"><input id="keepFinishingSource" name="keep_finishing_source" type="checkbox" value="true"><span>Keep source for finishing variants</span></label>
 <p id="humanoidProfileHelp" class="hint" hidden>Experimental humanoid recipe. Keeps its source for lighter finishing variants without generation. Local face and hand reconstruction is not automatic.</p>
-<p id="denseMasterProfileHelp" class="hint" hidden>Stores the full generated source locally. The working copy uses Direct finishing with a target of 1 million triangles. The cache can require substantial disk space.</p>
+<p id="denseMasterProfileHelp" class="hint" hidden>Uses a surface detail check to choose a triangle count within the ceiling. Saves the full decoded geometry and materials for Remesh, which can take substantial disk space.</p>
+<label id="denseMasterRepairField" class="check" hidden><input id="denseMasterRepair" type="checkbox" aria-describedby="denseMasterRepairHint" disabled><span>Repair holes on the working mesh<small id="denseMasterRepairHint">Some fine edges may soften during repair.</small></span></label>
 <p id="finishingSourceHelp" class="hint">Optional. Stores the dense geometry and materials locally so finishing can be repeated without generation.</p>
 <fieldset id="monoAdvanced" class="mode-fields">
   <details class="advanced" id="advancedSettings"><summary>Advanced settings · 3D, textures & UV</summary>
   <label class="field">Base preset<select id="profileBase"><option value="game_d">Game - Default · 20 steps</option><option value="high_detail">High Detail · 20 steps</option><option value="dense_master">Dense Master · 20 steps</option><option value="humanoid_experimental">Humanoid · Experimental · 20 steps</option></select></label><div class="advanced-actions"><button id="resetAdvanced" type="button" class="secondary">Reset to Game - Default</button></div>
   <p class="hint">Hover over a label or field for help. Each result stores its settings for reuse with New version.</p>
-  <div class="two-fields"><label class="field">Target triangles<input id="triangles" name="triangles" type="number" min="0" max="8000000" step="1" value="28000"><small>0 = profile · up to 8,000,000. The result may be lower.</small></label><label class="field">3D seed<input id="seed" name="seed" type="number" value="42" min="0" max="2147483647" step="1"></label></div>
+  <div class="two-fields"><label class="field"><span id="monoTrianglesLabel">Target triangles</span><input id="triangles" name="triangles" type="number" min="0" max="8000000" step="1" value="28000"><small id="monoTrianglesHint">0 = profile · up to 8,000,000. The result may be lower.</small></label><label class="field">3D seed<input id="seed" name="seed" type="number" value="42" min="0" max="2147483647" step="1"></label></div>
   <div id="advancedControls"></div>
   <label class="field">Reference context / prompt<textarea id="referencePrompt" name="reference_prompt" rows="4" maxlength="6000" placeholder="Object function, setting, materials…"></textarea></label>
   <p class="hint">Context is stored with the object; generation uses the reference image. This form supports a single image.</p></details>
@@ -155,15 +156,23 @@
 <dialog id="deleteDialog"><form method="dialog"><span class="eyebrow">TRASH</span><h2>Remove this model?</h2><p id="deleteName"></p><p>The model and its files will move to the local trash. You can restore them later.</p><div class="dialog-actions"><button value="cancel" class="secondary">Keep</button><button id="confirmDelete" type="button" class="danger">Move to trash</button></div></form></dialog>
 <dialog id="imageDialog"><button class="dialog-close" id="closeImage">Close ×</button><img id="largeImage" alt="Full-size texture or UV layout"></dialog>
 <footer><span>TRELLIS STUDIO</span><span>Reference → generation → review → Blender</span><span>UV & PBR · local compute</span></footer>
-<script type="module" src="/web/studio.js?v=3.3.1"></script><script type="module" src="/web/validation-en.js?v=3.3.1"></script>
+<script type="module" src="/web/studio.js?v=3.3.4"></script><script type="module" src="/web/validation-en.js?v=3.3.4"></script>
 <div id="refinishDialog" class="refinish-popover" popover="auto" role="dialog" aria-labelledby="refinishTitle">
 <form id="refinishForm">
   <header class="refinish-head">
-    <div><h2 id="refinishTitle">Remesh</h2><p id="refinishSource"></p></div>
+    <div class="refinish-heading">
+      <span class="refinish-mark" aria-hidden="true"><svg class="ui-icon"><use href="/web/icons.svg#layers"/></svg></span>
+      <div><h2 id="refinishTitle">Remesh</h2><p id="refinishSource"></p></div>
+    </div>
     <button id="closeRefinish" type="button" aria-label="Close remesh panel"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#close"/></svg></button>
   </header>
   <p id="refinishStatus" class="hint" role="status" hidden></p>
   <div id="refinishControls" hidden>
+    <dl class="refinish-provenance">
+      <dt>Displayed GLB</dt><dd id="refinishDisplayedTriangles"></dd>
+      <dt>Cached Remesh source</dt><dd id="refinishSourceTriangles"></dd>
+    </dl>
+    <p class="hint">New variants start from the cached source.</p>
     <fieldset>
       <legend>Triangle budget</legend>
       <div class="refinish-segments">
@@ -179,22 +188,37 @@
         <label><input class="sr-only" type="radio" name="budget_preset" value="high"><span>High <small data-budget="high"></small></span></label>
         <label><input class="sr-only" type="radio" name="budget_preset" value="ultra"><span>Ultra <small data-budget="ultra"></small></span></label>
       </div>
-      <label class="refinish-manual"><input type="radio" name="budget_preset" value="manual"><span>Manual budget</span></label>
+      <label class="refinish-manual">
+        <input class="sr-only" type="radio" name="budget_preset" value="manual">
+        <span class="refinish-manual-card">
+          <span class="refinish-radio" aria-hidden="true"></span>
+          <span>Manual budget</span>
+          <svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#sliders"/></svg>
+        </span>
+      </label>
     </fieldset>
     <label class="field" id="refinishBudgetField" hidden><span id="refinishBudgetLabel">Target triangles</span><input name="triangles" type="number" step="1" required disabled></label>
     <p class="hint" id="refinishBudgetHint" aria-live="polite"></p>
-    <label class="check" id="refinishBake"><input name="bake_normals" type="checkbox" checked><span>Transfer master detail to a normal map</span></label>
+    <label class="refinish-repair" id="refinishRepair">
+      <input class="sr-only" type="checkbox" name="repair_surface" aria-labelledby="refinishRepairTitle" aria-describedby="refinishRepairHint" disabled>
+      <span class="refinish-repair-card">
+        <span class="refinish-repair-icon" aria-hidden="true"><svg class="ui-icon"><use href="/web/icons.svg#shield"/></svg></span>
+        <span class="refinish-repair-copy"><strong id="refinishRepairTitle">Repair holes</strong><small id="refinishRepairHint">Closes gaps using the cached source. Fine edges may soften.</small></span>
+        <span class="refinish-switch" aria-hidden="true"></span>
+      </span>
+    </label>
+    <label class="check" id="refinishBake"><input name="bake_normals" type="checkbox" checked><span>Transfer source detail to a normal map</span></label>
     <details id="refinishOptions">
-      <summary>Finishing options</summary>
+      <summary><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#sliders"/></svg>Finishing options</summary>
       <label class="field">Texture size<select name="texture_size"></select></label>
       <div id="refinishManualOptions" hidden>
         <label class="field">Finishing method<select name="mesh_mode"><option value="direct">Direct simplification</option><option value="remesh">Remesh and simplify</option></select></label>
-        <label class="check"><input name="repair_holes" type="checkbox"><span>Fill small holes</span></label>
+        <label class="check"><input name="repair_holes" type="checkbox"><span>Fill small gaps before simplification</span></label>
         <label class="check"><input name="pre_simplify" type="checkbox"><span>Pre-simplify dense meshes to 2M</span></label>
       </div>
     </details>
     <p id="refinishError" class="tool-error" role="alert" hidden></p>
-    <button id="startRefinish" class="primary" type="submit" disabled><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#check"/></svg>Create variant</button>
+    <button id="startRefinish" class="primary" type="submit" disabled><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#check"/></svg><span id="startRefinishLabel">Create variant</span></button>
   </div>
 </form>
 </div>

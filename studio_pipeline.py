@@ -1,6 +1,6 @@
 """Local checkpoint views: load only the flow models used by the chosen pipeline."""
 from pathlib import Path
-import json, os
+import json
 
 def prepare_pipeline_config(root, job, resolution):
     root=Path(root);job=Path(job)
@@ -15,7 +15,9 @@ def prepare_pipeline_config(root, job, resolution):
         prefix=source/value
         for suffix in ('.json','.safetensors'):
             if not Path(str(prefix)+suffix).is_file():raise FileNotFoundError('Poids manquants : '+str(prefix)+suffix)
-        config['args']['models'][key]=os.path.relpath(prefix,folder)
+        # The loader accepts a standalone local prefix as its fallback. Absolute
+        # prefixes work with workspace data on another drive and deep Windows paths.
+        config['args']['models'][key]=str(prefix.resolve())
     config['args']['default_pipeline_type']=kind
     (folder/'pipeline.json').write_text(json.dumps(config,indent=2),encoding='utf-8')
     return folder,kind

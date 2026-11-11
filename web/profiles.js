@@ -1,10 +1,13 @@
 // Recipes are persisted by the local server, independently from object history.
 const $=id=>document.getElementById(id);
 const steps={game_d:20,high_detail:20,humanoid_experimental:20,dense_master:20,fast:8,balanced:12,detail:20};
+const startupKey='trellis.studio.startup-profile';
 export async function createProfileControls(advanced,{changed=()=>{}}={}){
   let profiles=[],selected=null,saving=false,edit=false,sourceRequired=false,previousKeep=false;
+  let repairSupported=false;
+  let startupProfile='';
   function read(){const {texture_seed,...options}=advanced.read();return {preset:$('preset').value,resolution:Number($('resolution').value),
-    triangles:Number($('triangles').value)||({game_d:28000,high_detail:250000,humanoid_experimental:250000,dense_master:1000000,fast:25000,balanced:50000,detail:100000}[$('preset').value]),
+    triangles:Number($('triangles').value)||({game_d:28000,high_detail:250000,humanoid_experimental:250000,dense_master:1200000,fast:25000,balanced:50000,detail:100000}[$('preset').value]),
     texture_size:Number($('textureSize').value)||($('preset').value==='fast'?1024:2048),
     remove_bg:$('removeBg').checked,advanced:options};}
   function resolved(s){const copy=structuredClone(s);for(const key of ['structure_steps','shape_steps','texture_steps'])if(copy.advanced[key]===0)copy.advanced[key]=steps[copy.preset];return copy;}
@@ -22,15 +25,29 @@ export async function createProfileControls(advanced,{changed=()=>{}}={}){
     $('keepFinishingSource').disabled=requiresSource;
     $('humanoidProfileHelp').hidden=!experimental;
     if($('denseMasterProfileHelp'))$('denseMasterProfileHelp').hidden=!dense;
+    $('denseMasterRepairField').hidden=!dense;
+    $('denseMasterRepair').disabled=!dense||!repairSupported;
+    $('denseMasterRepairHint').textContent=repairSupported
+      ?'Some fine edges may soften during repair.'
+      :'Restart Studio to enable hole repair.';
     $('finishingSourceHelp').hidden=requiresSource;
     if(experimental&&!$('pixalMode').checked)$('assetType').value='humanoid';
     const recipe=read(),dirty=!equal(recipe,selected.settings);
     $('profileId').value=recipe.preset===selected.settings.preset?selected.id:'';
     $('profileState').textContent=dirty?'MODIFIED':selected.variant?'VARIANT':selected.experimental?'EXPERIMENTAL':selected.id==='dense_master'?'MASTER':selected.builtin?'REFERENCE':'CUSTOM';
     $('profileState').classList.toggle('dirty',dirty);
-    $('profileSummary').textContent=`${recipe.resolution}³ · ${recipe.triangles.toLocaleString('en-US')} triangles · texture ${recipe.texture_size/1024}K`;
+    $('profileSummary').textContent=`${recipe.resolution}³ · ${dense?'up to ':''}${recipe.triangles.toLocaleString('en-US')} triangles · texture ${recipe.texture_size/1024}K`;
+    $('monoTrianglesLabel').textContent=dense?'Maximum triangles':'Target triangles';
+    $('monoTrianglesHint').textContent=dense
+      ?'0 = profile ceiling. Studio chooses a lighter mesh when it meets the surface tolerance.'
+      :'0 = profile · up to 8,000,000. The result may be lower.';
     $('generationSummary').textContent=`${selected.name.replace(' · recommended','')}${dirty?' · modified':''} · local compute`;
     $('updateProfile').hidden=selected.builtin;
+    const startup=$('useProfileAtStartup');
+    const isStartup=selected.id===startupProfile;
+    startup.disabled=!selected.id||dirty||isStartup;
+    startup.setAttribute('aria-pressed',String(isStartup));
+    startup.textContent=isStartup?'Startup profile':'Use at startup';
     if(![...$('profileBase').options].some(o=>o.value===recipe.preset)){const option=document.createElement('option');option.value=recipe.preset;option.textContent='Historical settings';$('profileBase').append(option);}$('profileBase').value=recipe.preset;
     changed();
   }
@@ -55,10 +72,24 @@ export async function createProfileControls(advanced,{changed=()=>{}}={}){
     }
   }
   try{
-    const data=await request('/api/profiles');profiles=data.profiles;options();apply(data.default_profile);
+    const data=await request('/api/profiles');profiles=data.profiles;
+    let saved='';
+    try{saved=localStorage.getItem(startupKey);}catch{}
+    startupProfile=[saved,data.startup_profile,data.default_profile].find(id=>profiles.some(p=>p.id===id));
+    options();apply(startupProfile);
     $('profileChoice').disabled=false;$('saveProfileAs').disabled=!advanced.ready;
   }catch(e){$('profileNotice').textContent=e.message+' Restart TRELLIS if needed.';}
   $('profileChoice').onchange=()=>apply($('profileChoice').value);
+  $('useProfileAtStartup').onclick=()=>{
+    try{
+      localStorage.setItem(startupKey,selected.id);
+      startupProfile=selected.id;
+      $('profileNotice').textContent='Startup profile saved for this browser.';
+      sync();
+    }catch{
+      $('profileNotice').textContent='This browser could not save the startup profile.';
+    }
+  };
   $('form').addEventListener('input',sync);$('form').addEventListener('change',sync);
   $('profileBase').addEventListener('change',()=>{$('preset').value=$('profileBase').value;sync();});
   function show(update){if(!selected)return;edit=update;$('profileName').value=update?selected.name:'';$('profileDialogTitle').textContent=update?'Edit this profile':'Save a copy';$('profileDialogError').textContent='';$('profileDialog').showModal();$('profileName').focus();}
@@ -79,6 +110,11 @@ export async function createProfileControls(advanced,{changed=()=>{}}={}){
     finally{saving=false;$('confirmProfile').disabled=false;}
   };
   return {sync,reset:()=>apply('game_d'),
+    setRepairCapability(available){
+      if(repairSupported===available)return;
+      repairSupported=available;
+      sync();
+    },
     restoreSource(value){sourceRequired=false;previousKeep=!!value;$('keepFinishingSource').checked=!!value;sync();},
     detach(){
       selected={id:'',name:'Variant',builtin:true,variant:true,settings:read()};

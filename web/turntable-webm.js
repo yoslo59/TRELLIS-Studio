@@ -18,10 +18,10 @@ function mux(chunks,width,height,fps,seconds,codec){
  for(const chunk of chunks){const ms=Math.round(chunk.timestamp/1000);if(chunk.key&&ms-base>=1000){flush();base=ms;}const block=new Uint8Array(4+chunk.data.length);block[0]=0x81;new DataView(block.buffer).setInt16(1,ms-base);block[3]=chunk.key?0x80:0;block.set(chunk.data,4);blocks.push(element(0xa3,block));}flush();
  return new Blob([header,master(0x18538067,[info,tracks,...clusters])],{type:'video/webm'});
 }
-export async function renderTurntable({canvas,width,height,seconds,draw,cancelled,progress}){
+export async function renderTurntable({canvas,width,height,seconds,draw,cancelled,progress,fps=24,bitrate=6000000}){
  if(!window.VideoEncoder||!window.VideoFrame)throw Error('Turntable export needs WebCodecs. Use a current Chrome or Edge browser.');
- const fps=24,total=seconds*fps;let config=null;
- for(const codec of ['vp09.00.10.08','vp8']){const candidate={codec,width,height,bitrate:6000000,framerate:fps,latencyMode:'realtime',hardwareAcceleration:'prefer-software'};if((await VideoEncoder.isConfigSupported(candidate)).supported){config=candidate;break;}}
+ const total=seconds*fps;let config=null;
+ for(const codec of ['vp09.00.10.08','vp8']){const candidate={codec,width,height,bitrate,framerate:fps,latencyMode:'realtime',hardwareAcceleration:'prefer-software'};if((await VideoEncoder.isConfigSupported(candidate)).supported){config=candidate;break;}}
  if(!config)throw Error('This browser cannot encode a WebM turntable. Try a current Chrome or Edge browser.');
  const chunks=[];let failure=null;const encoder=new VideoEncoder({output(chunk){const data=new Uint8Array(chunk.byteLength);chunk.copyTo(data);chunks.push({data,timestamp:chunk.timestamp,key:chunk.type==='key'});},error(error){failure=error;}});
  const channel=new MessageChannel(),yieldTask=()=>new Promise(resolve=>{channel.port1.onmessage=resolve;channel.port2.postMessage(0);});

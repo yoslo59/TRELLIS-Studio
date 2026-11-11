@@ -80,6 +80,7 @@ with isolated_workspace('humanoid_profiles'):
         # No lifespan worker: each route writes only to the isolated queue.
         profiles=client.get('/api/profiles').json()
         assert profiles['default_profile']=='game_d' and profiles['profiles'][0]==before
+        assert profiles['startup_profile']==DENSE_MASTER
         experimental=next(p for p in profiles['profiles'] if p['id']=='humanoid_experimental')
         assert experimental['experimental'] and experimental['keep_finishing_source']
         assert experimental['asset_type']=='humanoid'
@@ -90,7 +91,7 @@ with isolated_workspace('humanoid_profiles'):
         assert dense['builtin'] and dense['keep_finishing_source'] and dense['name'] == 'Dense Master'
         dense_settings = dense['settings']
         dense_finish = dict(mesh_mode='direct', pre_simplify=False, repair_holes=False)
-        assert dense_settings['resolution'] == 1024 and dense_settings['triangles'] == 1_000_000
+        assert dense_settings['resolution'] == 1024 and dense_settings['triangles'] == 1_200_000
         assert dense_settings['advanced'] == {**d, **dense_finish}
         send(client,'/api/profiles/humanoid_experimental',expected=405,json={})
         denied=client.put('/api/profiles/humanoid_experimental',json={'name':'Overwrite','settings':before['settings']})
@@ -129,19 +130,28 @@ with isolated_workspace('humanoid_profiles'):
             s = settings(result['id'])
             assert s['preset'] == s['profile']['id'] == s['profile_snapshot']['id'] == DENSE_MASTER
             assert s['keep_finishing_source'] is True and s['asset_type'] == 'object'
-            assert s['resolution'] == 1024 and s['triangles'] == 1_000_000 and s['texture_size'] == 2048
+            assert s['adaptive_finishing'] is s['profile_snapshot']['adaptive_finishing'] is True
+            assert 'repair_surface' not in s and 'repair_surface' not in s['profile_snapshot']
+            assert s['resolution'] == 1024 and s['triangles'] == 1_200_000 and s['texture_size'] == 2048
             assert s['generation_options'] == {**options_for_job({'preset':'game_d'}), **dense_finish}
             assert s['profile_snapshot']['generation_options'] == s['generation_options']
+        replayed_mono = send(client, '/api/v1/generations', json={
+            'upload_id': front, 'profile_id': DENSE_MASTER, 'overrides': {'triangles': 1_000_000}})
+        s = settings(replayed_mono['id'])
+        assert s['triangles'] == s['profile_snapshot']['triangles'] == 1_000_000
+        assert s['adaptive_finishing'] is True
 
         cap=app.pixal3d_capabilities()
         assert cap['profile']==standard_profile and cap['default_profile']=='character_pixal'
         assert [p['id'] for p in cap['profiles']]==['character_pixal','humanoid_experimental',DENSE_MASTER]
+        assert cap['profiles'][-1]['triangles'] == 1_200_000
         files={'image':image(),'left_image':image()}
         for profile in ('character_pixal','humanoid_experimental'):
             result=send(client,'/api/generate-multiview',files=files,data={'profile_id':profile,'keep_finishing_source':'false'})
             s=settings(result['id']);exp=profile=='humanoid_experimental'
             assert s['preset']==profile and s['triangles']==(250000 if exp else 10600)
             assert s['keep_finishing_source'] is exp
+            assert 'adaptive_finishing' not in s
             assert s['generation_options']=={**standard_options,'mesh_mode':'direct' if exp else 'remesh'}
             sampling=sampling_options(options_for_job(s),s['seed'],s['settings_version'])
             assert [sampling[k]['steps'] for k in ('structure','shape_low','shape_high','texture')]==[12,20,20,12]
@@ -156,13 +166,45 @@ with isolated_workspace('humanoid_profiles'):
         s = settings(typed_dense['id'])
         assert s['preset'] == s['profile']['id'] == s['profile_snapshot']['id'] == DENSE_MASTER
         assert s['keep_finishing_source'] is True and s['asset_type'] == 'humanoid'
-        assert s['resolution'] == 1024 and s['triangles'] == 1_000_000 and s['texture_size'] == 2048
+        assert s['adaptive_finishing'] is s['profile_snapshot']['adaptive_finishing'] is True
+        assert 'repair_surface' not in s and 'repair_surface' not in s['profile_snapshot']
+        assert s['resolution'] == 1024 and s['triangles'] == 1_200_000 and s['texture_size'] == 2048
         assert s['generation_options'] == {**standard_options, **dense_finish}
         assert s['profile_snapshot']['generation_options'] == s['generation_options']
+        replayed_multiview = send(client, '/api/v1/generations/multiview', json={
+            'upload_id': front, 'left_upload_id': side, 'profile_id': DENSE_MASTER, 'triangles': 1_000_000})
+        s = settings(replayed_multiview['id'])
+        assert s['triangles'] == s['profile_snapshot']['triangles'] == 1_000_000
+        assert s['adaptive_finishing'] is True
+        repaired = [
+            send(client, '/api/v1/generations', json={
+                'upload_id': front, 'profile_id': DENSE_MASTER, 'overrides': {'repair_surface': True}}),
+            send(client, '/api/generate', expected=200, files={'image': image()}, data={
+                'preset': DENSE_MASTER, 'queue_only': 'true', 'repair_surface': 'true'}),
+            send(client, '/api/v1/generations/multiview', json={
+                'upload_id': front, 'left_upload_id': side, 'profile_id': DENSE_MASTER, 'repair_surface': True}),
+            send(client, '/api/generate-multiview', files=files, data={
+                'profile_id': DENSE_MASTER, 'repair_surface': 'true'}),
+        ]
+        for result in repaired:
+            s = settings(result['id'])
+            assert s['repair_surface'] is True and s['profile_snapshot']['repair_surface'] is True
+            assert s['adaptive_finishing'] is True
+            assert s['keep_finishing_source'] is True and s['triangles'] == 1_200_000
+            assert s['generation_options']['mesh_mode'] == 'direct'
+            effective = options_for_job(s)
+            assert effective['mesh_mode'] == 'remesh' and effective['remesh_project'] == .45
+            assert effective['repair_holes'] is True and effective['pre_simplify'] is False
+        send(client, '/api/v1/generations', expected=400, json={
+            'upload_id': front, 'overrides': {'repair_surface': True}})
+        send(client, '/api/v1/generations', expected=400, json={
+            'upload_id': front, 'profile_id': DENSE_MASTER, 'overrides': {'repair_surface': 'true'}})
+        send(client, '/api/v1/generations/multiview', expected=400, json={
+            'upload_id': front, 'left_upload_id': side, 'repair_surface': True})
         send(client,'/api/generate-multiview',expected=400,files=files,data={'profile_id':'unknown'})
         send(client,'/api/v1/generations/multiview',expected=422,json={'upload_id':front,'left_upload_id':side,'profile_id':'unknown'})
         assert builtin_profiles()[0]==before
         assert app.PIXAL_CHARACTER_OPTIONS==standard_options and app.PIXAL_CHARACTER_PROFILE==standard_profile
         launch.assert_not_called()
     assert 'torch' not in sys.modules
-    print('PASS: unchanged D, standard Pixal and Humanoid Experimental; Dense Master mono/multiview recipes, forced cache, snapshots and REST contracts.')
+    print('PASS: legacy profiles, Dense Master mono/multiview, forced cache and opt-in surface repair.')

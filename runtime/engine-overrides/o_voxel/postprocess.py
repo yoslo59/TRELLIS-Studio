@@ -22,6 +22,13 @@ from .uvraster import rasterize_uv  # pure-PyTorch alternative (MIT), see uvrast
 import cumesh
 
 
+def within_repair_bounds(vertices, bounds, margin):
+    if not vertices.numel():
+        return False
+    lower, upper = vertices.amin(dim=0), vertices.amax(dim=0)
+    return bool(((lower >= bounds[0] - margin) & (upper <= bounds[1] + margin)).all())
+
+
 def to_glb(
     vertices: torch.Tensor,
     faces: torch.Tensor,
@@ -44,6 +51,7 @@ def to_glb(
     verbose: bool = False,
     use_tqdm: bool = False,
     adaptive_mesh: Optional[Callable] = None,
+    repair_surface: bool = False,
 ):
     """
     Convert an extracted mesh to a GLB file.
@@ -62,6 +70,7 @@ def to_glb(
         texture_size: size of the texture for baking
         remesh: whether to perform remeshing
         repair_holes: fill small holes before BVH construction (enabled in the D profile)
+        repair_surface: check for outliers in the opt-in surface reconstruction
         remesh_band: size of the remeshing band
         remesh_project: projection factor for remeshing
         mesh_cluster_threshold_cone_half_angle_rad: threshold for cone-based clustering in uv unwrapping
@@ -71,6 +80,8 @@ def to_glb(
         verbose: whether to print verbose messages
         use_tqdm: whether to use tqdm to display progress bar
     """
+    if repair_surface and not remesh:
+        raise ValueError('Surface repair requires reconstruction.')
     # --- Input Normalization (AABB, Voxel Size, Grid Size) ---
     if isinstance(aabb, (list, tuple)):
         aabb = np.array(aabb)
@@ -120,6 +131,9 @@ def to_glb(
     # Move data to GPU
     vertices = vertices.cuda()
     faces = faces.cuda()
+    repair_bounds = (vertices.amin(dim=0), vertices.amax(dim=0)) if repair_surface else None
+    repair_margin = 4 * voxel_size
+    initial_fill_used = repair_holes
     
     # Initialize CUDA mesh handler
     mesh = cumesh.CuMesh()
@@ -128,6 +142,14 @@ def to_glb(
     # --- Initial Mesh Cleaning ---
     if repair_holes:
         mesh.fill_holes(max_hole_perimeter=0.03)
+        if repair_surface and not within_repair_bounds(mesh.read()[0], repair_bounds, repair_margin):
+            # A poorly conditioned loop can introduce a spike and rescale the whole model.
+            initial_fill_used = False
+            del mesh
+            mesh = cumesh.CuMesh()
+            mesh.init(vertices, faces)
+            if verbose:
+                print('Skipped initial hole fill because it exceeded the source bounds.', flush=True)
     if verbose:
         print(f"Initial mesh: {mesh.num_vertices} vertices, {mesh.num_faces} faces")
     vertices, faces = mesh.read()
@@ -158,7 +180,7 @@ def to_glb(
     
     # --- Branch 1: Standard Pipeline (Simplification & Cleaning) ---
     adaptive_report = None
-    if adaptive_mesh is not None:
+    if adaptive_mesh is not None and not remesh:
         # Keep the original BVH for reprojection and choose the output before UV baking.
         del mesh
         mesh, adaptive_report = adaptive_mesh(
@@ -235,16 +257,23 @@ def to_glb(
         if verbose:
             print(f"After remeshing: {mesh.num_vertices} vertices, {mesh.num_faces} faces")
         
-        # Simplify and clean the remeshed result
-        mesh.simplify(decimation_target, verbose=verbose)
-        if verbose:
-            print(f"After simplifying: {mesh.num_vertices} vertices, {mesh.num_faces} faces")
-        
-        # Clean up topology — remove stray triangles, hairs, and non-manifold edges
-        mesh.remove_duplicate_faces()
-        mesh.repair_non_manifold_edges()
-        mesh.remove_small_connected_components(1e-5)
-        mesh.unify_face_orientations()
+        if adaptive_mesh is None:
+            mesh.simplify(decimation_target, verbose=verbose)
+            if verbose:
+                print(f"After simplifying: {mesh.num_vertices} vertices, {mesh.num_faces} faces")
+            mesh.remove_duplicate_faces()
+            mesh.repair_non_manifold_edges()
+            mesh.remove_small_connected_components(1e-5)
+            mesh.unify_face_orientations()
+        else:
+            rebuilt_vertices, rebuilt_faces = mesh.read()
+            del mesh
+            rebuilt_bvh = cumesh.cuBVH(rebuilt_vertices, rebuilt_faces)
+            mesh, adaptive_report = adaptive_mesh(
+                rebuilt_vertices, rebuilt_faces, rebuilt_bvh, decimation_target, float(voxel_size.min()), verbose,
+            )
+            adaptive_report['reference'] = 'reconstructed surface'
+            del rebuilt_vertices, rebuilt_faces, rebuilt_bvh
         if verbose:
             print(f"After cleanup: {mesh.num_vertices} vertices, {mesh.num_faces} faces")
     
@@ -262,6 +291,11 @@ def to_glb(
     
     # Remove degenerate (zero-area) faces that cause xatlas normal assertion failures
     verts_tmp, faces_tmp = mesh.read()
+    if repair_surface:
+        # The reconstruction grid can be coarser than the decoded voxel grid.
+        rebuilt_margin = 4 * torch.maximum(voxel_size, (aabb[1] - aabb[0]) / dc_resolution)
+        if not within_repair_bounds(verts_tmp, repair_bounds, rebuilt_margin):
+            raise ValueError('Surface repair exceeded the master bounds. Retry without Repair holes.')
     v0 = verts_tmp[faces_tmp[:, 0]]
     v1 = verts_tmp[faces_tmp[:, 1]]
     v2 = verts_tmp[faces_tmp[:, 2]]
@@ -451,6 +485,10 @@ def to_glb(
     )
     if adaptive_report is not None:
         textured_mesh.metadata['adaptive_finishing'] = adaptive_report
+    if repair_surface:
+        textured_mesh.metadata['surface_repair'] = dict(
+            grid_resolution=dc_resolution, projection=float(remesh_project), initial_fill_used=initial_fill_used,
+        )
     
     if use_tqdm:
         pbar.update(1)

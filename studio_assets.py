@@ -7,14 +7,14 @@ from PIL import Image, ImageDraw
 
 EXPORT_VERSION = 6
 
-def prepare_blender(folder):
+def prepare_blender(folder, *, build_archive=True):
     folder = Path(folder)
     source = folder / 'model.glb'
     if not source.is_file():
         raise ValueError('This model has no GLB file.')
     target = folder / 'Blender'
     manifest_path = target / 'manifest.json'
-    if manifest_path.exists() and (folder/'Blender.zip').exists():
+    if manifest_path.exists() and (not build_archive or (folder/'Blender.zip').exists()):
         cached = json.loads(manifest_path.read_text(encoding='utf-8'))
         if (cached.get('export_version') == EXPORT_VERSION and cached.get('source_size') == source.stat().st_size
             and cached.get('source_mtime_ns') == source.stat().st_mtime_ns):
@@ -58,14 +58,18 @@ def prepare_blender(folder):
                 uv_warning = 'Some UVs are outside 0–1; the layout preview is limited to the main tile.'
             else: uv_warning = None
             uv_file=f'{prefix}-UV.svg'
-            lines=['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="#f6f5f0"/><g fill="none" stroke="#193e43" stroke-width="0.4">']
+            lines=['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="#f6f5f0"/><g fill="none" stroke="#193e43" stroke-width="0.4">'] if build_archive else None
             preview=Image.new('RGB',(1024,1024),'#f6f5f0');draw=ImageDraw.Draw(preview)
             for face in faces:
                 pts=[(float(uv[v,0])*1024,(1-float(uv[v,1]))*1024) for v in face]
-                lines.append('<path d="M '+' L '.join(f'{x:.3f} {y:.3f}' for x,y in pts)+' Z"/>')
+                if lines is not None:
+                    lines.append('<path d="M '+' L '.join(f'{x:.3f} {y:.3f}' for x,y in pts)+' Z"/>')
                 draw.line(pts+[pts[0]],fill='#31585d',width=1)
-            lines.append('</g></svg>')
-            (target/uv_file).write_text('\n'.join(lines),encoding='utf-8')
+            if lines is not None:
+                lines.append('</g></svg>')
+                (target/uv_file).write_text('\n'.join(lines),encoding='utf-8')
+            else:
+                uv_file = None
             preview.save(target/f'{prefix}-UV.png')
         else: uv_warning='This mesh has no usable UV coordinates.'
         meshes.append(dict(name=geometry, node=node, vertices=len(mesh.vertices),triangles=len(mesh.faces),
@@ -80,6 +84,8 @@ def prepare_blender(folder):
                   has_pbr=any('MetallicRoughness' in m['maps'] for m in meshes),
                   normals_map_present=any('Normal' in m['maps'] for m in meshes))
     manifest_path.write_text(json.dumps(manifest,indent=2,ensure_ascii=False),encoding='utf-8')
+    if not build_archive:
+        return manifest
     (target/'LIRE-BLENDER.txt').write_text(
         'TRELLIS STUDIO - BLENDER\n\n'
         'Extract this archive. Open model.blend when provided, or import model.glb through File > Import > glTF 2.0.\n'

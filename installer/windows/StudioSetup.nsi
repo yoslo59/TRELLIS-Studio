@@ -33,11 +33,14 @@ VIAddVersionKey "LegalCopyright" "TRELLIS Studio contributors (MIT)"
 
 Var InstallFull
 Var FullRadio
+Var InstallServer
+Var ServerRadio
 Var CreateDesktopShortcut
 Var DesktopCheckbox
 
 !insertmacro MUI_PAGE_WELCOME
 Page custom ShowInstallMode SaveInstallMode
+Page custom ShowComponentMode SaveComponentMode
 Page custom ShowShortcutOptions SaveShortcutOptions
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -62,22 +65,36 @@ LangString CloseForUninstall ${LANG_ENGLISH} "This copy of TRELLIS Studio is run
 LangString CloseForUninstall ${LANG_FRENCH} "Cette copie de TRELLIS Studio tourne en arrière-plan. L'arrêter et poursuivre la désinstallation ? Votre bibliothèque sera conservée."
 LangString BusyUninstall ${LANG_ENGLISH} "Studio is running a generation or export. Let it finish before uninstalling."
 LangString BusyUninstall ${LANG_FRENCH} "Une génération ou un export est en cours. Attendez la fin de l'opération avant de désinstaller."
-LangString CannotCloseForUninstall ${LANG_ENGLISH} "This copy could not be closed automatically. Use Stop TRELLIS Studio in the Start menu and close any MCP client or component installer, then try again."
-LangString CannotCloseForUninstall ${LANG_FRENCH} "Cette copie n'a pas pu être arrêtée automatiquement. Utilisez Stop TRELLIS Studio dans le menu Démarrer, fermez les clients MCP ou l'installateur de composants, puis réessayez."
-LangString InstallModeTitle ${LANG_ENGLISH} "Choose what to install"
-LangString InstallModeTitle ${LANG_FRENCH} "Choisir le type d'installation"
-LangString InstallModeSubtitle ${LANG_ENGLISH} "You can add the engines later if you start with the workshop."
-LangString InstallModeSubtitle ${LANG_FRENCH} "Vous pourrez ajouter les moteurs plus tard si vous choisissez l'atelier."
+LangString CannotCloseForUninstall ${LANG_ENGLISH} "Stop TRELLIS Studio or TRELLIS Server from the Start menu and close any MCP client or component installer, then try again."
+LangString CannotCloseForUninstall ${LANG_FRENCH} "Arrêtez TRELLIS Studio ou TRELLIS Server depuis le menu Démarrer, puis fermez les clients MCP ou l'installateur de composants."
+LangString InstallModeTitle ${LANG_ENGLISH} "Choose how to use TRELLIS"
+LangString InstallModeTitle ${LANG_FRENCH} "Choisir le mode d’utilisation de TRELLIS"
+LangString InstallModeSubtitle ${LANG_ENGLISH} "Choose the edition before selecting the components."
+LangString InstallModeSubtitle ${LANG_FRENCH} "Choisissez l’édition avant de sélectionner les composants."
+LangString DesktopModeChoice ${LANG_ENGLISH} "TRELLIS Desktop (single user)"
+LangString DesktopModeChoice ${LANG_FRENCH} "TRELLIS Bureau (mono-utilisateur)"
+LangString DesktopModeDescription ${LANG_ENGLISH} "Use your local library on this PC without creating an account."
+LangString DesktopModeDescription ${LANG_FRENCH} "Utilisez votre bibliothèque locale sur ce PC, sans création de compte."
+LangString ServerChoice ${LANG_ENGLISH} "TRELLIS Server (multi-user)"
+LangString ServerChoice ${LANG_FRENCH} "TRELLIS Server (multi-utilisateurs)"
+LangString ServerDescription ${LANG_ENGLISH} "Share the studio on your local network. Setup lets you choose the data folder and create the first administrator."
+LangString ServerDescription ${LANG_FRENCH} "Partagez le studio sur votre réseau local. L’installeur vous permet de choisir le dossier des données et de créer le premier administrateur."
+LangString ComponentModeTitle ${LANG_ENGLISH} "Choose the components"
+LangString ComponentModeTitle ${LANG_FRENCH} "Choisir les composants"
+LangString ComponentModeSubtitle ${LANG_ENGLISH} "Choose the workshop or install the generation and rigging engines as well."
+LangString ComponentModeSubtitle ${LANG_FRENCH} "Choisissez l’atelier ou ajoutez les moteurs de génération et de rigging."
 LangString WorkshopChoice ${LANG_ENGLISH} "Workshop only"
 LangString WorkshopChoice ${LANG_FRENCH} "Atelier seul"
-LangString WorkshopDescription ${LANG_ENGLISH} "Library, 3D viewer, diagnostics and GLB import/export. The first launch downloads Python libraries. No model weights or NVIDIA GPU required."
-LangString WorkshopDescription ${LANG_FRENCH} "Bibliothèque, vue 3D, diagnostics, import et export GLB. Le premier lancement télécharge les bibliothèques Python. Aucun modèle ni GPU NVIDIA requis."
+LangString WorkshopDescription ${LANG_ENGLISH} "Library, 3D viewer and GLB import/export. No model downloads or NVIDIA GPU required."
+LangString WorkshopDescription ${LANG_FRENCH} "Bibliothèque, vue 3D, import et export GLB. Aucun modèle ni GPU NVIDIA requis."
 LangString FullChoice ${LANG_ENGLISH} "Full Studio (TRELLIS.2, UniRig and Pixal3D)"
 LangString FullChoice ${LANG_FRENCH} "Studio complet (TRELLIS.2, UniRig et Pixal3D)"
-LangString FullDescription ${LANG_ENGLISH} "About 29 GiB of model data, plus dependencies. Requires an NVIDIA CUDA driver, Blender and a working Ubuntu 22.04 in WSL2."
-LangString FullDescription ${LANG_FRENCH} "Environ 29 Gio de données de modèles, plus les dépendances. Requiert un pilote NVIDIA CUDA, Blender et Ubuntu 22.04 configuré dans WSL2."
-LangString FullProgress ${LANG_ENGLISH} "A separate console shows download progress and asks you to accept the DINOv3 licence."
-LangString FullProgress ${LANG_FRENCH} "Une console séparée affiche la progression et vous demande d'accepter la licence DINOv3."
+LangString FullDescription ${LANG_ENGLISH} "About 29 GiB of models plus dependencies. Requires NVIDIA CUDA, Blender and Ubuntu 22.04 in WSL2."
+LangString FullDescription ${LANG_FRENCH} "Environ 29 Gio de modèles plus dépendances. Requiert NVIDIA CUDA, Blender et Ubuntu 22.04 dans WSL2."
+LangString InstallingServer ${LANG_ENGLISH} "Preparing the server. Continue in the TRELLIS PowerShell window and complete administrator setup in the browser."
+LangString InstallingServer ${LANG_FRENCH} "Préparation du serveur. Poursuivez dans PowerShell et créez le premier administrateur dans le navigateur."
+LangString ServerFailed ${LANG_ENGLISH} "Server setup did not finish. Review the console messages and run Setup again to resume."
+LangString ServerFailed ${LANG_FRENCH} "L'installation du serveur n'a pas abouti. Consultez la console et relancez le Setup pour reprendre."
 LangString InstallingFull ${LANG_ENGLISH} "Installing the engines. Continue in the TRELLIS Studio PowerShell window."
 LangString InstallingFull ${LANG_FRENCH} "Installation des moteurs. Poursuivez dans la fenêtre PowerShell de TRELLIS Studio."
 LangString FullFailed ${LANG_ENGLISH} "The workshop is installed, but the full setup did not finish. See $INSTDIR\logs\full-setup.log and run Setup again to resume."
@@ -97,6 +114,9 @@ LangString ShortcutError ${LANG_FRENCH} "Studio est installé, mais certains rac
 
 Function .onInit
   StrCpy $InstallFull "0"
+  StrCpy $InstallServer "0"
+  IfFileExists "$INSTDIR\config\server.json" 0 +2
+  StrCpy $InstallServer "1"
   StrCpy $CreateDesktopShortcut "0"
   ${IfNot} ${IsNativeAMD64}
     MessageBox MB_ICONSTOP "$(WrongPlatform)" /SD IDOK
@@ -113,15 +133,40 @@ Function ShowInstallMode
   ${If} $0 == error
     Abort
   ${EndIf}
-  ${NSD_CreateFirstRadioButton} 0 3u 100% 13u "$(WorkshopChoice)"
+  ${NSD_CreateFirstRadioButton} 0 6u 100% 13u "$(DesktopModeChoice)"
   Pop $1
-  ${NSD_CreateLabel} 13u 19u -13u 32u "$(WorkshopDescription)"
+  ${NSD_CreateLabel} 13u 23u -13u 25u "$(DesktopModeDescription)"
   Pop $0
-  ${NSD_CreateAdditionalRadioButton} 0 57u 100% 13u "$(FullChoice)"
+  ${NSD_CreateAdditionalRadioButton} 0 55u 100% 13u "$(ServerChoice)"
+  Pop $ServerRadio
+  ${NSD_CreateLabel} 13u 72u -13u 34u "$(ServerDescription)"
+  Pop $0
+  ${If} $InstallServer == "1"
+    ${NSD_Check} $ServerRadio
+  ${Else}
+    ${NSD_Check} $1
+  ${EndIf}
+  nsDialogs::Show
+FunctionEnd
+
+Function SaveInstallMode
+  ${NSD_GetState} $ServerRadio $InstallServer
+FunctionEnd
+
+Function ShowComponentMode
+  !insertmacro MUI_HEADER_TEXT "$(ComponentModeTitle)" "$(ComponentModeSubtitle)"
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  ${NSD_CreateFirstRadioButton} 0 6u 100% 13u "$(WorkshopChoice)"
+  Pop $1
+  ${NSD_CreateLabel} 13u 23u -13u 25u "$(WorkshopDescription)"
+  Pop $0
+  ${NSD_CreateAdditionalRadioButton} 0 55u 100% 13u "$(FullChoice)"
   Pop $FullRadio
-  ${NSD_CreateLabel} 13u 73u -13u 32u "$(FullDescription)"
-  Pop $0
-  ${NSD_CreateLabel} 13u 109u -13u 27u "$(FullProgress)"
+  ${NSD_CreateLabel} 13u 72u -13u 34u "$(FullDescription)"
   Pop $0
   ${If} $InstallFull == "1"
     ${NSD_Check} $FullRadio
@@ -131,7 +176,7 @@ Function ShowInstallMode
   nsDialogs::Show
 FunctionEnd
 
-Function SaveInstallMode
+Function SaveComponentMode
   ${NSD_GetState} $FullRadio $InstallFull
 FunctionEnd
 
@@ -157,7 +202,11 @@ Function SaveShortcutOptions
 FunctionEnd
 
 Function StartStudio
-  ExecShell "open" "$INSTDIR\installer\windows\Launch.cmd"
+  ${If} $InstallServer == "1"
+    ExecShell "open" "$INSTDIR\installer\windows\Launch.cmd" "Server"
+  ${Else}
+    ExecShell "open" "$INSTDIR\installer\windows\Launch.cmd"
+  ${EndIf}
 FunctionEnd
 
 !macro ReadStudioState ExtraArguments
@@ -234,11 +283,24 @@ Section "TRELLIS Studio"
   WriteRegStr HKCU "${ARP}" "QuietUninstallString" '"$INSTDIR\Uninstall.exe" /S'
   WriteRegDWORD HKCU "${ARP}" "NoModify" 1
   WriteRegDWORD HKCU "${ARP}" "NoRepair" 1
-  !insertmacro ManageShortcuts "Install" "-DesktopShortcut $CreateDesktopShortcut"
+  !insertmacro ManageShortcuts "Install" "-DesktopShortcut $CreateDesktopShortcut -ServerMode $InstallServer"
   ${If} $0 != "0"
     MessageBox MB_ICONEXCLAMATION "$(ShortcutError)" /SD IDOK
   ${EndIf}
-  ${If} $InstallFull == "1"
+  ${If} $InstallServer == "1"
+    IfSilent install_done
+    DetailPrint "$(InstallingServer)"
+    StrCpy $1 ""
+    ${If} $InstallFull == "1"
+      StrCpy $1 "-FullStudio"
+    ${EndIf}
+    ClearErrors
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\installer\windows\Launch-Installed.ps1" -Mode ServerSetup -NoBrowser $1' $0
+    IfErrors server_failed
+    ${If} $0 != "0"
+      Goto server_failed
+    ${EndIf}
+  ${ElseIf} $InstallFull == "1"
     DetailPrint "$(InstallingFull)"
     ClearErrors
     ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\installer\windows\Launch-Installed.ps1" -Mode Full -NoBrowser' $0
@@ -251,6 +313,11 @@ Section "TRELLIS Studio"
     ${EndIf}
   ${EndIf}
   Goto install_done
+  server_failed:
+    DetailPrint "$(ServerFailed)"
+    MessageBox MB_ICONEXCLAMATION "$(ServerFailed)" /SD IDOK
+    SetErrorLevel 3
+    Abort
   full_console_failed:
     DetailPrint "$(FullConsoleFailed)"
     MessageBox MB_ICONEXCLAMATION "$(FullConsoleFailed)" /SD IDOK

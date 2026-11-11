@@ -8,8 +8,10 @@ DEFAULT_PROFILE = 'game_d'
 HUMANOID_EXPERIMENTAL = 'humanoid_experimental'
 DENSE_MASTER = 'dense_master'
 DENSE_MASTER_NAME = 'Dense Master'
-DENSE_MASTER_TRIANGLES = 1_000_000
+DENSE_MASTER_TRIANGLES = 1_200_000
 DENSE_MASTER_FINISHING = dict(mesh_mode='direct', pre_simplify=False, repair_holes=False)
+SURFACE_REPAIR_FINISHING = dict(mesh_mode='remesh', pre_simplify=False, repair_holes=True,
+                                remesh_project=.45, remesh_band=1.)
 GENERATION_PRESETS = {
     'game_d': (20, 28000, 2048), 'high_detail': (20, 250000, 2048),
     HUMANOID_EXPERIMENTAL: (20, 250000, 2048), DENSE_MASTER: (20, DENSE_MASTER_TRIANGLES, 2048),
@@ -92,8 +94,9 @@ def options_for_job(settings):
     """Read old laboratory settings without changing the original records."""
     base=int(settings.get('steps',GENERATION_PRESETS.get(settings.get('preset'),(12,))[0]))
     profile_base=PROFILE_ADVANCED.get(settings.get('preset'), {})
+    repair = SURFACE_REPAIR_FINISHING if settings.get('repair_surface') is True else {}
     if isinstance(settings.get('generation_options'),dict):
-        return normalize_options({**profile_base,**settings['generation_options']},base)
+        return normalize_options({**profile_base,**settings['generation_options'],**repair},base)
     overrides={**profile_base,**{k:settings[k] for k in BY_KEY if k in settings}}
     if 'remesh' in settings:
         overrides['mesh_mode']='remesh' if settings['remesh'] else 'direct'
@@ -101,7 +104,7 @@ def options_for_job(settings):
     if isinstance(settings.get('qem_options'),dict):
         for source,target in [('lambda_edge_length','qem_edge_weight'),('lambda_skinny','qem_skinny_weight')]:
             if source in settings['qem_options']:overrides[target]=settings['qem_options'][source]
-    return normalize_options(overrides,base)
+    return normalize_options({**overrides,**repair},base)
 
 def sampler_options(options):
     return {name:dict(steps=options[name+'_steps'],guidance_strength=options[name+'_guidance'],

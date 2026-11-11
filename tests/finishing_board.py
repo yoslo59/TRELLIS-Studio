@@ -30,6 +30,7 @@ def run():
                           ('STATE_DIR', 'state'), ('PROFILES_FILE', 'profiles.json')]:
             os.environ['TRELLIS_' + key] = str(root / name)
         import app
+        from generation_options import options_for_job
         from studio_workspace import read
 
         for identifier in (SOURCE, OTHER):
@@ -43,6 +44,15 @@ def run():
                            texture_size=2048, resolution=1024, seed=117, height_m=0.6))
             app.write_json(folder / 'status.json', dict(state='done', stage='Fixture', progress=100))
         source_folder = app.OUTPUT / SOURCE
+        app.write_json(source_folder / 'result.json', dict(raw_triangles=20_933_594))
+        legacy_folder = app.OUTPUT / OTHER
+        legacy_settings = read(legacy_folder / 'settings.json')
+        legacy_settings['generation_options'] = {'pre_simplify': False}
+        app.write_json(legacy_folder / 'settings.json', legacy_settings)
+        (legacy_folder / 'generation.log').write_text(
+            'Original mesh: 10000 vertices, 19000 faces\nInitial mesh: 11000 vertices, 20000 faces\n',
+            encoding='utf-8',
+        )
         baseline = {filename: (source_folder / filename).read_bytes() for filename in
                     ('settings.json', 'model.glb', 'input.png', 'raw_state.pt')}
         calls = []
@@ -91,6 +101,12 @@ def run():
                 assert server.started
                 board = send('GET', route)
                 assert board['source_id'] == SOURCE and board['cache_bytes'] == len(baseline['raw_state.pt'])
+                assert board['source_triangles'] == 20_933_594
+                legacy_route = f'/api/jobs/{OTHER}/finishing-board'
+                assert send('GET', legacy_route)['source_triangles'] == 19_000
+                legacy_settings['generation_options']['pre_simplify'] = True
+                app.write_json(legacy_folder / 'settings.json', legacy_settings)
+                assert send('GET', legacy_route)['source_triangles'] is None
                 assert board['selected_id'] is None
                 assert send('GET', '/api/status')['default_profile'] == 'game_d'
                 send('PATCH', '/api/queue', json={'paused': True})
@@ -136,15 +152,34 @@ def run():
                 assert state['settings']['triangles'] == 8000000
                 options = state['settings']['generation_options']
                 assert options['mesh_mode'] == 'direct' and not options['pre_simplify'] and not options['repair_holes']
+                assert 'repair_surface' not in state['settings']
+                send('POST', refinish_route, 400, json={'repair_surface': 'true'})
+                fixed_repair = send('POST', refinish_route, 202, json={'triangles': 75000, 'repair_surface': True})
+                adaptive_repair = send('POST', refinish_route, 202, json={
+                    'triangles': 250000, 'adaptive_finishing': True, 'repair_surface': True})
+                for repair, target, use_adaptive in ((fixed_repair, 75000, False), (adaptive_repair, 250000, True)):
+                    repair_id = repair['id']
+                    settings = wait_for(repair_id, 'queued')['settings']
+                    assert settings['repair_surface'] is True
+                    assert settings.get('adaptive_finishing', False) is use_adaptive
+                    assert settings['triangles'] == target
+                    assert settings['parent_id'] == settings['finish_source_id'] == SOURCE
+                    assert not (app.OUTPUT / repair_id / 'raw_state.pt').exists()
+                    effective = options_for_job(settings)
+                    assert effective['mesh_mode'] == 'remesh' and effective['remesh_project'] == .45
+                    assert effective['repair_holes'] is True and effective['pre_simplify'] is False
                 send('PATCH', '/api/queue', json={'paused': False})
                 assert wait_for(adaptive['id'], 'done')['result']['neural_inferences'] == 0
+                for repair in (fixed_repair, adaptive_repair):
+                    assert wait_for(repair['id'], 'done')['result']['finish_source_id'] == SOURCE
                 chosen = response['ids'][1]
                 assert send('PATCH', route, json={'selected_id': chosen})['selected_id'] == chosen
-                assert send('GET', f'/api/jobs/{chosen}/finishing-board')['selected_id'] == chosen
+                child_board = send('GET', f'/api/jobs/{chosen}/finishing-board')
+                assert child_board['selected_id'] == chosen and child_board['source_triangles'] == 20_933_594
                 assert read(source_folder / 'finishing-choice.json')['id'] == chosen
                 assert {name: (source_folder / name).read_bytes() for name in baseline} == baseline
                 assert send('PATCH', route, json={'selected_id': None})['selected_id'] is None
-                print('PASS: atomic batch, cached worker dispatch, cache loss/retry, persisted choice and original preservation')
+                print('PASS: atomic batch, cached repair dispatch, cache loss/retry, persisted choice and original preservation')
             finally:
                 server.should_exit = True
                 thread.join(timeout=8)

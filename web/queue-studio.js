@@ -1,4 +1,4 @@
-import {button, dialog, el, field, input, select, action} from './workbench-ui.js?v=3.3.1';
+import {button, dialog, el, field, input, select, action} from './workbench-ui.js?v=3.3.4';
 
 const PRIORITIES = [['2', 'Highest'], ['1', 'High'], ['0', 'Normal'], ['-1', 'Low'], ['-2', 'Lowest']];
 const STATE_ORDER = {running: 0, queued: 1, error: 2, cancelled: 2, done: 3};
@@ -97,7 +97,9 @@ export function createQueueStudio({api, refresh}) {
         resolution: Number(resolution.value), remove_bg: removeBg.checked});
       recipe.close();
     });
-    recipe.body.replaceChildren(field('Geometry resolution', resolution), field('Triangle target', triangles),
+    const dense = profiles.find(profile => profile.id === row.profile_id)?.settings.preset === 'dense_master';
+    recipe.body.replaceChildren(field('Geometry resolution', resolution),
+      field(dense ? 'Maximum triangles' : 'Triangle target', triangles),
       field('Texture size', texture), field('Remove image background', removeBg), el('p', 'hint',
         'Sampling and finishing controls come from this image’s profile. Save a custom profile in Create for a different recipe.'));
     recipe.foot.replaceChildren(apply);
@@ -197,6 +199,7 @@ export function createQueueStudio({api, refresh}) {
     const saved = item.settings;
     const pixal = saved.engine === 'pixal3d';
     const refinish = saved.source_kind === 'refinish';
+    const adaptiveRefinish = refinish && saved.adaptive_finishing;
     const [{runtime, schema}, components] = await Promise.all([
       capabilities(),
       refinish ? api('/api/components') : null,
@@ -211,7 +214,10 @@ export function createQueueStudio({api, refresh}) {
     const triangles = triangleInput(saved.triangles, schema);
     const height = heightInput(saved.height_m);
     const priority = prioritySelect(item.priority);
-    const finishing = item.retry_finishing;
+    const canRepairSurface = runtime.features?.includes('repair_surface') &&
+      (refinish || saved.preset === 'dense_master');
+    const repairSurface = checkbox(!!saved.repair_surface);
+    const finishing = saved.repair_surface ? saved.generation_options : item.retry_finishing;
     const method = select([['remesh', 'Rebuild surface'], ['direct', 'Simplify existing surface']], finishing?.mesh_mode);
     const preSimplify = checkbox(finishing?.pre_simplify);
     const repair = checkbox(finishing?.repair_holes);
@@ -224,9 +230,18 @@ export function createQueueStudio({api, refresh}) {
       field('Geometry resolution', resolution, refinish ? 'Uses the saved geometry cache.' : pixal ? 'Pixal3D uses 1024³.' : ''),
       field(saved.adaptive_finishing ? 'Maximum triangles' : 'Triangle target', triangles), field('Texture size', texture), field('Height · m', height),
       field('Priority', priority));
-    if (finishing?.mesh_mode && !saved.adaptive_finishing) {
-      retry.body.append(field('Finishing method', method), field('Pre-simplify dense meshes to 2M', preSimplify),
-        field('Fill small holes', repair));
+    if (canRepairSurface) {
+      retry.body.append(field('Repair holes', repairSurface, 'Rebuild the surface before simplifying.'));
+    }
+    if (finishing?.mesh_mode && !adaptiveRefinish) {
+      const legacyFields = [field('Finishing method', method), field('Pre-simplify dense meshes to 2M', preSimplify),
+        field('Fill small holes', repair)];
+      const syncFinishing = () => {
+        for (const control of legacyFields) control.hidden = repairSurface.checked;
+      };
+      repairSurface.addEventListener('change', syncFinishing);
+      syncFinishing();
+      retry.body.append(...legacyFields);
     }
     if (refinish && (canBakeNormals || saved.bake_normals)) {
       retry.body.append(field('Transfer master detail to a normal map', bakeNormals,
@@ -259,7 +274,8 @@ export function createQueueStudio({api, refresh}) {
         height_m: height.valueAsNumber, priority: Number(priority.value)};
       if (!fixedResolution) changes.resolution = Number(resolution.value);
       if (refinish && bakeNormals.checked !== !!saved.bake_normals) changes.bake_normals = bakeNormals.checked;
-      if (finishing?.mesh_mode && !saved.adaptive_finishing) {
+      if (canRepairSurface && repairSurface.checked !== !!saved.repair_surface) changes.repair_surface = repairSurface.checked;
+      if (finishing?.mesh_mode && !adaptiveRefinish && !repairSurface.checked) {
         if (method.value !== finishing.mesh_mode) changes.mesh_mode = method.value;
         if (preSimplify.checked !== finishing.pre_simplify) changes.pre_simplify = preSimplify.checked;
         if (repair.checked !== finishing.repair_holes) changes.repair_holes = repair.checked;

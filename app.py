@@ -52,9 +52,11 @@ def gpu_description():
         return f'{name.strip()} · {round(float(memory)/1024,1):g} GB'
     except (OSError,ValueError,subprocess.SubprocessError,IndexError):return 'No NVIDIA GPU detected'
 GPU_DESCRIPTION=gpu_description()
-PROFILES = ProfileStore(os.environ.get('TRELLIS_PROFILES_FILE', str(ROOT / 'config' / 'generation-profiles.json')))
-OUTPUT = Path(os.environ.get('TRELLIS_OUTPUT_DIR', str(ROOT / 'outputs'))).resolve()
-TRASH = Path(os.environ.get('TRELLIS_TRASH_DIR', str(ROOT / 'trash'))).resolve()
+# Server workspaces each use their own application state and paths.
+WORKSPACE_CONFIG = globals().get('WORKSPACE_CONFIG', {})
+PROFILES = ProfileStore(WORKSPACE_CONFIG.get('profiles', os.environ.get('TRELLIS_PROFILES_FILE', str(ROOT / 'config' / 'generation-profiles.json'))))
+OUTPUT = Path(WORKSPACE_CONFIG.get('outputs', os.environ.get('TRELLIS_OUTPUT_DIR', str(ROOT / 'outputs')))).resolve()
+TRASH = Path(WORKSPACE_CONFIG.get('trash', os.environ.get('TRELLIS_TRASH_DIR', str(ROOT / 'trash')))).resolve()
 OUTPUT.mkdir(parents=True, exist_ok=True)
 PROCESS = None
 ACTIVE = None
@@ -69,7 +71,7 @@ EXPORTING = set()
 EXPORT_PROCESS = None
 EXPORT_TASK = None
 EXPORT_LOG = None
-EXPORT_ROOT = Path(os.environ.get('TRELLIS_EXPORT_DIR',str(ROOT/'exports'))).resolve()
+EXPORT_ROOT = Path(WORKSPACE_CONFIG.get('exports', os.environ.get('TRELLIS_EXPORT_DIR',str(ROOT/'exports')))).resolve()
 RIG_PILOT = Path(os.environ.get('TRELLIS_RIG_PILOT_DIR', str(ROOT / 'UniRig' / 'tests' / 'tira' / 'delivery'))).resolve()
 
 def stop_worker():
@@ -115,6 +117,8 @@ app = FastAPI(title='TRELLIS Studio API', version=VERSION, description='Local as
 
 @app.middleware('http')
 async def local_requests(request: Request, call_next):
+    if WORKSPACE_CONFIG and request.scope.get('trellis.server') is True:
+        return await call_next(request)
     host = request.url.hostname
     if host not in ('127.0.0.1', 'localhost'):
         return JSONResponse({'detail': 'Local access only.'}, status_code=403)
@@ -197,14 +201,14 @@ def status():
                 active=ACTIVE if PROCESS is not None and PROCESS.poll() is None else TERRAIN_ACTIVE,
                 export_active=EXPORT_PROCESS is not None and EXPORT_PROCESS.poll() is None,
                 resolution=DEFAULT_GENERATION['resolution'], default_profile=DEFAULT_PROFILE, local=True, studio_version=VERSION,source_revision=SOURCE_REVISION,ui_revision=UI_REVISION,multi_view=pixal3d['ready'],pixal3d=pixal3d,
-                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','rig_landmarks','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','collection_transfer','rest_api_v1','mcp','refinish','pixal3d_multiview','pixal3d_face_projection'], texture_sizes=textures,supported_resolutions=resolutions)
+                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','rig_landmarks','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','library_turntable','collection_transfer','rest_api_v1','mcp','refinish','repair_surface','pixal3d_multiview','pixal3d_face_projection'], texture_sizes=textures,supported_resolutions=resolutions)
 
 @app.get('/api/components')
 def components():
     try: runtime=json.loads((ROOT/'logs'/'components.json').read_text(encoding='utf-8-sig'))
     except (OSError,ValueError): runtime={}
     blender=bool(find_blender())
-    return dict(blender=blender, import_formats=list(FORMATS) if blender else ['.glb'], max_import_bytes=MAX_BYTES,
+    return dict(blender=blender, import_formats=list(FORMATS) if blender and not WORKSPACE_CONFIG else ['.glb'], max_import_bytes=MAX_BYTES,
                 unirig=runtime.get('unirig',{'ready':False,'message':'Run Open TRELLIS.cmd to check UniRig.'}),
                 rig_pilot=(RIG_PILOT/'tira_animated.glb').is_file())
 
@@ -229,6 +233,7 @@ async def import_model(model: UploadFile=File(...), name: str=Form('')):
     async with LOCK:
         require_idle()
         suffix=Path(model.filename or '').suffix.lower()
+        if WORKSPACE_CONFIG and suffix != '.glb': raise HTTPException(400,'Server imports require a self-contained GLB.')
         if suffix not in FORMATS: raise HTTPException(400,'Choose a model GLB, FBX, OBJ, STL ou PLY.')
         if suffix!='.glb' and find_blender() is None: raise HTTPException(503,'Blender is required for this format. You can import a self-contained GLB without it.')
         if len(name)>80: raise HTTPException(400,'Name too long (80 characters maximum).')
@@ -362,7 +367,7 @@ def generation_options_schema():
 
 @app.get('/api/profiles')
 def profiles_list():
-    try: return {'default_profile': DEFAULT_PROFILE, 'profiles': PROFILES.list()}
+    try: return {'default_profile': DEFAULT_PROFILE, 'startup_profile': DENSE_MASTER, 'profiles': PROFILES.list()}
     except ValueError as error: raise HTTPException(422, str(error))
 
 async def save_profile(request, identifier=None):
@@ -461,7 +466,7 @@ async def inspect_job(identifier: str):
     async with LOCK:
         folder=job_path(identifier)
         if job_record(folder)['state']!='done': raise HTTPException(409,'The model must be complete.')
-        try: return await asyncio.to_thread(prepare_blender,folder)
+        try: return await asyncio.to_thread(prepare_blender,folder,build_archive=not WORKSPACE_CONFIG)
         except (ValueError,OSError) as error: raise HTTPException(422,str(error))
 
 @app.get('/api/jobs/{identifier}/diagnostics')
@@ -746,26 +751,38 @@ async def prepare_reference_uploads(sources, raw_edits, engine, remove_bg):
     return edits, cutouts, frames
 
 
-def encode_reference_preview(image, downsample=False):
-    if downsample:
+def encode_reference_preview(image, max_size=None):
+    if max_size:
         image = image.copy()
-        image.thumbnail((768, 768), Image.Resampling.LANCZOS)
+        image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
     buffer = io.BytesIO()
     image.save(buffer, format='PNG')
     return 'data:image/png;base64,' + base64.b64encode(buffer.getvalue()).decode('ascii')
 
 
-def reference_preview_views(sources, cutouts, frames, engine):
+def reference_preview_views(sources, cutouts, frames, engine, preview_size=None):
     views = []
     for role, source in sources.items():
         frame = frames[role]
         if engine == 'pixal3d':
             frame = Image.fromarray((premultiplied_rgb(frame) * 255).astype('uint8'))
         views.append(dict(role=role, width=source.width, height=source.height,
-                          original=encode_reference_preview(source, downsample=True),
-                          cutout=encode_reference_preview(cutouts[role], downsample=True),
-                          framed=encode_reference_preview(frame)))
+                          original=encode_reference_preview(source, max_size=preview_size or 768),
+                          cutout=encode_reference_preview(cutouts[role], max_size=preview_size or 768),
+                          framed=encode_reference_preview(frame, max_size=preview_size)))
     return views
+
+
+async def prepare_reference_preview(image, left_image=None, back_image=None, right_image=None,
+                                    *, engine, remove_bg, reference_edits, preview_size=None):
+    if engine not in ('trellis2', 'pixal3d'):
+        raise HTTPException(400, 'Unknown reference engine.')
+    if engine == 'trellis2' and any((left_image, back_image, right_image)):
+        raise HTTPException(400, 'Additional views are only supported by Pixal3D.')
+    sources = await reference_sources((image, left_image, back_image, right_image), engine)
+    _, cutouts, frames = await prepare_reference_uploads(sources, reference_edits, engine, remove_bg)
+    views = await asyncio.to_thread(reference_preview_views, sources, cutouts, frames, engine, preview_size)
+    return dict(engine=engine, views=views)
 
 
 @app.post('/api/reference-preview')
@@ -778,14 +795,8 @@ async def reference_preview(
     remove_bg: Annotated[bool, Form()] = True,
     reference_edits: Annotated[str, Form()] = '',
 ):
-    if engine not in ('trellis2', 'pixal3d'):
-        raise HTTPException(400, 'Unknown reference engine.')
-    if engine == 'trellis2' and any((left_image, back_image, right_image)):
-        raise HTTPException(400, 'Additional views are only supported by Pixal3D.')
-    sources = await reference_sources((image, left_image, back_image, right_image), engine)
-    _, cutouts, frames = await prepare_reference_uploads(sources, reference_edits, engine, remove_bg)
-    views = await asyncio.to_thread(reference_preview_views, sources, cutouts, frames, engine)
-    return dict(engine=engine, views=views)
+    return await prepare_reference_preview(image, left_image, back_image, right_image, engine=engine,
+                                           remove_bg=remove_bg, reference_edits=reference_edits)
 
 
 @app.post('/api/generate-multiview', status_code=202)
@@ -804,6 +815,7 @@ async def generate_multiview(
     parent_id: Annotated[str, Form()] = '',
     reference_prompt: Annotated[str, Form()] = '',
     keep_finishing_source: Annotated[bool, Form()] = False,
+    repair_surface: Annotated[bool, Form()] = False,
     reproject_face: Annotated[bool, Form()] = False,
     queue_priority: Annotated[int, Form()] = 0,
     reference_edits: Annotated[str, Form()] = '',
@@ -811,6 +823,8 @@ async def generate_multiview(
     profile = next((p for p in PIXAL_PROFILES if p['id'] == profile_id), None)
     if profile is None:
         raise HTTPException(400, 'Unknown Pixal3D profile. Choose a profile advertised by Studio.')
+    if repair_surface and profile['id'] != DENSE_MASTER:
+        raise HTTPException(400, 'Choose Dense Master to repair the surface during generation.')
     keep_finishing_source = keep_finishing_source or profile.get('keep_finishing_source', False)
     if (side_angle not in (40, 90) or not 0.01 <= height_m <= 100
         or not 0 <= seed <= 2147483647 or not -2 <= queue_priority <= 2
@@ -849,6 +863,12 @@ async def generate_multiview(
     settings['profile_snapshot'] = dict(profile, engine='pixal3d', triangles=settings['triangles'],
         texture_size=settings['texture_size'], generation_options=generation_options,
         keep_finishing_source=keep_finishing_source)
+    if profile['id'] == DENSE_MASTER:
+        settings['adaptive_finishing'] = True
+        settings['profile_snapshot']['adaptive_finishing'] = True
+    if repair_surface:
+        settings['repair_surface'] = True
+        settings['profile_snapshot']['repair_surface'] = True
     if reference_edits:
         settings['reference_edits'] = edits
     if reproject_face:
@@ -887,11 +907,16 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
                    triangles: int = Form(0), asset_type: str = Form('object'), texture_size: int = Form(0),
                    reference_prompt: str = Form(''), resolution: int = Form(DEFAULT_GENERATION['resolution']), advanced_settings: str = Form(''),
                    keep_finishing_source: Annotated[bool,Form()]=False,
+                   repair_surface: Annotated[bool,Form()]=False,
                    profile_id: str = Form(''), parent_id: Annotated[str,Form()]='', queue_only: Annotated[bool,Form()]=False, queue_priority: Annotated[int,Form()]=0, queue_hold: Annotated[bool,Form()]=False,
                    reference_edits: Annotated[str, Form()] = ''):
+    if WORKSPACE_CONFIG:
+        queue_only = True
     # Legacy multipart profile_id is provenance; an edited base preset wins.
     experimental = preset == HUMANOID_EXPERIMENTAL
     cache_required = preset in (HUMANOID_EXPERIMENTAL, DENSE_MASTER)
+    if repair_surface and preset != DENSE_MASTER:
+        raise HTTPException(400, 'Choose Dense Master to repair the surface during generation.')
     if cache_required:
         keep_finishing_source = True
     if experimental:
@@ -937,6 +962,8 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
                         resolution=resolution,pipeline_type={512:'512',1024:'1024_cascade',1536:'1536_cascade'}[resolution],
                         generation_options=advanced,settings_version=2)
         if keep_finishing_source: settings['keep_finishing_source'] = True
+        if repair_surface: settings['repair_surface'] = True
+        if preset == DENSE_MASTER: settings['adaptive_finishing'] = True
         if reference_edits:
             settings['reference_edits'] = edits
         if profile: settings['profile'] = dict(id=profile['id'], name=profile['name'])
@@ -947,6 +974,10 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
                 generation_options=advanced)
             if experimental:
                 settings['profile_snapshot']['experimental'] = True
+            if preset == DENSE_MASTER:
+                settings['profile_snapshot']['adaptive_finishing'] = True
+            if repair_surface:
+                settings['profile_snapshot']['repair_surface'] = True
         if parent_id:settings['parent_id']=parent_id
         with TemporaryDirectory(prefix='.trellis2-', dir=OUTPUT) as staging:
             staged = Path(staging)

@@ -237,6 +237,10 @@ def run_job():
         )
         if face_report is not None:
             stats['face_projection'] = face_report
+        if 'adaptive_finishing' in result.metadata:
+            stats['adaptive_finishing'] = result.metadata['adaptive_finishing']
+        if 'surface_repair' in result.metadata:
+            stats['surface_repair'] = result.metadata['surface_repair']
         write(JOB / 'result.json', stats)
         status('done', 'Pixal3D model ready', 100, result=stats)
     except Exception as error:

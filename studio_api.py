@@ -9,15 +9,63 @@ from PIL import Image
 from studio_workspace import Workspace,read,write,name,checkpoint,revisions,ID,SNAPSHOT_FILES,SNAPSHOT_DIRS,finishing_source
 from library_actions import validate_ids
 from glb_data import read as read_glb,animation_info
-from generation_options import GENERATION_PRESETS, TRIANGLE_MAX, TRIANGLE_MIN, options_for_job
+from generation_options import DENSE_MASTER, GENERATION_PRESETS, TRIANGLE_MAX, TRIANGLE_MIN, options_for_job
 from pixal3d_runtime import validate_views
 from reference_preparation import PREPARED_VIEWS
 
 RETRY_STATES = {'error', 'cancelled'}
 RETRY_FIELDS = {'resolution', 'texture_size', 'triangles', 'height_m', 'priority',
-                'mesh_mode', 'pre_simplify', 'repair_holes', 'bake_normals'}
+                'mesh_mode', 'pre_simplify', 'repair_holes', 'bake_normals', 'repair_surface'}
 RETRY_FINISHING_FIELDS = ('mesh_mode', 'pre_simplify', 'repair_holes')
 PREPARED_REFERENCES = (*PREPARED_VIEWS.values(), 'conditioning.png')
+PRESENTATION_FILES = dict(thumbnail='thumbnail.png', capture='capture.png', turntable='turntable.webm')
+LIBRARY_TURNTABLE_LIMIT = 6 * 1024**2
+LIBRARY_TURNTABLE_FILE = 'library-turntable.webm'
+LIBRARY_TURNTABLE_STORAGE = re.compile(r'library-turntable-[a-f0-9]{32}\.webm')
+WEBM_SIGNATURE = b'\x1aE\xdf\xa3'
+WEBM_DOCTYPE = b'\x42\x82\x84webm'
+
+
+def presentation_directory(folder):
+    target = folder / 'Presentation'
+    if target.resolve().parent != folder.resolve():
+        raise HTTPException(403, 'Presentation path rejected.')
+    return target
+
+
+def library_turntable_path(target, manifest):
+    entry = manifest.get('library_turntable')
+    if isinstance(entry, dict):
+        filename = entry.get('file')
+        if isinstance(filename, str) and LIBRARY_TURNTABLE_STORAGE.fullmatch(filename):
+            path = target / filename
+            if not path.is_symlink():
+                return path
+    return None
+
+
+def save_library_turntable(target, content, recipe):
+    """Publish the new revision only after its complete WebM has been written."""
+    target.mkdir(exist_ok=True)
+    manifest_path = target / 'presentation.json'
+    manifest = read(manifest_path, {})
+    previous = library_turntable_path(target, manifest)
+    revision = uuid.uuid4().hex
+    path = target / ('library-turntable-' + revision + '.webm')
+    manifest['library_turntable'] = dict(file=path.name, revision=revision, bytes=len(content), recipe=recipe)
+    try:
+        path.write_bytes(content)
+        write(manifest_path, manifest)
+    except (OSError, ValueError):
+        path.unlink(missing_ok=True)
+        raise
+    if previous is not None:
+        try:
+            previous.unlink(missing_ok=True)
+        except PermissionError:
+            # A range reader can still hold the previous recording on Windows.
+            pass
+    return manifest
 
 
 class FinishingRecipe(NamedTuple):
@@ -29,6 +77,7 @@ class FinishingRecipe(NamedTuple):
     adaptive: bool
     preset: str | None
     bake_normals: bool
+    repair_surface: bool
 
 
 def triangle_presets(record):
@@ -38,6 +87,24 @@ def triangle_presets(record):
     return dict(low=12_000, medium=28_000, high=150_000, ultra=TRIANGLE_MAX)
 
 
+def finishing_source_triangles(source):
+    """Read source provenance without deserializing the geometry cache."""
+    try:
+        result = read(source / 'result.json', {})
+        count = result.get('raw_triangles') if isinstance(result, dict) else None
+        if type(count) is int and count > 0:
+            return count
+        settings = read(source / 'settings.json')
+        if not isinstance(settings, dict) or options_for_job(settings)['pre_simplify']:
+            return None
+        # Older exporters logged this before finishing, but after pre-simplification.
+        with (source / 'generation.log').open('rb') as log:
+            match = re.search(rb'^Original mesh: \d+ vertices, (\d+) faces\r?$', log.read(256 * 1024), re.MULTILINE)
+        return int(match[1]) if match else None
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+
+
 def install(app,g):
     return StudioServices(app,g)
 
@@ -45,7 +112,7 @@ class StudioServices:
     def __init__(self,app,g):
         self.g=g;self.output=g['OUTPUT'];self.root=g['ROOT'];self.task=None
         default=self.root/'config'/'studio-state' if self.output==self.root/'outputs' else self.output.parent/(self.output.name+'-state')
-        self.workspace=Workspace(os.environ.get('TRELLIS_STATE_DIR',str(default)))
+        self.workspace=Workspace(g.get('WORKSPACE_CONFIG',{}).get('state',os.environ.get('TRELLIS_STATE_DIR',str(default))))
         self.register(app)
     def queued(self,identifier):return self.workspace.pending(identifier)
     def cancel_pending(self,identifier,folder):
@@ -63,7 +130,8 @@ class StudioServices:
             folder=self.output/entry['id'];state=read(folder/'status.json',{})
             if state.get('state')=='running':write(folder/'status.json',dict(state='error',stage='Interrupted · retry available',progress=0,error='The studio stopped during this calculation. Retry starts it from its saved recipe.'));interrupted=True
         if interrupted:self.workspace.queue['paused']=True;self.workspace.save_queue()
-        self.task=asyncio.create_task(self.scheduler())
+        if not self.g.get('WORKSPACE_CONFIG'):
+            self.task=asyncio.create_task(self.scheduler())
     async def close(self):
         if self.task:self.task.cancel()
     async def scheduler(self):
@@ -120,7 +188,7 @@ class StudioServices:
     def finishing_recipe(self, data, record, options):
         if not isinstance(data, dict) or set(data) - {'triangles', 'texture_size', 'mesh_mode', 'repair_holes',
                                                         'pre_simplify', 'adaptive_finishing',
-                                                        'budget_preset', 'bake_normals'}:
+                                                        'budget_preset', 'bake_normals', 'repair_surface'}:
             raise ValueError('Only finishing settings can be changed.')
         settings = record['settings']
         preset = data.get('budget_preset')
@@ -135,33 +203,46 @@ class StudioServices:
         repair = data.get('repair_holes', options['repair_holes'])
         pre_simplify = data.get('pre_simplify', options['pre_simplify'])
         adaptive = data.get('adaptive_finishing', False)
+        repair_surface = data.get('repair_surface', False)
         bake_normals = data.get('bake_normals', preset == 'medium' and bool(self.g['find_blender']()))
         if type(triangles) is not int or not TRIANGLE_MIN <= triangles <= TRIANGLE_MAX:
             raise ValueError(f'Choose a target of {TRIANGLE_MIN:,}–{TRIANGLE_MAX:,} triangles.')
         if type(texture_size) is not int or texture_size not in self.g['generation_capabilities']()[1]:
             raise ValueError('Choose a supported texture size.')
-        if mesh_mode not in ('direct', 'remesh') or any(type(flag) is not bool for flag in (repair, pre_simplify, adaptive, bake_normals)):
+        if mesh_mode not in ('direct', 'remesh') or any(type(flag) is not bool for flag in
+                (repair, pre_simplify, adaptive, bake_normals, repair_surface)):
             raise ValueError('Choose valid mesh finishing options.')
         if bake_normals and not self.g['find_blender']():
             raise HTTPException(503, 'Install Blender to bake detail from the master, or disable the normal map.')
         if adaptive or preset:
             mesh_mode, repair, pre_simplify = 'direct', False, False
-        return FinishingRecipe(triangles, texture_size, mesh_mode, repair, pre_simplify, adaptive, preset, bake_normals)
+        return FinishingRecipe(triangles, texture_size, mesh_mode, repair, pre_simplify, adaptive, preset,
+                               bake_normals, repair_surface)
 
     def create_finishing_variant(self, variant, folder, record, source_id, options, recipe):
-        triangles, texture_size, mesh_mode, repair, pre_simplify, adaptive, preset, bake_normals = recipe
+        triangles, texture_size, mesh_mode, repair, pre_simplify, adaptive, preset, bake_normals, repair_surface = recipe
         variant.mkdir()
         settings = dict(record['settings'])
         settings.pop('keep_finishing_source', None)
         settings.pop('adaptive_finishing', None)
         settings.pop('budget_preset', None)
         settings.pop('bake_normals', None)
+        settings.pop('repair_surface', None)
         if adaptive:
             settings['adaptive_finishing'] = True
         if preset:
             settings['budget_preset'] = preset
         if bake_normals:
             settings['bake_normals'] = True
+        if repair_surface:
+            settings['repair_surface'] = True
+        if isinstance(settings.get('profile_snapshot'), dict):
+            snapshot = settings['profile_snapshot'].copy()
+            snapshot.pop('adaptive_finishing', None)
+            snapshot.pop('repair_surface', None)
+            if repair_surface:
+                snapshot['repair_surface'] = True
+            settings['profile_snapshot'] = snapshot
         settings.update(created=time.time(), parent_id=folder.name, source_kind='refinish',
                         finish_source_id=source_id, triangles=triangles, texture_size=texture_size,
                         generation_options={**options, 'mesh_mode': mesh_mode, 'repair_holes': repair,
@@ -173,6 +254,8 @@ class StudioServices:
         metadata = dict(record['metadata'])
         label = metadata.get('display_name') or settings['name']
         mode_label = 'adaptive ≤' if adaptive else preset.title() if preset else mesh_mode
+        if repair_surface:
+            mode_label = 'Repair · adaptive ≤' if adaptive else 'Repair'
         normal_label = ' + normal map' if bake_normals else ''
         suffix = f' · {mode_label} {triangles / 1000:g}k · {texture_size // 1024}K{normal_label}'
         metadata.update(display_name=label[:80-len(suffix)] + suffix, review_state='review', favorite=False)
@@ -250,6 +333,14 @@ class StudioServices:
                         resolution=resolution, triangles=triangles, texture_size=texture_size, height_m=height)
         if triangles != saved.get('triangles'):
             settings.pop('budget_preset', None)
+        if 'repair_surface' in changes:
+            repair_surface = changes['repair_surface']
+            if type(repair_surface) is not bool or not (refinish or saved.get('preset') == DENSE_MASTER):
+                raise ValueError('Choose a valid surface repair setting for this job.')
+            if repair_surface:
+                settings['repair_surface'] = True
+            else:
+                settings.pop('repair_surface', None)
         if 'bake_normals' in changes:
             bake_normals = changes['bake_normals']
             if not refinish or type(bake_normals) is not bool:
@@ -264,17 +355,21 @@ class StudioServices:
             settings['pipeline_type'] = {512: '512', 1024: '1024_cascade', 1536: '1536_cascade'}[resolution]
         finishing = {key: changes[key] for key in RETRY_FINISHING_FIELDS if key in changes}
         if finishing:
-            if saved.get('adaptive_finishing'):
-                raise ValueError('Adaptive finishing uses the original master without pre-simplification or hole filling.')
+            if (refinish and saved.get('adaptive_finishing')) or settings.get('repair_surface'):
+                raise ValueError('These mesh settings are controlled by Adaptive or Repair holes.')
             if 'mesh_mode' in finishing and finishing['mesh_mode'] not in ('direct', 'remesh'):
                 raise ValueError('Choose a valid mesh finishing method.')
             if any(type(finishing[key]) is not bool for key in ('pre_simplify', 'repair_holes') if key in finishing):
                 raise ValueError('Choose valid options for pre-simplification and hole repair.')
-            settings['generation_options'] = {**options_for_job(saved), **finishing}
+            settings['generation_options'] = {**options_for_job(settings), **finishing}
         profile = saved.get('profile_snapshot')
         if isinstance(profile, dict):
             settings['profile_snapshot'] = dict(profile, resolution=resolution, triangles=triangles,
                                                 texture_size=texture_size)
+            if 'repair_surface' in changes:
+                settings['profile_snapshot'].pop('repair_surface', None)
+                if settings.get('repair_surface'):
+                    settings['profile_snapshot']['repair_surface'] = True
             if finishing:
                 settings['profile_snapshot']['generation_options'] = settings['generation_options']
 
@@ -386,6 +481,8 @@ class StudioServices:
                 entry=next((i for i in self.workspace.queue['items'] if i['id']==identifier),None)
                 if not entry:raise HTTPException(404)
                 data=await request.json();folder=self.g['job_path'](identifier);state=read(folder/'status.json',{})
+                if data.get('retry') and self.g.get('WORKSPACE_CONFIG'):
+                    raise HTTPException(400, 'Use Retry with corrections to create a new queue item.')
                 if 'priority' in data:
                     if type(data['priority']) is not int or not -2<=data['priority']<=2:raise HTTPException(400,'Invalid priority.')
                     entry['priority']=data['priority']
@@ -420,7 +517,7 @@ class StudioServices:
             try:
                 specs=json.loads(specifications)
                 if not isinstance(specs,list) or not 1<=len(specs)<=30 or len(specs)!=len(images):raise ValueError('Choose 1–30 images, with one recipe per image.')
-                if any(not isinstance(s,dict) or set(s)-{'name','profile_id','height_m','seed','priority','remove_bg','triangles','texture_size','resolution','advanced_settings','asset_type','reference_prompt','parent_id','keep_finishing_source'} for s in specs):raise ValueError('Unknown queue settings.')
+                if any(not isinstance(s,dict) or set(s)-{'name','profile_id','height_m','seed','priority','remove_bg','triangles','texture_size','resolution','advanced_settings','asset_type','reference_prompt','parent_id','keep_finishing_source','repair_surface','reference_edits'} for s in specs):raise ValueError('Unknown queue settings.')
                 for spec in specs:
                     for key,limit in [('name',80),('profile_id',80),('asset_type',80),('reference_prompt',6000),('parent_id',32)]:
                         if key in spec and (not isinstance(spec[key],str) or len(spec[key])>limit):raise ValueError('Invalid '+key+'.')
@@ -429,7 +526,9 @@ class StudioServices:
                     if 'height_m' in spec and (type(spec['height_m']) not in (int,float) or not math.isfinite(spec['height_m']) or not .01<=spec['height_m']<=100):raise ValueError('Invalid height.')
                     if 'remove_bg' in spec and type(spec['remove_bg']) is not bool:raise ValueError('Invalid background removal setting.')
                     if 'keep_finishing_source' in spec and type(spec['keep_finishing_source']) is not bool:raise ValueError('Invalid finishing cache setting.')
+                    if 'repair_surface' in spec and type(spec['repair_surface']) is not bool:raise ValueError('Invalid surface repair setting.')
                     if 'advanced_settings' in spec and not isinstance(spec['advanced_settings'],dict):raise ValueError('Invalid advanced settings.')
+                    if 'reference_edits' in spec and not isinstance(spec['reference_edits'],dict):raise ValueError('Invalid reference corrections.')
                     if spec.get('parent_id') and not ID.fullmatch(spec['parent_id']):raise ValueError('Invalid parent model.')
             except (ValueError,TypeError) as e:raise HTTPException(400,str(e))
             created=[]
@@ -440,6 +539,9 @@ class StudioServices:
                     profile=profiles.get(spec.get('profile_id','game_d'))
                     if not profile:raise HTTPException(400,'Profile not found.')
                     s=profile['settings'];params=dict(name=spec.get('name',Path(file.filename or 'Model').stem),preset=s['preset'],height_m=spec.get('height_m',1),seed=spec.get('seed',42),remove_bg=spec.get('remove_bg',s['remove_bg']),triangles=spec.get('triangles',s['triangles']),asset_type=spec.get('asset_type','object'),texture_size=spec.get('texture_size',s['texture_size']),reference_prompt=spec.get('reference_prompt',''),resolution=spec.get('resolution',s['resolution']),advanced_settings=json.dumps(spec.get('advanced_settings',s['advanced'])),profile_id=profile['id'],parent_id=spec.get('parent_id',''),queue_only=True,queue_priority=spec.get('priority',0),queue_hold=True,keep_finishing_source=spec.get('keep_finishing_source',False))
+                    params['repair_surface'] = spec.get('repair_surface', False)
+                    if spec.get('reference_edits'):
+                        params['reference_edits'] = json.dumps(spec['reference_edits'], allow_nan=False)
                     result=await self.g['generate'](image=file,**params);created.append(result['id'])
                 async with self.g['LOCK']:
                     for entry in self.workspace.queue['items']:
@@ -459,7 +561,7 @@ class StudioServices:
                 folder, record, source_id = self.finishing_model(identifier, available=True)
                 try:
                     settings = record['settings']
-                    options = options_for_job(settings)
+                    options = options_for_job({**settings, 'repair_surface': False})
                     recipe = self.finishing_recipe(await request.json(), record, options)
                 except (ValueError, TypeError) as error:
                     raise HTTPException(400, str(error)) from error
@@ -478,11 +580,12 @@ class StudioServices:
                 selection = read(source/'finishing-choice.json', {})
             except (OSError, ValueError) as error:
                 raise HTTPException(409, 'Unable to read the finishing cache or choice.') from error
-            return dict(source_id=source_id, cache_bytes=cache_bytes,
+            return dict(source_id=source_id, source_triangles=finishing_source_triangles(source), cache_bytes=cache_bytes,
                         texture_sizes=self.g['generation_capabilities']()[1],
                         triangle_limits=dict(min=TRIANGLE_MIN, max=TRIANGLE_MAX),
                         triangle_presets=triangle_presets(record),
                         normal_bake=bool(self.g['find_blender']()),
+                        repair_surface=True,
                         selected_id=selection.get('id') if isinstance(selection, dict) else None)
 
         @app.post('/api/jobs/{identifier}/finishing-board', status_code=202)
@@ -497,7 +600,7 @@ class StudioServices:
                     if not isinstance(variants, list) or not 1 <= len(variants) <= 3:
                         raise ValueError('Choose one to three finishing recipes.')
                     settings = record['settings']
-                    options = options_for_job(settings)
+                    options = options_for_job({**settings, 'repair_surface': False})
                     recipes = [self.finishing_recipe(value, record, options) for value in variants]
                     if len(set(recipes)) != len(recipes):
                         raise ValueError('Choose different finishing recipes for each variant.')
@@ -616,27 +719,101 @@ class StudioServices:
 
         @app.post('/api/jobs/{identifier}/presentation')
         async def presentation_save(identifier:str,kind:str=Form(...),recipe:str=Form('{}'),file:UploadFile=File(...)):
-            folder,record=self.available(identifier)
-            if kind not in ('thumbnail','capture','turntable'):raise HTTPException(400,'Unknown presentation format.')
-            content=await file.read(100*1024**2+1);await file.close()
-            if not content or len(content)>100*1024**2:raise HTTPException(400,'Capture limit is 100 MB.')
             try:
-                settings=json.loads(recipe)
-                if not isinstance(settings,dict) or len(recipe)>10000:raise ValueError('Invalid presentation settings.')
-                if kind!='turntable':
+                if kind not in PRESENTATION_FILES and kind != 'library_turntable':
+                    raise HTTPException(400, 'Unknown presentation format.')
+                limit = LIBRARY_TURNTABLE_LIMIT if kind == 'library_turntable' else 100 * 1024**2
+                content = await file.read(limit + 1)
+            finally:
+                await file.close()
+            if not content or len(content) > limit:
+                raise HTTPException(400, 'Library preview limit is 6 MiB.' if kind == 'library_turntable'
+                                    else 'Capture limit is 100 MB.')
+            try:
+                if len(recipe) > 10000:
+                    raise ValueError('Invalid presentation settings.')
+                settings = json.loads(recipe)
+                if not isinstance(settings, dict):
+                    raise ValueError('Invalid presentation settings.')
+                json.dumps(settings, allow_nan=False)
+                if kind in ('thumbnail','capture'):
                     import io
                     image=Image.open(io.BytesIO(content));image.verify()
                     if image.format!='PNG' or image.width*image.height>4096**2:raise ValueError('Choose a PNG capture up to 4096² pixels.')
-                elif content[:4]!=b'\x1aE\xdf\xa3':raise ValueError('Choose a WebM turntable recording.')
+                elif not content.startswith(WEBM_SIGNATURE) or (kind == 'library_turntable' and
+                                                               WEBM_DOCTYPE not in content[:256]):
+                    raise ValueError('Choose a WebM turntable recording.')
             except (ValueError,OSError) as e:raise HTTPException(400,str(e))
-            target=folder/'Presentation';target.mkdir(exist_ok=True);filename={'thumbnail':'thumbnail.png','capture':'capture.png','turntable':'turntable.webm'}[kind];temp=target/(filename+'.tmp');temp.write_bytes(content);temp.replace(target/filename)
-            manifest=read(target/'presentation.json',{});manifest[kind]=dict(file=filename,revision=time.time_ns(),bytes=len(content),recipe=settings);write(target/'presentation.json',manifest);return manifest
+            async with self.g['LOCK']:
+                folder, _ = self.available(identifier)
+                target = presentation_directory(folder)
+                if kind == 'library_turntable':
+                    return save_library_turntable(target, content, settings)
+                target.mkdir(exist_ok=True)
+                filename = PRESENTATION_FILES[kind]
+                temp = target / (filename + '.' + uuid.uuid4().hex + '.tmp')
+                try:
+                    temp.write_bytes(content)
+                    temp.replace(target / filename)
+                finally:
+                    temp.unlink(missing_ok=True)
+                manifest = read(target / 'presentation.json', {})
+                manifest[kind] = dict(file=filename, revision=time.time_ns(), bytes=len(content), recipe=settings)
+                write(target / 'presentation.json', manifest)
+                return manifest
+
+        @app.post('/api/jobs/{identifier}/presentation/library-turntable')
+        async def reuse_library_turntable(identifier: str):
+            async with self.g['LOCK']:
+                folder, _ = self.available(identifier)
+                target = presentation_directory(folder)
+                source = target / PRESENTATION_FILES['turntable']
+                if not source.is_file() or source.is_symlink():
+                    raise HTTPException(404, 'Record a turntable first.')
+                with source.open('rb') as stream:
+                    content = stream.read(LIBRARY_TURNTABLE_LIMIT + 1)
+                if len(content) > LIBRARY_TURNTABLE_LIMIT:
+                    raise HTTPException(400, 'The last recording exceeds 6 MiB. Record a compact library preview instead.')
+                if not content.startswith(WEBM_SIGNATURE) or WEBM_DOCTYPE not in content[:256]:
+                    raise HTTPException(400, 'The last recording is not a WebM turntable.')
+                manifest = read(target / 'presentation.json', {})
+                recorded = manifest.get('turntable', {})
+                return save_library_turntable(target, content, recorded.get('recipe', {}))
+
+        @app.delete('/api/jobs/{identifier}/presentation/library-turntable')
+        async def remove_library_turntable(identifier: str):
+            async with self.g['LOCK']:
+                folder, _ = self.available(identifier)
+                target = presentation_directory(folder)
+                manifest_path = target / 'presentation.json'
+                manifest = read(manifest_path, {})
+                previous = library_turntable_path(target, manifest)
+                if 'library_turntable' in manifest:
+                    del manifest['library_turntable']
+                    write(manifest_path, manifest)
+                if previous is not None:
+                    try:
+                        previous.unlink(missing_ok=True)
+                    except PermissionError:
+                        pass
+                return manifest
+
         @app.get('/api/jobs/{identifier}/presentation/{filename}')
-        def presentation_file(identifier:str,filename:str):
-            if filename not in ('thumbnail.png','capture.png','turntable.webm'):raise HTTPException(404)
-            path=self.g['job_path'](identifier)/'Presentation'/filename
-            if not path.is_file():raise HTTPException(404)
-            return FileResponse(path,filename=filename,media_type='video/webm' if filename.endswith('webm') else 'image/png')
+        def presentation_file(identifier: str, filename: str, v: str | None = None):
+            if filename not in (*PRESENTATION_FILES.values(), LIBRARY_TURNTABLE_FILE):
+                raise HTTPException(404)
+            target = presentation_directory(self.g['job_path'](identifier))
+            if filename == LIBRARY_TURNTABLE_FILE:
+                manifest = read(target / 'presentation.json', {})
+                path = library_turntable_path(target, manifest)
+                if path is None or not path.is_file() or (v is not None and v != manifest['library_turntable']['revision']):
+                    raise HTTPException(404)
+                return FileResponse(path, filename=filename, media_type='video/webm',
+                                    content_disposition_type='inline', headers={'Cache-Control': 'private, no-cache'})
+            path = target / filename
+            if not path.is_file() or path.is_symlink():
+                raise HTTPException(404)
+            return FileResponse(path, filename=filename, media_type='video/webm' if filename.endswith('webm') else 'image/png')
 
         @app.post('/api/transfers/inspect',status_code=201)
         async def transfer_inspect(file:UploadFile=File(...)):

@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="referrer" content="no-referrer">
+  <title>TRELLIS Studio · Serveur</title>
+  <link rel="icon" type="image/svg+xml" href="/web/trellis-mark.svg">
+  <link rel="stylesheet" href="/web/server.css">
+  <script type="module" src="/web/server.js"></script>
+</head>
+<body class="server-page">
+  <a class="server-skip" href="#server-main">Aller au contenu</a>
+  <header class="server-header">
+    <a class="server-brand" href="/" aria-label="TRELLIS Studio">
+      <img src="/web/trellis-mark.svg" width="34" height="34" alt="">
+      <strong>TRELLIS <span>Studio</span></strong>
+      <span class="server-edition">Serveur</span>
+    </a>
+    <nav id="server-navigation" aria-label="Navigation principale" hidden>
+      <a href="/">Studio</a>
+      <a href="/server/account" id="account-link">Mon compte</a>
+      <a href="/server/admin" id="admin-link" hidden>Administration</a>
+      <a href="/developers" id="server-docs-link" title="Documentation API et MCP">API et MCP</a>
+      <button type="button" class="server-subtle" id="server-logout"><svg class="server-logout-icon" aria-hidden="true"><use href="/web/icons.svg#logout"/></svg>Déconnexion</button>
+    </nav>
+    <span class="server-network" id="server-network"><span aria-hidden="true"></span> Réseau local</span>
+  </header>
+  <main id="server-main" class="server-main" tabindex="-1">
+    <p class="server-loading" role="status">Connexion au serveur…</p>
+  </main>
+  <footer class="server-footer">TRELLIS Studio <span aria-hidden="true">·</span> Espace de création 3D</footer>
+
+  <template id="auth-template">
+    <div class="server-auth-layout">
+      <section class="server-auth-hero" aria-labelledby="hero-title">
+        <div class="server-auth-orbit" aria-hidden="true"><img src="/web/trellis-mark.svg" alt=""></div>
+        <div class="server-auth-copy">
+          <p class="server-kicker">VOTRE ATELIER 3D SUR LE RÉSEAU</p>
+          <h1 id="hero-title">Créez. Affinez.<br>Retrouvez vos modèles.</h1>
+          <p>Un espace personnel pour vos références, vos générations et vos exports 3D.</p>
+        </div>
+      </section>
+      <section class="server-panel server-auth-panel" aria-labelledby="auth-title">
+        <div class="server-auth-form" id="login-section">
+          <p class="server-kicker">ESPACE PERSONNEL</p>
+          <h2 id="auth-title">Se connecter</h2>
+          <p class="server-muted">Accédez à votre bibliothèque TRELLIS.</p>
+          <form id="login-form" class="server-form">
+            <label>Adresse mail <input name="email" type="email" autocomplete="username" required maxlength="254"></label>
+            <label>Mot de passe <input name="password" type="password" autocomplete="current-password" required maxlength="256"></label>
+            <details class="server-details" id="login-code-details">
+              <summary>Code de vérification</summary>
+              <label>Code temporaire ou code de récupération <input name="code" type="text" autocomplete="one-time-code" maxlength="32" spellcheck="false"></label>
+            </details>
+            <button type="submit" class="server-primary">Se connecter <span aria-hidden="true">→</span></button>
+          </form>
+          <p class="server-auth-switch">Nouveau sur ce serveur ? <button id="show-register" class="server-text" type="button">Demander un compte</button></p>
+        </div>
+        <div class="server-auth-form" id="register-section" hidden>
+          <p class="server-kicker">ACCÈS AU SERVEUR</p>
+          <h2 id="register-title">Demander un compte</h2>
+          <p class="server-muted">Votre demande sera examinée par l’administrateur.</p>
+          <form id="register-form" class="server-form">
+            <div class="server-grid-two">
+              <label>Prénom <input name="first_name" autocomplete="given-name" required maxlength="80"></label>
+              <label>Nom <input name="last_name" autocomplete="family-name" required maxlength="80"></label>
+            </div>
+            <label>Adresse mail <input name="email" type="email" autocomplete="email" required maxlength="254"></label>
+            <label>Mot de passe <input name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="256" aria-describedby="register-password-hint"><small id="register-password-hint">12 caractères minimum.</small></label>
+            <label>Confirmer le mot de passe <input name="confirm_password" type="password" autocomplete="new-password" required maxlength="256"></label>
+            <button type="submit" class="server-primary">Envoyer la demande <span aria-hidden="true">→</span></button>
+          </form>
+          <p class="server-auth-switch">Déjà un compte ? <button id="show-login" class="server-text" type="button">Se connecter</button></p>
+        </div>
+        <p class="server-notice" id="auth-notice" role="status" aria-live="polite" hidden></p>
+      </section>
+    </div>
+  </template>
+
+  <template id="setup-template">
+    <div class="server-setup-layout">
+      <section class="server-panel server-setup-panel" aria-labelledby="setup-title">
+        <p class="server-kicker">INSTALLATION DU SERVEUR</p>
+        <h1 id="setup-title">Créer le premier administrateur</h1>
+        <p class="server-muted">Ce compte gérera les demandes d’accès, les bibliothèques et leurs quotas. Il disposera d’un espace et de crédits illimités.</p>
+        <form id="setup-form" class="server-form">
+          <div class="server-grid-two">
+            <label>Prénom <input name="first_name" autocomplete="given-name" required maxlength="80"></label>
+            <label>Nom <input name="last_name" autocomplete="family-name" required maxlength="80"></label>
+          </div>
+          <label>Adresse mail <input name="email" type="email" autocomplete="email" required maxlength="254"></label>
+          <label>Mot de passe <input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required><small>12 caractères minimum.</small></label>
+          <label>Confirmer le mot de passe <input name="confirm_password" type="password" autocomplete="new-password" required></label>
+          <button type="submit" class="server-primary">Créer le compte administrateur <span aria-hidden="true">→</span></button>
+        </form>
+        <p class="server-notice" id="setup-notice" role="status" aria-live="polite" hidden></p>
+      </section>
+    </div>
+  </template>
+
+  <template id="account-template">
+    <header class="server-page-heading">
+      <div><p class="server-kicker">VOTRE ESPACE</p><h1>Mon compte</h1><p class="server-muted">Profil, accès et utilisation de votre bibliothèque.</p></div>
+      <a class="server-secondary" href="/">Retour au Studio <span aria-hidden="true">↗</span></a>
+    </header>
+    <p class="server-notice" id="account-required" role="status" hidden></p>
+    <div id="account-tabs" class="server-tabs" role="tablist" aria-label="Mon compte">
+      <button id="tab-profile" type="button" role="tab" aria-controls="panel-profile" aria-selected="true" data-tab="profile">Profil</button>
+      <button id="tab-usage" type="button" role="tab" aria-controls="panel-usage" aria-selected="false" data-tab="usage">Utilisation</button>
+      <button id="tab-security" type="button" role="tab" aria-controls="panel-security" aria-selected="false" data-tab="security">Sécurité</button>
+    </div>
+    <section id="panel-profile" role="tabpanel" aria-labelledby="tab-profile" class="server-account-grid">
+      <aside class="server-panel server-identity">
+        <div class="server-avatar server-avatar-large" id="profile-avatar"></div>
+        <h2 id="profile-name"></h2><p id="profile-email" class="server-muted"></p><span id="profile-role" class="server-chip"></span>
+        <form id="avatar-form" class="server-form">
+          <label class="server-secondary server-file-control">Choisir une image <input name="file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choisir un avatar"></label>
+          <small>JPEG, PNG ou WebP. L’image est recadrée au carré.</small>
+          <button class="server-primary" type="submit" hidden id="avatar-save">Enregistrer l’avatar</button>
+        </form>
+        <p class="server-notice" id="avatar-notice" role="status" hidden></p>
+      </aside>
+      <section class="server-panel server-content-panel" aria-labelledby="profile-heading">
+        <h2 id="profile-heading">Informations personnelles</h2>
+        <p class="server-muted">Votre fiche est visible par vous et l’administration.</p>
+        <form id="profile-form" class="server-form">
+          <div class="server-grid-two">
+            <label>Prénom <input name="first_name" autocomplete="given-name" required maxlength="80"></label>
+            <label>Nom <input name="last_name" autocomplete="family-name" required maxlength="80"></label>
+          </div>
+          <label>Adresse mail <input name="email" type="email" autocomplete="email" readonly><small>Pour modifier cette adresse, contactez l’administration.</small></label>
+          <label>Bio <textarea name="bio" rows="4" maxlength="1200" placeholder="Parlez de vos projets ou de votre spécialité"></textarea></label>
+          <label>Site web <input name="website" type="url" autocomplete="url" maxlength="500" placeholder="https://"></label>
+          <details class="server-details" id="social-details">
+            <summary>Réseaux et autres liens</summary>
+            <div class="server-grid-two">
+              <label>LinkedIn <input name="linkedin" type="url" maxlength="500" placeholder="https://"></label>
+              <label>GitHub <input name="github" type="url" maxlength="500" placeholder="https://"></label>
+              <label>Mastodon <input name="mastodon" type="url" maxlength="500" placeholder="https://"></label>
+              <label>Instagram <input name="instagram" type="url" maxlength="500" placeholder="https://"></label>
+              <label>Autre lien <input name="other" type="url" maxlength="500" placeholder="https://"></label>
+            </div>
+          </details>
+          <div class="server-actions"><button type="submit" class="server-primary">Enregistrer le profil</button></div>
+        </form>
+        <p class="server-notice" id="profile-notice" role="status" hidden></p>
+      </section>
+    </section>
+    <section id="panel-usage" role="tabpanel" aria-labelledby="tab-usage" hidden>
+      <div class="server-metrics" id="usage-metrics"></div>
+      <section class="server-panel server-content-panel server-breakdown" aria-labelledby="storage-heading" id="usage-breakdown" hidden>
+        <h2 id="storage-heading">Répartition du stockage</h2>
+        <div id="usage-storage" class="server-activity"></div>
+      </section>
+      <section class="server-panel server-content-panel" aria-labelledby="usage-heading">
+        <h2 id="usage-heading">Historique des crédits</h2>
+        <p class="server-muted">Un crédit est réservé à la mise en file et débité à la réussite de la génération.</p>
+        <div id="usage-ledger" class="server-activity"></div>
+      </section>
+      <section class="server-panel server-content-panel server-cleanup" aria-labelledby="cleanup-heading">
+        <h2 id="cleanup-heading">Libérer de l’espace</h2>
+        <p class="server-muted">La corbeille, les exports et les fichiers transférés comptent dans votre espace utilisé.</p>
+        <div id="usage-cleanup" class="server-activity"></div>
+      </section>
+    </section>
+    <section id="panel-security" role="tabpanel" aria-labelledby="tab-security" class="server-grid-two" hidden>
+      <section class="server-panel server-content-panel" aria-labelledby="password-heading">
+        <h2 id="password-heading">Mot de passe</h2>
+        <form id="password-form" class="server-form">
+          <label>Mot de passe actuel <input name="current_password" type="password" autocomplete="current-password" required maxlength="256"></label>
+          <label>Nouveau mot de passe <input name="new_password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+          <label>Confirmer le nouveau mot de passe <input name="confirm_password" type="password" autocomplete="new-password" required></label>
+          <div class="server-actions"><button type="submit" class="server-primary">Modifier le mot de passe</button></div>
+        </form>
+        <p id="password-notice" class="server-notice" role="status" hidden></p>
+      </section>
+      <section class="server-panel server-content-panel" aria-labelledby="mfa-heading">
+        <h2 id="mfa-heading">Double authentification</h2>
+        <p id="mfa-summary" class="server-muted"></p>
+        <form id="mfa-start-form" class="server-form">
+          <label>Mot de passe <input name="password" type="password" autocomplete="current-password" required maxlength="256"></label>
+          <label id="mfa-disable-code" hidden>Code de vérification <input name="code" autocomplete="one-time-code" maxlength="32"></label>
+          <div class="server-actions"><button type="submit" class="server-secondary" id="mfa-action"></button></div>
+        </form>
+        <div id="mfa-setup" class="server-mfa-setup" hidden>
+          <p>Pour ajouter TRELLIS, <span id="mfa-qr-instruction" hidden>scannez le QR code ou </span>saisissez la clé dans votre application d’authentification. Entrez ensuite le code affiché.</p>
+          <img id="mfa-qr" alt="QR code de configuration de la double authentification" width="240" height="240" hidden>
+          <p>Clé de configuration <code id="mfa-secret"></code></p>
+          <form id="mfa-enable-form" class="server-form">
+            <label>Code de vérification <input name="code" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" required maxlength="6"></label>
+            <div class="server-actions"><button type="submit" class="server-primary">Activer la double authentification</button></div>
+          </form>
+        </div>
+        <div id="mfa-recovery" class="server-mfa-setup" hidden></div>
+        <p id="mfa-notice" class="server-notice" role="status" hidden></p>
+      </section>
+      <section class="server-panel server-content-panel server-api-panel" aria-labelledby="api-token-heading">
+        <h2 id="api-token-heading">Clés API</h2>
+        <p class="server-muted">Connectez un outil ou un client MCP à votre bibliothèque et à vos opérations TRELLIS.</p>
+        <p id="api-token-locked" class="server-notice" hidden>Terminez la configuration de sécurité du compte pour gérer vos clés.</p>
+        <div id="api-token-controls" hidden>
+          <form id="api-token-form" class="server-form server-api-form" autocomplete="off">
+            <label>Nom de la clé <input name="label" required maxlength="80" placeholder="Mon client MCP"></label>
+            <button type="submit" class="server-primary">Créer une clé</button>
+          </form>
+          <div id="api-token-reveal" class="server-api-reveal" hidden>
+            <h3>Votre nouvelle clé</h3>
+            <p>Copiez cette clé maintenant. Elle est affichée une seule fois.</p>
+            <textarea id="api-token-secret" readonly rows="2" autocomplete="off" spellcheck="false" aria-label="Nouvelle clé API"></textarea>
+            <div class="server-actions">
+              <button id="api-token-hide" type="button" class="server-subtle">Masquer</button>
+              <button id="api-token-copy" type="button" class="server-secondary">Copier la clé</button>
+            </div>
+          </div>
+          <div id="api-token-list" class="server-activity" aria-label="Clés API personnelles"></div>
+          <p id="api-token-notice" class="server-notice" role="status" hidden></p>
+          <details class="server-details server-api-help">
+            <summary>Connecter le client MCP</summary>
+            <p>Renseignez les variables d’environnement du client.</p>
+            <pre><code>TRELLIS_API_URL=<span id="api-token-origin"></span>
+TRELLIS_API_TOKEN=&lt;votre-clé-api&gt;</code></pre>
+          </details>
+        </div>
+      </section>
+    </section>
+  </template>
+
+  <template id="admin-template">
+    <header class="server-page-heading">
+      <div><p class="server-kicker">SERVER MANAGEMENT</p><h1>Administration</h1><p class="server-muted">Manage TRELLIS accounts and quotas, and monitor server activity.</p></div>
+      <button type="button" class="server-primary" id="admin-create">Create user</button>
+    </header>
+    <div class="server-metrics" id="admin-metrics" aria-label="Server status"></div>
+    <div id="admin-tabs" class="server-tabs" role="tablist" aria-label="Administration">
+      <button id="tab-users" type="button" role="tab" aria-controls="panel-users" aria-selected="true" data-tab="users">Users <span id="pending-count" class="server-counter" hidden></span></button>
+      <button id="tab-queue" type="button" role="tab" aria-controls="panel-queue" aria-selected="false" data-tab="queue">Server queue</button>
+      <button id="tab-audit" type="button" role="tab" aria-controls="panel-audit" aria-selected="false" data-tab="audit">Audit log</button>
+    </div>
+    <section id="panel-users" role="tabpanel" aria-labelledby="tab-users" class="server-panel server-admin-panel">
+      <div class="server-table-toolbar">
+        <label class="server-filter">Search <input id="user-search" type="search" placeholder="Name or email address"></label>
+        <label class="server-filter">Status <select id="user-filter"><option value="all">All accounts</option><option value="pending">Pending requests</option><option value="active">Active accounts</option><option value="disabled">Disabled accounts</option></select></label>
+      </div>
+      <div class="server-table-scroll" tabindex="0" aria-label="User list">
+        <table class="server-table" role="table"><thead><tr><th scope="col">User</th><th scope="col">Role</th><th scope="col">Status</th><th scope="col">Storage</th><th scope="col">Credits</th><th scope="col"><span class="server-sr-only">Actions</span></th></tr></thead><tbody id="user-list" role="rowgroup"></tbody></table>
+      </div>
+      <p id="users-empty" class="server-empty" hidden>No users match the filters.</p>
+    </section>
+    <section id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" class="server-panel server-content-panel" hidden>
+      <div class="server-section-heading"><div><h2>Job queue</h2><p class="server-muted">Monitor jobs across all workspaces.</p></div><button id="queue-toggle" type="button" class="server-secondary">Pause queue</button></div>
+      <div id="queue-list" class="server-activity"></div>
+    </section>
+    <section id="panel-audit" role="tabpanel" aria-labelledby="tab-audit" class="server-panel server-content-panel" hidden>
+      <h2>Audit log</h2><p class="server-muted">Account creation, access changes, and quota adjustments.</p>
+      <div id="audit-list" class="server-activity"></div>
+    </section>
+    <p id="admin-notice" class="server-notice" role="status" hidden></p>
+    <dialog id="user-dialog" class="server-dialog" aria-labelledby="user-dialog-title">
+      <header class="server-dialog-header"><div class="server-dialog-title"><div id="user-dialog-avatar" class="server-avatar" hidden></div><div><p class="server-kicker">ADMINISTRATION</p><h2 id="user-dialog-title"></h2><p id="user-dialog-subtitle" class="server-muted"></p></div></div><button type="button" class="server-subtle server-dialog-close" aria-label="Close user details" id="user-dialog-close">×</button></header>
+      <div class="server-dialog-body">
+        <form id="user-form" class="server-form">
+          <div class="server-grid-two">
+            <label>First name <input name="first_name" required maxlength="80" autocomplete="off"></label>
+            <label>Last name <input name="last_name" required maxlength="80" autocomplete="off"></label>
+          </div>
+          <label>Email address <input name="email" type="email" required maxlength="254" autocomplete="off"></label>
+          <label id="user-password-field">Initial password <input name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password"><small>Leave this field blank to generate a temporary password.</small></label>
+          <div class="server-grid-two">
+            <label>Role <select name="role"><option value="user">User</option><option value="admin">Administrator</option></select></label>
+            <label>Status <select name="status"><option value="active">Active</option><option value="pending">Pending</option><option value="disabled">Disabled</option></select></label>
+          </div>
+          <div class="server-grid-two" id="user-quota-fields">
+            <label>Disk quota (GiB) <input name="disk_gib" type="number" step="0.001" min="0" max="1000000" required></label>
+            <label id="user-initial-credits">Initial credits <input name="credits" type="number" min="0" max="100000000" step="1" required></label>
+          </div>
+          <p id="user-unlimited" class="server-quota-hint" hidden>Administrators have unlimited storage and credits.</p>
+          <div class="server-actions">
+            <button class="server-secondary" type="button" id="user-activate" hidden>Activate account</button>
+            <button class="server-primary" type="submit" id="user-save">Save</button>
+          </div>
+        </form>
+        <section id="user-inspect" class="server-dialog-section" hidden>
+          <h3>User profile</h3><div id="user-inspect-details" class="server-inspect-details"></div>
+          <div class="server-actions"><button id="user-revoke" type="button" class="server-secondary">Revoke sessions</button><button id="user-reset-password" type="button" class="server-secondary">Reset password</button><button id="user-reset-mfa" type="button" class="server-secondary">Reset two-factor authentication</button></div>
+        </section>
+        <section id="user-credit-section" class="server-dialog-section" hidden>
+          <h3>Adjust credits</h3><p id="user-credit-summary" class="server-muted"></p>
+          <form id="user-credit-form" class="server-form">
+            <div class="server-grid-two">
+              <label>Amount <input name="amount" type="number" step="1" min="-100000000" max="100000000" placeholder="e.g. +10 or -5" required></label>
+              <label>Reason <input name="reason" maxlength="250" required></label>
+            </div>
+            <div class="server-actions"><button type="submit" class="server-secondary">Apply adjustment</button></div>
+          </form>
+        </section>
+        <div id="user-temporary" class="server-mfa-setup" hidden></div>
+        <p id="user-dialog-notice" class="server-notice" role="status" hidden></p>
+      </div>
+    </dialog>
+  </template>
+</body>
+</html>

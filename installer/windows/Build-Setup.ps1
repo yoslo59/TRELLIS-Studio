@@ -24,9 +24,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not read the TRELLIS Studio public sourc
 $taskFiles=@($taskFiles | Sort-Object -Unique | Where-Object {
     $parts=$_ -split '/'
     ($parts.Count -eq 1 -and ($_ -match '\.(py|cmd|ps1)$' -or $taskRootFiles -contains $_ -or $_ -match '^requirements-(windows|mcp-lock|mcp)\.txt$')) -or
-    ($parts.Count -gt 1 -and ($taskRoots -ccontains $parts[0] -or $_ -in @('docs/API.md','docs/MCP.md','docs/DEPENDENCIES.json','docs/WINDOWS_SETUP.md')))
+    ($parts.Count -gt 1 -and ($taskRoots -ccontains $parts[0] -or $_ -in @('docs/API.md','docs/MCP.md','docs/DEPENDENCIES.json','docs/WINDOWS_SETUP.md','docs/SERVER.md')))
 })
 $taskRequired=@('app.py','package.json','installer/setup.py','installer/windows/check-idle.ps1','installer/windows/Launch.cmd','installer/windows/Launch-Installed.ps1','installer/windows/Manage-Shortcuts.ps1','installer/windows/trellis-studio.ico','Start-Studio.ps1','web/studio.html','animations/library.json','unity/TrellisPackageImporter.cs')
+$taskRequired+=@('server_app.py','server_runtime.py','server_store.py','server_setup.py','Start-Server.ps1','Stop-Server.ps1','Open TRELLIS Server.cmd',
+    'installer/windows/Configure-Server.ps1','web/server.html','web/server.css','web/server.js','web/server-shell.js','docs/SERVER.md')
 foreach($taskItem in $taskRequired) {
     if ($taskItem -cnotin $taskFiles) { throw "Required public payload is missing: $taskItem" }
 }

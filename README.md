@@ -6,7 +6,7 @@
 
 TRELLIS Studio is an independent community application built around **Microsoft TRELLIS.2** and **UniRig**. Generate textured meshes from an image, import existing models, organise a collection, prepare game or printing derivatives, add a skeleton and attach multiple authored animations to the same model. Inspect everything in a browser-based PBR viewer and export for your workflow.
 
-Inference runs on your computer. Models and dependency packages are downloaded during installation; your reference images and generated library stay in your local installation. No paid generation service or API key is required by Studio.
+Inference runs on the computer hosting TRELLIS. **Desktop** is for single-user use, and **Server** lets people on a private network access their own libraries in a browser. References and generated models stay on the host. Studio generation does not require a paid service.
 
 > **Windows x64 preview.** The maintainer tested Full Studio installation, generation and uninstallation on Windows 11 with an RTX 4070 Ti (12 GB VRAM). Installation verifies components, but output quality, deformation and target-engine suitability still need visual review. The Studio code is MIT; model and dependency licenses are separate, particularly DINOv3.
 
@@ -21,8 +21,8 @@ One local generation produced two finishes from the same saved source. The high-
 ## Get started
 
 1. Download the x64 Setup from [GitHub Releases](https://github.com/yoslo59/TRELLIS-Studio/releases). This preview is unsigned; the release also includes its SHA-256 checksum.
-2. Choose **Workshop only** for the library, 3D viewer and GLB import/export, or **Full Studio** for local TRELLIS.2 generation, UniRig and Pixal3D. Full Studio requires a compatible NVIDIA driver, Blender and Ubuntu 22.04 under WSL2. Allow around **29 GiB** of model downloads plus packages and **100 GiB** of free space.
-3. Open **TRELLIS Studio** from the Start menu or choose to create a desktop shortcut during Setup. The packaged app opens at `http://127.0.0.1:7870`. The first launch of Workshop only provisions a private Python environment; it does not download model weights.
+2. Choose **TRELLIS Desktop (single user)** or **TRELLIS Server (multi-user)**. Both editions offer **Workshop only** for the library, 3D viewer and GLB import/export, or **Full Studio** for TRELLIS.2 generation, UniRig and Pixal3D. Full Studio requires a compatible NVIDIA driver, Blender and Ubuntu 22.04 under WSL2. Allow around **29 GiB** of model downloads plus packages and **100 GiB** of free space.
+3. Open **TRELLIS Studio** or **TRELLIS Server** from the Start menu. Setup can add a desktop shortcut. A new Server installation guides you through creating the first administrator. See the [Server setup guide](docs/SERVER.md) for network access, account approval, quotas and personal API keys.
 
 Read the [Windows Setup guide](docs/WINDOWS_SETUP.md) for component installation, repair and uninstall. Downloads are resumable and verified with SHA-256. The uninstaller can stop its own idle local services and keeps the library.
 
@@ -44,13 +44,17 @@ Read the [Windows Setup guide](docs/WINDOWS_SETUP.md) for component installation
 | **Animate** | UniRig skeleton and skin-weight prediction, size comparison with a flat 1.70 m human silhouette, editable frontal joint markers, visible skeleton inspection and 83 authored humanoid animation entries. |
 | **Prepare** | Linked LOD copies, pivots, centring, orientation, scale and box/convex collisions; dedicated printing copies with STL and topology reports. |
 | **History** | Parent/child lineage, recipes, comments, recoverable checkpoints and restoration as a new card. |
-| **Present** | Custom card thumbnails from the current camera/lighting, transparent PNGs and 6/10-second turntable videos. |
+| **Present** | Custom thumbnails, transparent PNGs, downloadable turntables and optional lightweight turntables on individual library cards. |
 | **Transfer** | Collection ZIP backup with models, sources, profiles, clips, metadata and prepared resources; optional checkpoints; verified restoration with new IDs. |
-| **Automate** | Typed REST API v1, self-hosted interactive OpenAPI reference and 37 MCP tools over STDIO or Streamable HTTP. |
+| **Automate** | Typed REST API v1, interactive OpenAPI reference and MCP tools over STDIO. Desktop also provides a local Streamable HTTP bridge. |
+
+In **Present your model**, **Save card turntable** records a compact six-second preview for the selected model. Use a previous recording if it fits the 6 MiB limit, or remove the preview from the card at any time. Cards keep their still thumbnails and load one preview at a time on hover or explicit playback.
 
 ### Try another finish
 
-Select **Dense Master** in single-image or multi-view mode to retain the full decoded geometry and material volume. Its working GLB uses Direct finishing at a target of 1 million triangles, without pre-simplification or small-hole repair. The **Keep source for finishing variants** option also works with other profiles. Use **Preview reference** to verify how thin parts, hands and feet survive the cutout.
+Select **Dense Master** in single-image or multi-view mode to retain the full decoded geometry and material volume. Its working GLB has a default ceiling of 1.2 million triangles. Studio measures surface deviation after simplification and keeps a lighter mesh when it meets the tolerance. Increase the ceiling in the generation settings to allow more geometry when needed. Use **Keep source for finishing variants** with other profiles and **Preview reference** to check how thin parts, hands and feet survive the cutout.
+
+Enable **Repair holes on the working mesh** with Dense Master to rebuild the surface before the first GLB export. The decoded cache is retained for later variants. Remesh displays the triangle counts of the current GLB and the cached source when known. Each variant is generated from that cache, which can contain many more triangles than the working GLB.
 
 On a completed model with a saved source, open **Remesh** in the viewer toolbar or **Refinish model** in the card menu.
 
@@ -61,6 +65,8 @@ On a completed model with a saved source, open **Remesh** in the viewer toolbar 
 
 In **Fixed**, the value is a target. In **Adaptive**, it is a ceiling for the sampled surface tolerance. **Manual** accepts a custom budget and offers Direct simplification or surface rebuilding. Ultra can retain more triangles than the displayed working copy when the decoded master contains them. Large targets can take significantly longer to unwrap and bake.
 
+**Repair holes** reconstructs a linked variant from the saved master and projects the rebuilt surface toward it to retain detail. The budget still applies. With Adaptive, Studio measures the simplification against the rebuilt surface. Review thin parts and fine edges in **Compare**, since the reconstruction can soften them or close a narrow intentional gap.
+
 **Transfer master detail to a normal map** is enabled by default for Medium when Blender is available. It transfers the master’s surface relief into the GLB's tangent-space normal texture while keeping the finished geometry and the original material textures. View the result in **PBR** and use **Compare** to review details. Thin cables, holes and other silhouette details still depend on the finished geometry. The new card is linked to the original and variants run without neural inference.
 
 Open **Finishing board** from the same card or from **Prepare** to queue several editable finishing recipes from one cache. Compare the measured results at their original scale with the camera held in place, then mark the preferred version. That choice is recorded separately from the asset's visual review.
@@ -69,11 +75,13 @@ The source cache can take hundreds of megabytes per model. Studio stores it once
 
 ### Generation profiles
 
+Create opens with **Dense Master**. Its default 1.2 million triangles is an editable ceiling for the displayed GLB. Studio measures how closely smaller candidates follow the decoded surface, or the reconstructed surface when repair is enabled. It keeps the full geometry and materials cache for Remesh. **3D print copy** uses the selected GLB. Choose another recipe and click **Use at startup** to remember it in this browser. The API default and **Reset to Game - Default** use the game recipe.
+
 **Game - Default** (`game_d`) uses the validated 1024 cascade recipe: 20 steps per phase, guidance 7.5 / 7.5 / 2, approximately 28,000 target triangles, 2K textures, 2M pre-simplification, initial small-hole repair and DC remeshing capped at 512. Final triangle count is approximate. Dimensions and seeds belong to individual models.
 
 **High Detail** retains the 1024/20-step/2K sampling setup, targets 250,000 triangles and uses direct simplification to preserve more surface detail. Create custom profiles when you need another recipe; the built-in profiles remain protected. Historical recipes remain readable.
 
-**Humanoid · Experimental** (`humanoid_experimental`) is an optional comparison recipe: 1024 cascade, 250,000 target triangles, 2K materials and direct simplification. It retains the decoded source automatically and classifies the result as a humanoid. Inspect this detailed master, then use **Refinish model** to compare lighter copies around 10,000–14,000 triangles without generating again. The single-image sampler uses D’s 20-step setup; the Pixal3D version keeps its existing multi-view sampler. It does not automatically reconstruct or replace the face and hands, bake a new high-to-low normal map, generate extra reference views or add a rig. Those anatomy experiments remain separate. **Game - Default stays selected at startup and reset.**
+**Humanoid · Experimental** (`humanoid_experimental`) is an optional comparison recipe: 1024 cascade, 250,000 target triangles, 2K materials and direct simplification. It retains the decoded source automatically and classifies the result as a humanoid. Inspect this detailed master, then use **Refinish model** to compare lighter copies around 10,000–14,000 triangles without generating again. The single-image sampler uses D’s 20-step setup; the Pixal3D version keeps its existing multi-view sampler. It does not automatically reconstruct or replace the face and hands, bake a new high-to-low normal map, generate extra reference views or add a rig. Those anatomy experiments remain separate.
 
 512 and 1024 generation are provided by the standard installer. Higher-resolution controls require separate local capability validation and sufficient memory. Texture resolution is independent of geometry resolution.
 
@@ -81,7 +89,7 @@ The source cache can take hundreds of megabytes per model. Studio stores it once
 
 **Full Studio** includes Pixal3D. On a source installation, run **Install Pixal3D.cmd** after the main installation to add it. In the **Reference image** card in **Create**, enable **Multi-view · Pixal3D**, add a full-body front image and at least one complementary view, then choose the side angle that matches the images. The left and right slots are relative to the character. The back is a 180° view. Use the same character, scale and A-pose or T-pose in each image, with hands and feet visible. The slots accept PNG, JPEG and WebP up to 25 MB each. Studio prepares the cutouts and framing locally. Supply the views yourself.
 
-The separate **Character · Pixal3D** recipe uses the 1024 cascade, a target of 10,600 triangles and 2K materials. The mesh and materials are generated in successive stages. Actual triangle counts are approximate. Jobs share Studio's queue and retain their input views, angles and recipe. The source cache for **Refinish model** is optional for this standard recipe. The **Character profile** selector also offers **Humanoid · Experimental**, which keeps the source and targets a detailed 250,000-triangle master before lighter finishing comparisons. The standard Create mode continues to use **Game - Default**.
+The separate **Character · Pixal3D** recipe uses the 1024 cascade, a target of 10,600 triangles and 2K materials. The mesh and materials are generated in successive stages. Actual triangle counts are approximate. Jobs share Studio's queue and retain their input views, angles and recipe. The source cache for **Refinish model** is optional for this standard recipe. The **Character profile** selector also offers **Humanoid · Experimental**, which keeps the source and targets a detailed 250,000-triangle master before lighter finishing comparisons, and **Dense Master**, which adapts the displayed GLB to the surface under the selected ceiling.
 
 New Pixal3D jobs use 12 structure steps, 20 steps in each geometry pass and 12 material steps, with guidance 7.5 / 7.5 / 1. Recipe version 3 makes the geometry step count apply to both passes. Replaying a saved version 1 or 2 job retains its historical 12-step high-resolution pass. Increasing steps does not guarantee finer anatomy. Keep the references, seed and finishing settings fixed when comparing recipes.
 

@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$InstallRoot,
-    [Parameter(Mandatory=$true)][ValidateSet('Install','Uninstall')][string]$Action,
-    [ValidateSet(0,1)][int]$DesktopShortcut=0
+    [Parameter(Mandatory=$true)][ValidateSet('Install','Uninstall','ServerStartup')][string]$Action,
+    [ValidateSet(0,1)][int]$DesktopShortcut=0,
+    [ValidateSet(0,1)][int]$ServerMode=0
 )
 $ErrorActionPreference='Stop'
 $installRoot=[IO.Path]::GetFullPath($InstallRoot)
@@ -20,6 +21,13 @@ $links=@(
     @{ Name='Install Pixal3D.lnk'; Arguments='Pixal3D' }
     @{ Name='Stop TRELLIS Studio.lnk'; Arguments='Stop' }
 )
+if ($ServerMode -or $Action -eq 'Uninstall') {
+    $links+=@(
+        @{ Name='TRELLIS Server.lnk'; Arguments='Server' }
+        @{ Name='Configure TRELLIS Server.lnk'; Arguments='ConfigureServer' }
+        @{ Name='Stop TRELLIS Server.lnk'; Arguments='StopServer' }
+    )
+}
 $shell=New-Object -ComObject WScript.Shell
 
 function Update-StudioShortcut([string]$Path,[string]$Arguments,[switch]$OnDesktop) {
@@ -53,7 +61,35 @@ function Update-StudioShortcut([string]$Path,[string]$Arguments,[switch]$OnDeskt
     }
 }
 
+function Update-ServerStartup([bool]$Enabled) {
+    $startup=[Environment]::GetFolderPath('Startup')
+    if (-not $startup) { if ($Enabled) { throw 'Windows did not resolve the Startup folder.' }; return }
+    $path=Join-Path $startup 'TRELLIS Server.lnk'
+    $target=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $arguments='-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+(Join-Path $installRoot 'Start-Server.ps1')+'" -NoBrowser'
+    $exists=Test-Path -LiteralPath $path -PathType Leaf
+    if (-not $exists -and -not $Enabled) { return }
+    $shortcut=$shell.CreateShortcut($path)
+    try {
+        if ($exists -and ($shortcut.TargetPath -ine $target -or $shortcut.Arguments -cne $arguments)) {
+            if ($Enabled) { throw 'Another TRELLIS installation already owns the Startup shortcut.' }
+            return
+        }
+        if (-not $Enabled) { Remove-Item -LiteralPath $path; return }
+        $shortcut.TargetPath=$target
+        $shortcut.Arguments=$arguments
+        $shortcut.WorkingDirectory=$installRoot
+        $shortcut.IconLocation="$icon,0"
+        $shortcut.Save()
+    } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shortcut) }
+}
+
 try {
+    if ($Action -eq 'ServerStartup') {
+        $config=Get-Content -LiteralPath (Join-Path $installRoot 'config\server.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        Update-ServerStartup ([bool]$config.autostart)
+        return
+    }
     if ($Action -eq 'Install') {
         if (-not (Test-Path -LiteralPath $launcher -PathType Leaf) -or -not (Test-Path -LiteralPath $icon -PathType Leaf)) {
             throw 'Studio launcher or application icon is missing.'
@@ -64,7 +100,12 @@ try {
         Update-StudioShortcut (Join-Path $menu $link.Name) $link.Arguments
     }
     if ($desktop) {
-        Update-StudioShortcut (Join-Path $desktop $desktopName) '' -OnDesktop
+        if (-not $ServerMode -or $Action -eq 'Uninstall') {
+            Update-StudioShortcut (Join-Path $desktop $desktopName) '' -OnDesktop
+        }
+        if ($ServerMode -or $Action -eq 'Uninstall') {
+            Update-StudioShortcut (Join-Path $desktop 'TRELLIS Server.lnk') 'Server' -OnDesktop
+        }
     } elseif ($Action -eq 'Install' -and $DesktopShortcut -eq 1) {
         throw 'Windows did not resolve the Desktop folder.'
     }
@@ -73,6 +114,7 @@ try {
         # Keep a same-name folder if a user added any other shortcuts to it.
         [IO.Directory]::Delete($menu)
     }
+    if ($Action -eq 'Uninstall') { Update-ServerStartup $false }
 } finally {
     [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell)
 }

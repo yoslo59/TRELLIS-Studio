@@ -15,7 +15,21 @@ from PIL import Image
 
 def install(app,g):
     root=g['ROOT'];uploads=g['STUDIO'].workspace.root/'uploads'
-    router=APIRouter(prefix='/api/v1',responses={400:{'description':'Invalid input or unsupported model.'},404:{'description':'Item not found.'},409:{'description':'Operation conflicts with active work.'}})
+    server_mode = bool(g.get('WORKSPACE_CONFIG'))
+    responses = {
+        400: {'description': 'Invalid input or unsupported model.'},
+        404: {'description': 'Item not found.'},
+        409: {'description': 'Operation conflicts with current state.'},
+    }
+    if server_mode:
+        responses.update({
+            401: {'description': 'Sign in or send a valid personal API key.'},
+            402: {'description': 'No generation credits available.'},
+            403: {'description': 'Account security setup or origin check failed.'},
+            413: {'description': 'Request exceeds the file size or available disk quota.'},
+            507: {'description': 'The server has insufficient disk space.'},
+        })
+    router = APIRouter(prefix='/api/v1', responses=responses)
 
     async def legacy(method,path,body=None,**extra):
         payload=json.dumps(body if body is not None else {},allow_nan=False).encode()
@@ -40,8 +54,25 @@ def install(app,g):
         if not entry or kind and entry['kind']!=kind:raise HTTPException(400,'Upload a compatible source first.')
         return folder/entry['file'],entry
 
+    def reference_files(data, stack):
+        references = {
+            'image': data.upload_id, 'left_image': data.left_upload_id,
+            'back_image': data.back_upload_id, 'right_image': data.right_upload_id,
+        }
+        files = {}
+        for field, identifier in references.items():
+            if identifier:
+                path, entry = upload(identifier, 'image')
+                stream = stack.enter_context(path.open('rb'))
+                files[field] = UploadFile(file=stream, filename=entry['name'])
+        return files
+
     @router.get('/status',tags=['Studio'],summary='Studio readiness and active computation')
-    def status():return {**g['status'](),'api_version':'1','documentation':'/developers','mcp_url':f"http://127.0.0.1:{int(os.environ.get('TRELLIS_MCP_PORT','7861'))}/mcp"}
+    def status():
+        result = {**g['status'](), 'api_version':'1', 'documentation':'/developers'}
+        if not g.get('WORKSPACE_CONFIG'):
+            result['mcp_url'] = f"http://127.0.0.1:{int(os.environ.get('TRELLIS_MCP_PORT','7861'))}/mcp"
+        return result
 
     @router.get('/profiles',tags=['Studio'],summary='Built-in and custom generation profiles')
     def profiles():return g['profiles_list']()
@@ -52,15 +83,17 @@ def install(app,g):
     @router.get('/animations',tags=['Animation'],summary='Available authored humanoid motions')
     def animations():return g['animation_library']()
 
-    @router.get('/client-config',tags=['Studio'],summary='STDIO configuration for this installation')
+    @router.get('/client-config',tags=['Studio'],summary='STDIO configuration for this installation',include_in_schema=not server_mode)
     def client_config():
         python=root/'.mcp-venv'/('Scripts/python.exe' if os.name=='nt' else 'bin/python')
         return {'mcpServers':{'trellis-studio':{'command':str(python),'args':[str(root/'trellis_mcp.py')],
             'cwd':str(root),'env':{'TRELLIS_API_URL':f"http://127.0.0.1:{g['PORT']}"}}}}
 
-    @router.post('/uploads',tags=['Sources'],status_code=201,summary='Upload an image, 3D model or collection archive')
+    @router.post('/uploads',tags=['Sources'],status_code=201,summary='Upload an image or self-contained GLB' if server_mode else 'Upload an image, 3D model or collection archive')
     async def source_upload(file:UploadFile=File(...)):
         suffix=Path(file.filename or '').suffix.lower();kind='image' if suffix in ('.png','.jpg','.jpeg','.webp') else 'model' if suffix in FORMATS else 'archive' if suffix=='.zip' else None
+        if g.get('WORKSPACE_CONFIG') and kind in ('model','archive') and suffix != '.glb':
+            raise HTTPException(400,'Server imports require a self-contained GLB.')
         if not kind:raise HTTPException(400,'Use PNG, JPG, WebP, GLB, FBX, OBJ, STL, PLY or collection ZIP.')
         # Large collection archives use the existing streaming transfer endpoint.
         if kind=='archive':
@@ -84,10 +117,21 @@ def install(app,g):
         except (OSError,ValueError) as error:raise HTTPException(400,str(error))
         finally:await file.close()
 
+    @router.post('/references/preview', tags=['Sources'], response_model=ReferencePreviewResult,
+                 summary='Preview framing and background removal from uploaded images',
+                 description='Returns original, cutout and framed PNG previews, each at most 240 × 240 pixels.')
+    async def preview_reference(data: ReferencePreview):
+        recipe = data.model_dump(include={'reference_edits'}, exclude_none=True)
+        with ExitStack() as stack:
+            return await g['prepare_reference_preview'](
+                **reference_files(data, stack), engine=data.engine, remove_bg=data.remove_bg,
+                reference_edits=json.dumps(recipe.get('reference_edits', {})), preview_size=240)
+
     @router.post('/generations',tags=['Generation'],status_code=202,response_model=JobAccepted,summary='Queue a generation from an uploaded image')
     async def generate(data:Generation):
-        if set(data.overrides)-{'triangles','texture_size','resolution','remove_bg','advanced_settings','asset_type','reference_prompt','parent_id','keep_finishing_source'}:raise HTTPException(400,'Unsupported recipe override.')
+        if set(data.overrides)-{'triangles','texture_size','resolution','remove_bg','advanced_settings','asset_type','reference_prompt','parent_id','keep_finishing_source','repair_surface'}:raise HTTPException(400,'Unsupported recipe override.')
         source,entry=upload(data.upload_id,'image');spec=dict(name=data.name,profile_id=data.profile_id,height_m=data.height_m,seed=data.seed,priority=data.priority,**data.overrides)
+        spec.update(data.model_dump(include={'reference_edits'}, exclude_none=True))
         with source.open('rb') as stream:
             result=await legacy('POST','/api/queue/batch',images=[UploadFile(file=stream,filename=entry['name'])],specifications=json.dumps([spec]))
         return accepted(dict(id=result['ids'][0]))
@@ -98,17 +142,12 @@ def install(app,g):
         recipe = data.model_dump(exclude={'upload_id', 'left_upload_id', 'back_upload_id',
                                           'right_upload_id', 'priority'}, exclude_none=True)
         recipe['queue_priority'] = data.priority
-        references = {
-            'image': data.upload_id, 'left_image': data.left_upload_id,
-            'back_image': data.back_upload_id, 'right_image': data.right_upload_id,
-        }
+        reference_edits = recipe.pop('reference_edits', None)
+        if reference_edits:
+            recipe['reference_edits'] = json.dumps(reference_edits)
         with ExitStack() as stack:
-            for field, identifier in references.items():
-                if identifier:
-                    path, entry = upload(identifier, 'image')
-                    stream = stack.enter_context(path.open('rb'))
-                    recipe[field] = UploadFile(file=stream, filename=entry['name'])
-            return accepted(await legacy('POST', '/api/generate-multiview', **recipe))
+            return accepted(await legacy('POST', '/api/generate-multiview',
+                                         **recipe, **reference_files(data, stack)))
 
     @router.post('/imports',tags=['Sources'],status_code=202,response_model=JobAccepted,summary='Import an uploaded model into the library')
     async def import_model(data:ImportModel):
@@ -153,8 +192,49 @@ def install(app,g):
     @router.get('/models/{identifier}/diagnostics',tags=['Preparation'],summary='Measure topology, UVs, dimensions, textures and animation')
     async def diagnostics(identifier:Identifier,force:bool=False):return await g['diagnostics'](identifier,force)
 
+    @router.get('/models/{identifier}/diagnostics/report', tags=['Preparation'],
+                summary='Download the saved diagnostics report')
+    def diagnostics_report(identifier: Identifier):
+        return g['diagnostics_report'](identifier)
+
+    @router.post('/models/{identifier}/refinish', tags=['Preparation'], status_code=202,
+                 response_model=JobAccepted, summary='Queue a linked finishing or hole-repair variant from cached geometry')
+    async def refinish(identifier: Identifier, data: Refinish):
+        return accepted(await legacy('POST', f'/api/jobs/{identifier}/refinish',
+                                     data.model_dump(exclude_none=True)))
+
+    @router.get('/models/{identifier}/finishing-board', tags=['Preparation'],
+                response_model=FinishingOptions, summary='Read the cached source and supported finishing budgets')
+    async def finishing_board(identifier: Identifier):
+        return await legacy('GET', f'/api/jobs/{identifier}/finishing-board')
+
+    @router.post('/models/{identifier}/finishing-board', tags=['Preparation'], status_code=202,
+                 response_model=FinishingBatchAccepted, summary='Queue up to three distinct finishing recipes')
+    async def finishing_batch(identifier: Identifier, data: FinishingBatch):
+        return await legacy('POST', f'/api/jobs/{identifier}/finishing-board',
+                            data.model_dump(exclude_none=True))
+
+    @router.patch('/models/{identifier}/finishing-board', tags=['Preparation'],
+                  response_model=FinishingSelection, summary='Select a completed variant or clear the selection')
+    async def finishing_selection(identifier: Identifier, data: FinishingSelection):
+        return await legacy('PATCH', f'/api/jobs/{identifier}/finishing-board', data.model_dump())
+
     @router.get('/models/{identifier}/files/{filename}',tags=['Models'],summary='Download a model, source image or recipe')
-    async def files(identifier:Identifier,filename:Literal['model.glb','model.blend','model.stl','input.png','settings.json','print-report.json']):return await g['files'](identifier,filename)
+    async def files(identifier: Identifier, filename: Literal[
+        'model.glb', 'model.stl', 'settings.json', 'result.json', 'print-report.json',
+        'input.png', 'input-left.png', 'input-back.png', 'input-right.png',
+        'prepared.png', 'prepared-left.png', 'prepared-back.png', 'prepared-right.png', 'conditioning.png',
+    ]):
+        return await g['files'](identifier, filename)
+
+    @router.get('/models/{identifier}/presentation/{filename}', tags=['Models'],
+                summary='Download a saved thumbnail, capture or turntable')
+    async def presentation_file(
+        identifier: Identifier,
+        filename: Literal['thumbnail.png', 'capture.png', 'turntable.webm', 'library-turntable.webm'],
+        v: str | None = None,
+    ):
+        return await legacy('GET', f'/api/jobs/{identifier}/presentation/{filename}', v=v)
 
     @router.post('/models/{identifier}/versions',tags=['History'],status_code=202,response_model=JobAccepted,summary='Duplicate an imported, rigged or printing model as a linked version')
     async def version(identifier:Identifier):return accepted(await g['import_version'](identifier))
@@ -171,10 +251,10 @@ def install(app,g):
     @router.post('/models/{identifier}/rig',tags=['Animation'],status_code=202,response_model=JobAccepted,summary='Generate a UniRig skeleton on a linked copy')
     async def rig(identifier:Identifier,data:Rig):return accepted(await legacy('POST',f'/api/jobs/{identifier}/rig',data.model_dump(exclude_none=True)))
 
-    @router.post('/models/{identifier}/animations',tags=['Animation'],status_code=202,response_model=JobAccepted,summary='Add or update one library motion on the same model')
+    @router.post('/models/{identifier}/animations',tags=['Animation'],status_code=202,response_model=JobAccepted,summary='Add or update one library motion on the same model',include_in_schema=not server_mode)
     async def animation(identifier:Identifier,data:Animation):return accepted(await legacy('POST',f'/api/jobs/{identifier}/animations',data.model_dump()))
 
-    @router.post('/models/{identifier}/motion-edits',tags=['Animation'],status_code=202,response_model=JobAccepted,summary='Edit a clip loop, duration or root motion with automatic checkpoint')
+    @router.post('/models/{identifier}/motion-edits',tags=['Animation'],status_code=202,response_model=JobAccepted,summary='Edit a clip loop, duration or root motion with automatic checkpoint',include_in_schema=not server_mode)
     async def motion(identifier:Identifier,data:Motion):return accepted(await legacy('POST',f'/api/jobs/{identifier}/prepare/motion',data.model_dump()))
 
     @router.get('/models/{identifier}/history',tags=['History'])
@@ -192,8 +272,14 @@ def install(app,g):
     @router.patch('/queue',tags=['Generation'],summary='Pause or resume scheduling; active work is not interrupted')
     async def queue_control(data:QueueControl):return await legacy('PATCH','/api/queue',data.model_dump())
 
-    @router.patch('/queue/{identifier}',tags=['Generation'],summary='Change priority or retry a failed/cancelled task')
+    @router.patch('/queue/{identifier}',tags=['Generation'],summary='Change queue priority' if server_mode else 'Change priority or retry a failed/cancelled task in place')
     async def queue_edit(identifier:Identifier,data:QueueEdit):return await legacy('PATCH',f'/api/queue/{identifier}',data.model_dump(exclude_none=True))
+
+    @router.post('/queue/{identifier}/retry', tags=['Generation'], status_code=202,
+                 response_model=JobRetryAccepted, summary='Queue a corrected attempt of a failed or cancelled job')
+    async def retry_job(identifier: Identifier, data: JobRetry):
+        result = await legacy('POST', f'/api/queue/{identifier}/retry', data.model_dump(exclude_none=True))
+        return {**accepted(result), 'retry_of': result['retry_of'], 'paused': result['paused']}
 
     @router.get('/workspace',tags=['Collections'])
     async def workspace():return await legacy('GET','/api/workspace')
@@ -219,13 +305,28 @@ def install(app,g):
     @router.post('/exports/{identifier}/cancel',tags=['Export & transfer'])
     async def export_cancel(identifier:Identifier):return await g['cancel_export'](identifier)
 
-    @router.post('/transfers/{identifier}/restore',tags=['Export & transfer'],status_code=201)
+    @router.post('/transfers/{identifier}/restore',tags=['Export & transfer'],status_code=201,include_in_schema=not server_mode)
     async def transfer_restore(identifier:Identifier,data:RestoreCollection):return await legacy('POST',f'/api/transfers/{identifier}/restore',data.model_dump())
 
     # The UI routes stay functional; the public contract documents v1 only.
     for route in app.routes:
         if getattr(route,'path','')=='/' or getattr(route,'path','').startswith('/api/'):route.include_in_schema=False
     app.include_router(router)
+    if server_mode:
+        workspace_openapi = app.openapi
+
+        def server_openapi():
+            schema = workspace_openapi()
+            schema['info']['title'] = 'TRELLIS Server API'
+            schema['info']['description'] = ('Versioned API for the personal library. Calls use the rights, disk quota and generation credits of the authenticated account. '
+                                              'Create a personal API key in Mon compte → Sécurité → Clés API. The browser reference can use the signed-in session.')
+            schema.setdefault('components', {}).setdefault('securitySchemes', {})['TrellisApiKey'] = {
+                'type': 'http', 'scheme': 'bearer', 'description': 'Personal TRELLIS Server API key.',
+            }
+            schema['security'] = [{'TrellisApiKey': []}]
+            return schema
+
+        app.openapi = server_openapi
     app.mount('/reference-assets',StaticFiles(directory=root/'node_modules/swagger-ui-dist'),name='api-reference-assets')
     @app.get('/api/docs',include_in_schema=False)
     def reference():

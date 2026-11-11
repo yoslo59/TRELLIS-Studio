@@ -1,6 +1,6 @@
 # Windows x64 installer preview
 
-`TRELLIS-Studio-3.3.1-Setup-x64.exe` is a per-user NSIS installer for Windows x64.
+`TRELLIS-Studio-3.3.4-Setup-x64.exe` is a per-user NSIS installer for Windows x64.
 It copies the application and viewer, adds Start menu entries, and never installs
 GPU drivers, Blender or WSL. The executable in this preview is unsigned. Do not
 treat a SHA-256 checksum as an Authenticode signature.
@@ -8,17 +8,20 @@ treat a SHA-256 checksum as an Authenticode signature.
 ## Install and open
 
 1. Run Setup. The default folder is `%LOCALAPPDATA%\Programs\TRELLIS Studio`.
-   Choose **Workshop only** or **Full Studio**. Full Studio installs TRELLIS.2,
+   First choose **TRELLIS Desktop (single user)** or **TRELLIS Server (multi-user)**.
+   Then select **Workshop only** or **Full Studio** for either edition. Both
+   Server options include first-time administrator setup. See [TRELLIS Server](SERVER.md).
+   Full Studio installs TRELLIS.2,
    UniRig and Pixal3D during Setup. Allow around 29 GiB for model downloads plus
    dependencies and roughly 100 GiB of free space for installation and caches.
    Prepare a supported NVIDIA driver, Blender and Ubuntu 22.04 under WSL2 first.
    The console displays progress and asks for explicit acceptance of the
    DINOv3 terms. If a download or component fails, see `logs/full-setup.log`
    in the installation folder and rerun Setup with **Full Studio** selected.
-2. Open **TRELLIS Studio** from the Start menu. Setup can also create an optional
-   shortcut with the Studio icon on your desktop. With Workshop only, the first
-   launch downloads the private Python runtime and workshop libraries over HTTPS.
-   Node.js, Blender, NVIDIA CUDA, WSL and model weights are not required for this step.
+2. Open **TRELLIS Studio** or **TRELLIS Server** from the Start menu. Setup can
+   also create a desktop shortcut. The workshop downloads the private Python
+   runtime and libraries over HTTPS during Server setup or the first Desktop
+   launch. It runs on the CPU with the bundled web viewer.
 3. Import a GLB with embedded assets. The workshop supports viewing, inspection,
    library management, and GLB export without Blender. Blender is needed for
    importing other formats, some uncommon GLB extensions, and Blender-dependent

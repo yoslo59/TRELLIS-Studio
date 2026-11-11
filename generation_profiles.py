@@ -7,7 +7,7 @@ from generation_options import (DENSE_MASTER, DENSE_MASTER_NAME, GENERATION_PRES
                                 PROFILE_ADVANCED, TRIANGLE_MIN, TRIANGLE_MAX, normalize_options)
 
 DENSE_MASTER_DESCRIPTION = ('Keeps the complete decoded geometry and materials before finishing. '
-                            'Makes a Direct working copy targeting 1 million triangles.')
+                            'Adapts the working copy to the surface, with a default ceiling of 1.2 million triangles.')
 
 
 def profile_options(overrides, steps):

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {icon} from './card-menu.js?v=3.3.1';
+import {icon} from './card-menu.js?v=3.3.4';
 const KEY='trellis.viewerLighting';
 export const DEFAULT_LIGHTING={azimuth:45,elevation:45,intensity:1.4,fill:.9,exposure:1.1,colour:'#ffffff',shadows:false,guide:false};
 const PRESETS={Studio:DEFAULT_LIGHTING,Soft:{...DEFAULT_LIGHTING,azimuth:-25,elevation:65,intensity:.8,fill:1,exposure:1.05},Dramatic:{...DEFAULT_LIGHTING,azimuth:110,elevation:30,intensity:2.1,fill:.2,exposure:1,colour:'#fff0d9'}};

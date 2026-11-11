@@ -141,8 +141,8 @@ def record_workshop():
 
 
 def install_workshop(uv):
-    # Reuse the Windows lock's versions, without installing any GPU or model dependencies.
-    names=set('annotated-doc annotated-types anyio click colorama fastapi h11 idna numpy opentelemetry-api pillow psutil pydantic pydantic_core python-multipart scipy starlette trimesh typing-inspection typing_extensions uvicorn'.split())
+    # The workshop includes the CPU QR encoder for Server two-factor setup.
+    names=set('annotated-doc annotated-types anyio click colorama fastapi h11 idna numpy opencv-python-headless opentelemetry-api pillow psutil pydantic pydantic_core python-multipart scipy starlette trimesh typing-inspection typing_extensions uvicorn'.split())
     requirements=[line.strip() for line in (ROOT/'requirements-windows.txt').read_text().splitlines()
                   if line.partition('==')[0].strip() in names]
     if len(requirements)!=len(names):raise RuntimeError('Workshop dependency list does not match the Windows lock.')
@@ -156,7 +156,7 @@ def install_workshop(uv):
 
 def verify(rig=True,workshop_only=False):
     python=ROOT/'.venv/Scripts/python.exe'
-    run(python,'-c',"import fastapi,uvicorn,numpy,psutil,scipy,trimesh; from PIL import Image; from studio_rest import install; from retarget_catalogue import ANIMATIONS; assert len(ANIMATIONS)==83; print('Workshop libraries and animation catalogue ready')")
+    run(python,'-c',"import cv2,fastapi,uvicorn,numpy,psutil,scipy,trimesh; from PIL import Image; from studio_rest import install; from retarget_catalogue import ANIMATIONS; assert callable(cv2.QRCodeEncoder_create); assert len(ANIMATIONS)==83; print('Workshop libraries, QR encoder and animation catalogue ready')")
     run(ROOT/'.mcp-venv/Scripts/python.exe','-c','from mcp.server import MCPServer;import httpx;print("MCP ready")')
     if not bundled_web():run('node','--check','web/studio.js')
     if workshop_only:return

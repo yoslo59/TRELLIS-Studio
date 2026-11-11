@@ -8,6 +8,7 @@ $taskRoot=[IO.Path]::GetFullPath($InstallRoot).TrimEnd([IO.Path]::DirectorySepar
 $taskScripts=@{
     app='app.py'; bridge='trellis_mcp.py'; setup='Install-Studio.ps1'
     pixal='pixal3d_setup.py'; launcher='installer\windows\Launch-Installed.ps1'
+    server='server_app.py'; serverSetup='server_setup.py'
 }
 function Test-StudioArgument([string]$CommandLine,[string]$Role) {
     if (-not $CommandLine) { return $false }
@@ -60,6 +61,9 @@ function Assert-ListenerOwner($Listener,[string]$Role) {
 
 if ($Action -eq 'Check') {
     $running=@(Get-StudioProcesses)
+    if (@($running | Where-Object Role -in @('server','serverSetup')).Count) {
+        throw 'TRELLIS Server is running from this folder. Use Stop TRELLIS Server before changing this installation.'
+    }
     if ($running.Count) { throw "TRELLIS Studio is running from this folder (process $($running[0].Id))." }
     Assert-NoComponentLock
     return
@@ -69,6 +73,9 @@ try {
     Assert-NoComponentLock
     $running=@(Get-StudioProcesses)
     if (-not $running.Count) { exit 0 }
+    if (@($running | Where-Object Role -in @('server','serverSetup')).Count) {
+        throw 'Use Stop TRELLIS Server and close any local setup before uninstalling.'
+    }
     if (@($running | Where-Object { $_.Role -notin @('app','bridge') }).Count) { throw 'The launcher or component installer is still running.' }
     $connections=@(Get-NetTCPConnection -State Listen -LocalAddress '127.0.0.1' -ErrorAction SilentlyContinue)
     $app=Get-LocalStudioListener 'app' $running $connections
