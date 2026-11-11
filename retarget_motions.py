@@ -8,13 +8,7 @@ from studio_import import animation_recipe
 ROOT=Path(__file__).resolve().parent
 
 def source_map(pack):
-    if pack=='KayKit':
-        result = dict(root='hips', spine_1='spine', spine='chest', head='head')
-        limbs = dict(arm='upperarm', forearm='lowerarm', hand='hand',
-                     leg='upperleg', shin='lowerleg', foot='foot', toe='toes')
-        for side, suffix in [('left', 'l'), ('right', 'r')]:
-            result.update({f'{side}_{part}': f'{bone}.{suffix}' for part, bone in limbs.items()})
-    elif pack=='UAL1':
+    if pack=='UAL1':
         result=dict(root='DEF-hips',spine_1='DEF-spine.001',spine_2='DEF-spine.002',spine='DEF-spine.003',neck='DEF-neck',head='DEF-head')
         for side,suffix in [('left','L'),('right','R')]:
             for semantic,bone in [('clavicle','shoulder'),('arm','upper_arm'),('forearm','forearm'),('hand','hand'),('leg','thigh'),('shin','shin'),('foot','foot'),('toe','toe')]:result[side+'_'+semantic]='DEF-'+bone+'.'+suffix
