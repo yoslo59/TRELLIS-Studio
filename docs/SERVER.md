@@ -1,39 +1,90 @@
-# TRELLIS Server pour Windows
+# TRELLIS Server for Windows
 
-TRELLIS Server donne accès au Studio depuis le navigateur des postes du réseau. Chaque compte dispose de sa bibliothèque. Avec le Studio complet, les générations sont mises en file et traitées par le GPU du serveur.
+TRELLIS Server lets people on your network use the Studio in a browser. Each
+account has its own library. With Full Studio installed, generation jobs enter
+a shared queue and run on the server's GPU.
 
-## Installer et créer le premier administrateur
+## Install and create the first administrator
 
-1. Lancez l’installateur Windows et choisissez **TRELLIS Server (multi-utilisateurs)**, puis **Atelier seul** ou **Studio complet**. L’atelier comprend la bibliothèque, la vue 3D, l’import et l’export GLB. Le Studio complet ajoute TRELLIS.2, UniRig et Pixal3D. Il requiert un GPU NVIDIA compatible CUDA, Blender et Ubuntu 22.04 dans WSL2.
-2. Choisissez un dossier de données sur un disque local. Le dossier proposé sur une installation Windows est `%LOCALAPPDATA%\TRELLIS Studio Server\data`. Gardez ce dossier accessible uniquement au compte Windows qui exécute TRELLIS et aux administrateurs de la machine.
-3. Choisissez l’adresse d’écoute, le port et l’adresse à ouvrir dans le navigateur. Pour un premier essai sur ce PC, conservez `127.0.0.1`, le port `7862` et `http://127.0.0.1:7862`. Pour ouvrir l’accès sur le réseau privé, indiquez l’IPv4 du serveur et une adresse HTTPS avec le même port. Indiquez le certificat et la clé privée au format PEM. Le nom d’hôte ou l’adresse saisis dans l’URL doivent être couverts par le certificat et reconnus par les postes clients.
-4. Lors de la première configuration, le navigateur affiche l’assistant local de création du premier administrateur. Renseignez ses prénom, nom, mail et mot de passe. Ce compte a un quota disque et des crédits illimités. Le serveur démarre ensuite avec l’adresse choisie. Une installation sur les mêmes données réutilise l’administrateur existant.
-5. Pour un accès depuis un autre poste, vérifiez la résolution du nom et la confiance dans le certificat. Si le pare-feu Windows filtre le port, ajoutez une règle entrante TCP limitée à ce port, au profil **Privé** et au sous-réseau local depuis `wf.msc`. Communiquez l’adresse finale aux utilisateurs.
+1. Run the Windows installer and choose **TRELLIS Server (multi-user)**. Then
+   select **Workshop only** for the library, 3D viewer, and GLB import and export,
+   or **Full Studio** to add TRELLIS.2, UniRig, and Pixal3D. Full Studio requires a
+   CUDA-compatible NVIDIA GPU, Blender, and Ubuntu 22.04 under WSL2.
+2. Choose a data folder on a local drive. The default for the Windows installer
+   is `%LOCALAPPDATA%\TRELLIS Studio Server\data`. Restrict access to the Windows
+   account running TRELLIS and to the machine's administrators.
+3. Set the listen address, port, and browser URL. To test on the server itself,
+   use `127.0.0.1`, port `7862`, and `http://127.0.0.1:7862`. For access from a
+   private network, enter the server's IPv4 address and an HTTPS URL on the same
+   port. Provide the certificate and private key as PEM files. Client computers
+   must recognise the URL's hostname or IP address, and the certificate must
+   cover it.
+4. The local setup wizard opens in your browser. Enter the first administrator's
+   first name, last name, email address, and password. The administrator has
+   unlimited storage and generation credits. Once the wizard closes, open the
+   **TRELLIS Server** shortcut or go to the configured browser URL. Complete
+   two-factor setup on first sign-in. An installation pointed at the same data
+   folder reuses the existing account.
+5. On each client, check that the server address resolves and that the certificate
+   is trusted. If Windows Firewall blocks the connection, use `wf.msc` to add an
+   inbound TCP rule limited to the selected port, the **Private** profile, and
+   the local subnet. Share the browser URL with users.
 
-Le démarrage automatique est facultatif et se fait à l’ouverture de la session Windows qui a installé le serveur. Il utilise cette session pour accéder au GPU et à ses composants. Le compte administrateur TRELLIS est géré dans l’application.
+Optional autostart runs when the Windows account that installed TRELLIS signs
+in. This gives the server access to the GPU and installed components. Manage the
+TRELLIS administrator account within the Studio.
 
-Depuis une copie des sources dont les dépendances sont déjà installées, utilisez `Start-Server.ps1 -Configure`. Le dossier proposé est alors `server-data`. Pour changer l’adresse, le port ou le certificat, arrêtez le serveur et utilisez **Configure TRELLIS Server**. L’adresse et le dossier sont enregistrés dans `config/server.json`.
+From a source checkout with the dependencies already installed, run
+`.\Start-Server.ps1 -Configure`. The default data folder is `server-data`. To
+change the address, port, or certificate, stop the server and open **Configure
+TRELLIS Server**. Server settings are saved in `config/server.json`.
 
-## Gérer l’accès et les quotas
+## Manage access and quotas
 
-Sur la page de connexion, un utilisateur peut remplir **Demander un compte**. La demande est visible dans **Administration → Users**. Ouvrez la fiche avec **Review**, fixez le quota disque et attribuez les crédits, puis activez le compte. Transmettez la décision à l’utilisateur selon votre canal habituel.
+Users can request an account from the sign-in page with **Demander un compte**
+(Request an account). Open **Administration → Users**, select **Review**, set
+the disk quota, and select **Activate account**. Use **Adjust credits** to
+grant generation credits. Let the user know once their account is active.
 
-Les utilisateurs consultent leur utilisation dans leur profil. La file du serveur organise l’accès au moteur. La désactivation d’un compte protège son accès et conserve sa bibliothèque. Les quotas et les crédits se modifient depuis l’administration.
+Users can check their usage from the account menu. The server queue schedules
+jobs across accounts. Disabling an account blocks sign-in and keeps its library.
+Administrators can adjust quotas and credits from **Administration**.
 
-## Connecter un script ou un client MCP
+## Connect a script or MCP client
 
-Dans **Sécurité → Clés API**, créez une clé personnelle pour votre client. Elle s’affiche à la création. Les opérations utilisent votre bibliothèque, votre quota disque et vos crédits. Vous pouvez révoquer la clé depuis le même écran.
+Create a personal key in **Sécurité → Clés API** (Security → API keys). The key
+is shown when you create it. Requests use your account's library, disk quota,
+and generation credits. Revoke keys from the same page.
 
-Pour l’API REST, utilisez l’adresse HTTPS du serveur, les routes `/api/v1` et l’en-tête `Authorization: Bearer <clé>`. Pour MCP, lancez le pont en STDIO sur le poste qui exécute le client. Renseignez `TRELLIS_API_URL` et `TRELLIS_API_TOKEN` dans son environnement. Si le serveur utilise une autorité de certification privée, indiquez son fichier PEM avec `TRELLIS_API_CA_BUNDLE`. [Configuration MCP](MCP.md#connect-to-trellis-server)
+For REST, use the server's HTTPS URL, the `/api/v1` routes, and the
+`Authorization: Bearer <key>` header. For MCP, run the bridge in STDIO mode on
+the computer that runs your MCP client. Set `TRELLIS_API_URL` and
+`TRELLIS_API_TOKEN` in the bridge's environment. If the server uses a private
+certificate authority, set `TRELLIS_API_CA_BUNDLE` to its PEM file.
+[MCP configuration](MCP.md#connect-to-trellis-server)
 
-## Exploiter le serveur
+## Run and maintain the server
 
-- Double-cliquez sur `Open TRELLIS Server.cmd` ou utilisez le raccourci **TRELLIS Server** pour démarrer le serveur si nécessaire et ouvrir son adresse dans le navigateur. `Open TRELLIS Server.cmd -NoBrowser` le lance en arrière-plan.
-- **Stop TRELLIS Server** arrête le serveur au repos. Attendez la fin des calculs actifs, puis lancez le raccourci. Les travaux en attente restent disponibles à la reprise. Les journaux sont dans le dossier `logs` des données serveur.
-- Avant une mise à jour ou une désinstallation, arrêtez le serveur. L’installeur conserve le dossier des données et les comptes. Relancez la configuration si vous avez choisi un nouvel emplacement d’installation.
-- Pour sauvegarder, arrêtez le serveur et copiez ensemble le dossier de données et `config/server.json` sur un support protégé. Conservez séparément les certificats et clés pointés par la configuration. Pour restaurer, remettez la copie à l’emplacement indiqué par la configuration pendant que le serveur est arrêté. Une sauvegarde de bibliothèque exportée depuis le Studio reste un transfert de modèles, distinct d’une sauvegarde du serveur et de ses comptes.
+- Double-click `Open TRELLIS Server.cmd` or use the **TRELLIS Server** shortcut
+  to start the server and open its URL in your browser. In PowerShell, run
+  `& '.\Open TRELLIS Server.cmd' -NoBrowser` to start it without opening a tab.
+- Wait for active jobs to finish, then use **Stop TRELLIS Server**. Pending jobs
+  are available when the server restarts. Logs are in the `logs` folder under
+  the server data directory.
+- Stop the server before upgrading or uninstalling. The installer preserves
+  the data directory and accounts. Run server configuration again if you chose
+  a new installation folder.
+- To back up the server, stop it and copy the data directory and
+  `config/server.json` to protected storage. Store the certificates and keys
+  referenced by the configuration separately. To restore, put the files back
+  at the configured paths while the server is stopped. Use Studio's library
+  export to transfer models between installations.
 
-Pour récupérer un compte administrateur, arrêtez le serveur et ouvrez PowerShell dans le dossier d’installation avec le compte Windows qui gère les données. Saisissez la commande ci-dessous avec l’adresse du compte. Le nouveau mot de passe est demandé dans le terminal. Réactivez la double authentification à la connexion suivante.
+To recover an administrator account, stop the server and open PowerShell in the
+installation folder as the Windows user who manages the data. Run the command
+with the administrator's email address. Enter a new password at the prompt.
+Recovery revokes the account's sessions and API keys. Set up two-factor
+authentication again at the next sign-in and create new API keys if needed.
 
 ```powershell
 & .\.venv\Scripts\python.exe -B .\server_app.py --config .\config\server.json --recover-admin admin@example.com
