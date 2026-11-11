@@ -75,7 +75,7 @@ overrides are documented in the `Generation` schema; unknown fields are rejected
 | Library | `GET /models`, `GET /jobs/{id}`, `PATCH /models/{id}/metadata`, `GET /models/{id}/files/{filename}`, `/models/{id}/presentation/{filename}` |
 | Queue | `GET/PATCH /queue`, `PATCH /queue/{id}`, `POST /queue/{id}/retry`, `POST /jobs/{id}/cancel` |
 | Preparation | `GET /models/{id}/diagnostics`, `/models/{id}/diagnostics/report`. `POST /models/{id}/lods`, `/game-copy`, `/print-copy`, `/refinish`. `GET/POST/PATCH /models/{id}/finishing-board`. |
-| Animation | `POST /models/{id}/rig`. Desktop also provides `POST /models/{id}/animations` and `/motion-edits`. |
+| Animation | `POST /models/{id}/rig`. `GET`, `POST` and `DELETE /models/{id}/animations` list, add or remove clips on the selected model. Desktop provides `/motion-edits`. |
 | History | `GET /models/{id}/history`, `POST /models/{id}/versions`, `/checkpoints`, `/restore-version` |
 | Collections | `GET /workspace`, `POST /folders`, `/folders/assign`, `/views` |
 | Export | `POST /exports`, `GET /exports/{id}`, `GET /exports/{id}/download`, `POST /exports/{id}/cancel` |
@@ -88,10 +88,20 @@ lowercase hexadecimal strings. Timestamps are Unix seconds; dimensions and offse
 are metres unless a field explicitly says millimetres. Rotation is degrees, Y up.
 LOD ratios are distinct decreasing fractions between .02 and .99.
 
-On Desktop, to add a standard motion, pass the library ID from `/animations`, for example
-`{"clip":"walk","duration":2.5}`. To edit an embedded motion, pass its actual
-stored clip name from the model record. Motion edits protect the previous version
-with a checkpoint; other clips stay on the same model and prepared LODs are updated.
+To add multiple authored motions, send library IDs from `/animations` in a single request,
+for example `{"clips":[{"clip":"idle","duration":3},{"clip":"walk","duration":2.5}]}`.
+The single-clip form is `{"clip":"walk","duration":2.5}`. Both editions update the
+selected model ID and keep the other clips. In Server, animation work uses the account's
+disk quota and requires zero generation credits.
+
+List the clips with `GET /models/{id}/animations`. To remove one, send its exact
+embedded name to `DELETE /models/{id}/animations` with `{"clip":"TS_walk_2.5s"}`.
+For duplicate or unnamed clips, send the returned `index` with the expected `clip`
+name or `null`. Pass the list's `revision` to reject a selection from an earlier
+version of the GLB. Poll `status_url` from either write response until the update finishes.
+
+To edit an embedded motion on Desktop, pass its actual stored clip name from the
+model record. Motion edits create a checkpoint and update the prepared LODs.
 `distance` adds forward travel to the source motion. Use zero to keep authored travel.
 
 `POST /models/{id}/rig` accepts `rotation`, `height_m`, `offset_m` and an optional
@@ -108,9 +118,8 @@ omitting `landmarks` preserves the previous rig workflow. Check the
 `rig_landmarks` feature in `/status` before submitting points to a running server.
 
 Generation, LOD, game preparation, print preparation and rigging create linked
-versions as described in the reference. Metadata changes and animation additions
-operate on the selected record. Model deletion is a move to restorable trash;
-no permanent-purge operation is exposed in v1 or MCP.
+versions as described in the reference. Metadata and animation updates operate on
+the selected record. Model deletion moves the record to restorable trash.
 
 `POST /models/{id}/versions` duplicates imported, rigged and printing models.
 For a generated variant, reuse its source image and stored recipe in `/generations`,

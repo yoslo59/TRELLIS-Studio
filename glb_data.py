@@ -1,6 +1,7 @@
 """Small read-only GLB helpers, shared by diagnostics, cards and exports."""
 from functools import lru_cache
 from pathlib import Path
+import shutil
 import base64,io,json,struct
 import numpy as np
 from PIL import Image
@@ -14,6 +15,34 @@ def read(path):
         if kind==0x004e4942:binary=raw[offset:offset+length]
         offset+=length
     return data,binary
+
+
+def remove_animation(source, destination, name, index=None):
+    """Rewrite only the GLB descriptor and leave its binary payload intact."""
+    data = validate_glb(source)
+    animations = data.get('animations', [])
+    if index is None:
+        matches = [i for i, clip in enumerate(animations) if clip.get('name') == name]
+        if len(matches) != 1:
+            raise ValueError('Select one exact embedded animation.')
+        index = matches[0]
+    if type(index) is not int or not 0 <= index < len(animations) or animations[index].get('name') != name:
+        raise ValueError('The selected animation has changed. Reload the model and try again.')
+    remaining = [clip for i, clip in enumerate(animations) if i != index]
+    if remaining:
+        data['animations'] = remaining
+    else:
+        data.pop('animations', None)
+    descriptor = json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    descriptor += b' ' * (-len(descriptor) % 4)
+    with source.open('rb') as incoming, destination.open('wb') as outgoing:
+        original_length, json_length = struct.unpack('<II', incoming.read(16)[8:16])
+        incoming.seek(20 + json_length)
+        outgoing.write(struct.pack('<4sIIII', b'glTF', 2, original_length - json_length + len(descriptor),
+                                   len(descriptor), 0x004e4f534a))
+        outgoing.write(descriptor)
+        shutil.copyfileobj(incoming, outgoing)
+    return data
 
 def image(data,binary,index):
     entry=data['images'][index]
@@ -73,8 +102,11 @@ def posed_bounds(data,binary):
 @lru_cache(maxsize=512)
 def _media(filename,mtime,size):
     try:
-        data=validate_glb(Path(filename));clips=len(data.get('animations',[]))
-        return dict(available=True,animated=clips>0,clips=clips,bones=len({j for s in data.get('skins',[]) for j in s.get('joints',[])}))
+        data=validate_glb(Path(filename));names=[clip.get('name') for clip in data.get('animations',[])]
+        return dict(available=True,animated=bool(names),clips=len(names),
+                    bones=len({j for s in data.get('skins',[]) for j in s.get('joints',[])}),
+                    animation_names=names, animation_revision=str(mtime),
+                    animation_items=[dict(index=index,name=name) for index,name in enumerate(names)])
     except (OSError,ValueError,KeyError,TypeError):return dict(available=False,animated=False,clips=0,bones=0)
 
 def media(path):

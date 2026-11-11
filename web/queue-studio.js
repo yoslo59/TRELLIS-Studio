@@ -1,4 +1,4 @@
-import {button, dialog, el, field, input, select, action} from './workbench-ui.js?v=3.3.5';
+import {button, dialog, el, field, input, select, action} from './workbench-ui.js?v=3.3.6';
 
 const PRIORITIES = [['2', 'Highest'], ['1', 'High'], ['0', 'Normal'], ['-1', 'Low'], ['-2', 'Lowest']];
 const STATE_ORDER = {running: 0, queued: 1, error: 2, cancelled: 2, done: 3};
@@ -291,13 +291,15 @@ export function createQueueStudio({api, refresh}) {
   }
 
   function jobRow(item) {
+    const animation = item.settings.source_kind === 'animation_update';
     const row = el('article', 'queue-job');
     const img = el('img');
-    img.src = '/api/jobs/' + item.id + '/files/input.png';
+    img.src = animation ? '/web/asset-placeholder.svg' : '/api/jobs/' + item.id + '/files/input.png';
     img.alt = item.name;
     const copy = el('div', 'queue-job-copy');
     const progress = item.progress || 0;
     const recipeSummary = [
+      animation ? 'Animation update' : null,
       item.settings.resolution ? item.settings.resolution + '³' : null,
       item.settings.triangles ? Number(item.settings.triangles).toLocaleString('en-US') + ' triangles' : null,
       item.settings.texture_size ? item.settings.texture_size / 1024 + 'K' : null,
@@ -335,7 +337,7 @@ export function createQueueStudio({api, refresh}) {
       });
       controls.append(cancel);
     }
-    if (['error', 'cancelled'].includes(item.state)) {
+    if (!animation && ['error', 'cancelled'].includes(item.state)) {
       const edit = button('Edit and retry', 'rotate', 'secondary');
       edit.onclick = () => action(ui, edit, () => editRetry(item));
       controls.append(edit);

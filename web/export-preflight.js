@@ -1,4 +1,4 @@
-import {el, field, input, select, button} from './workbench-ui.js?v=3.3.5';
+import {el, field, input, select, button} from './workbench-ui.js?v=3.3.6';
 
 const usages = [
   ['static', 'Static prop'], ['background', 'Background prop'],

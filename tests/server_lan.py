@@ -7,6 +7,7 @@ import base64
 import hashlib
 import hmac
 import io
+import json
 import socket
 import struct
 import sys
@@ -237,9 +238,93 @@ def run():
             assert 'post' in paths['/api/v1/references/preview']
             assert 'post' in paths['/api/v1/queue/{identifier}/retry']
             assert '/api/v1/client-config' not in paths
+            assert 'post' in paths['/api/v1/models/{identifier}/animation-copy']
+            assert {'get', 'post', 'delete'} <= set(paths['/api/v1/models/{identifier}/animations'])
             for variant in (*batch['ids'], retry['id']):
                 call(base, 'POST', '/api/v1/jobs/' + variant + '/cancel', headers=auth)
+
+            edition = call(base, 'GET', '/api/v1/status', headers=auth).json()
+            assert edition['edition'] == 'server' and {'animation_batch', 'animation_clip_removal'} <= set(edition['features'])
+            animated = model + '/animation-copy'
+            model_animations = model + '/animations'
+            motions = {'clips': [{'clip': 'walk', 'duration': 2.5}, {'clip': 'run', 'duration': 3}]}
+            call(base, 'POST', model_animations, 409, headers=auth, json=motions)
+            call(base, 'GET', model_animations, 409, headers=auth)
+            call(base, 'POST', animated, 422, headers=auth, json={'clips': [motions['clips'][0]] * 2})
+            call(base, 'POST', animated, 409, headers=auth, json=motions)
+            call(base, 'PATCH', '/server/api/admin/users/' + bob_id, client=admin, json={'disk_limit_bytes': 128 * MIB})
+            call(base, 'POST', animated, 404, bob, json=motions)
+
+            source = alice_path / identifier
+            gltf = json.dumps(dict(asset={'version': '2.0'}, meshes=[{'primitives': []}],
+                                   skins=[{'joints': [0]}], animations=[{'name': 'TS_idle_2.5s'}])).encode()
+            gltf += b' ' * (-len(gltf) % 4)
+            mesh = struct.pack('<4sIIII', b'glTF', 2, 20 + len(gltf), len(gltf), 0x4e4f534a) + gltf
+            (source/'model.glb').write_bytes(mesh)
+            settings = json.loads((source/'settings.json').read_text())
+            settings.update(animation_clips=[{'id': 'idle', 'duration': 2.5}], rig_options={'height_m': 1.69})
+            write(source/'settings.json', settings)
+            workspace.studio.find_blender = lambda: Path('fixture-blender')
+            job_paths = set(alice_path.iterdir())
+            call(base, 'PATCH', '/server/api/admin/users/' + alice_id, client=admin,
+                 json={'disk_limit_bytes': 16 * MIB})
+            call(base, 'POST', animated, 413, headers=auth, json=motions)
+            call(base, 'POST', model_animations, 413, headers=auth, json=motions)
+            assert set(alice_path.iterdir()) == job_paths and (source/'model.glb').read_bytes() == mesh
+            call(base, 'PATCH', '/server/api/admin/users/' + alice_id, client=admin,
+                 json={'disk_limit_bytes': 80 * MIB})
+            listing = call(base, 'GET', model_animations, headers=auth).json()
+            assert listing['animations'][0]['name'] == 'TS_idle_2.5s'
+            call(base, 'DELETE', model_animations, 409, headers=auth,
+                 json={'index': 0, 'clip': 'TS_idle_2.5s', 'revision': '0'})
+            edit = call(base, 'DELETE', model_animations, 202, headers=auth,
+                        json={'index': 0, 'clip': 'TS_idle_2.5s', 'revision': listing['revision']}).json()
+            assert edit['id'] == identifier and edit['operation_id'] != identifier
+            call(base, 'GET', edit['status_url'], 404, bob)
+            call(base, 'POST', model_animations, 409, headers=auth, json=motions)
+            assert call(base, 'GET', model_animations, headers=auth).json() == listing
+            call(base, 'POST', edit['status_url']+'/cancel', headers=auth)
+            assert set(alice_path.iterdir()) == job_paths and (source/'model.glb').read_bytes() == mesh
+
+            child = call(base, 'POST', animated, 202, headers=auth, json=motions).json()
+            child_path = alice_path / child['id']
+            job = call(base, 'GET', child['status_url'], headers=auth).json()
+            assert child['state'] == 'queued' and job['settings']['parent_id'] == identifier
+            recipe = json.loads((child_path/'animation-request.json').read_text())
+            assert recipe['linked'] and recipe['settings']['rig_options'] == settings['rig_options']
+            assert [clip['id'] for clip in recipe['clips']] == ['idle', 'walk', 'run']
+            assert (child_path/'source.glb').read_bytes() == mesh and not (child_path/'model.glb').exists()
+            assert next(row for row in store.jobs(alice_id) if row['id'] == child['id'])['credit_cost'] == 0
+            call(base, 'POST', child['status_url']+'/cancel', headers=auth)
+            assert not (child_path/'source.glb').exists() and not (child_path/'animation-request.json').exists()
+
+            over = call(base, 'POST', model_animations, 202, headers=auth, json=motions).json()
+            operation_id = over['operation_id']
+            assert over['id'] == identifier
+            over_path = workspace.state / 'animation-ops' / operation_id
+            animation_process = FixtureProcess()
+
+            def launch_animation(path, script, source_id=None):
+                assert path == over_path and script == 'animation_worker.py'
+                workspace.studio.PROCESS = animation_process
+                workspace.studio.ACTIVE = path.name
+
+            workspace.launch = launch_animation
             call(base, 'PATCH', '/server/api/admin/queue', client=admin, json={'paused': False})
+            try:
+                eventually(lambda: any(row['id'] == operation_id and row['state'] == 'running'
+                                       for row in store.jobs(alice_id)))
+                with (over_path/'model.blend').open('wb') as stream:
+                    stream.truncate(85 * MIB)
+                (over_path/'model.glb').write_bytes(mesh)
+                write(over_path/'result.json', {})
+                write(over_path/'status.json', dict(state='ready', stage='Fixture complete', progress=100))
+            finally:
+                animation_process.completed = True
+            eventually(lambda: any(row['id'] == operation_id and row['state'] == 'error'
+                                   for row in store.jobs(alice_id)))
+            assert not (over_path/'model.blend').exists() and not (over_path/'source.glb').exists()
+            assert (source/'model.glb').read_bytes() == mesh and store.get_user(alice_id)['credits'] == 0
 
             call(base, 'PATCH', '/server/api/admin/users/' + bob_id, client=admin, json={'disk_limit_bytes': 70 * MIB})
             bob_workspace = state.runtime.workspaces[bob_id]
@@ -270,7 +355,7 @@ def run():
             admin, _ = login(base, 'admin', codes[1])
             assert state.store.get_user(alice_id)['credits'] == 0
             assert len(call(base, 'GET', '/server/api/admin/users', client=admin).json()['users']) == 3
-    print('PASS: bootstrap, accounts, ownership, API keys, REST previews and finishing, retry, quotas, revocation and restart.')
+    print('PASS: accounts, ownership, API keys, REST previews, finishing, retry, in-place animations, quotas, revocation and restart.')
 
 
 if __name__ == '__main__':

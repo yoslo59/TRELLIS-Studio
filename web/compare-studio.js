@@ -1,9 +1,9 @@
-import {createLightingRig} from './viewer-lighting.js?v=3.3.5';
+import {createLightingRig} from './viewer-lighting.js?v=3.3.6';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
-import {icon} from './card-menu.js?v=3.3.5';
+import {icon} from './card-menu.js?v=3.3.6';
 
 const nameOf=j=>j?.metadata?.display_name||j?.settings.name||'Choose a model';
 export function createComparison({getRecords,labelAnimation}){

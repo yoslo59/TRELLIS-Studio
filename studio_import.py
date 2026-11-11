@@ -5,15 +5,19 @@ import json, os, re, shutil, struct
 FORMATS = ('.glb', '.fbx', '.obj', '.stl', '.ply')
 MAX_BYTES = 500 * 1024 * 1024
 
+def animation_recipe(name):
+    if not isinstance(name, str):
+        return None
+    match = re.fullmatch(r'TS_([a-z0-9_]{1,80})_(\d+(?:\.\d+)?)s', name)
+    if match:
+        duration = float(match[2])
+        if 2 <= duration <= 5:
+            return dict(id=match[1], duration=duration)
+    return None
+
+
 def animation_recipes(data):
-    clips=[]
-    for clip in data.get('animations',[]):
-        match=re.fullmatch(r'TS_(.+)_([0-9.]+)s',clip.get('name',''))
-        if match and re.fullmatch(r'[a-z0-9_]{1,80}',match[1]):
-            try:duration=float(match[2])
-            except ValueError:continue
-            if 2<=duration<=5:clips.append(dict(id=match[1],duration=duration))
-    return clips
+    return [recipe for clip in data.get('animations', []) if (recipe := animation_recipe(clip.get('name')))]
 
 def find_blender():
     configured = os.environ.get('TRELLIS_BLENDER')

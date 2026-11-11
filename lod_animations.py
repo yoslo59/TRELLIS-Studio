@@ -5,10 +5,10 @@ from glb_data import read
 
 def sync(source,destination):
     data,binary=read(source);lod,old=read(destination)
-    if not data.get('animations'):return
+    if not data.get('animations') and not lod.get('animations'):return
     by_name={}
     for i,node in enumerate(lod['nodes']):by_name.setdefault(node.get('name',''),[]).append(i)
-    clips=copy.deepcopy(data['animations']);accessors={};views={};payload=bytearray(old)
+    clips=copy.deepcopy(data.get('animations',[]));accessors={};views={};payload=bytearray(old)
     def view(index):
         if index not in views:
             original=data['bufferViews'][index];payload.extend(b'\0'*(-len(payload)%4));start=len(payload)
@@ -29,7 +29,8 @@ def sync(source,destination):
             channel['target']['node']=matches[0]
         for sampler in clip['samplers']:
             for key in ('input','output'):sampler[key]=accessor(sampler[key])
-    lod['animations']=clips
+    if clips:lod['animations']=clips
+    else:lod.pop('animations',None)
     # Remove previous clip accessors and their now-unused buffers, so repeated
     # edits do not keep appending an entire animation set to every detail level.
     used=set()

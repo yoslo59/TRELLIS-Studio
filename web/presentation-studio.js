@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
-import {renderTurntable} from './turntable-webm.js?v=3.3.5';
-import {button,dialog,el,field,input,select,download} from './workbench-ui.js?v=3.3.5';
+import {renderTurntable} from './turntable-webm.js?v=3.3.6';
+import {button,dialog,el,field,input,select,download} from './workbench-ui.js?v=3.3.6';
 
 const cardCapture = {width: 384, height: 384, seconds: 6, fps: 12, bitrate: 360000};
 const cardMaxBytes = 6 * 1024 * 1024;

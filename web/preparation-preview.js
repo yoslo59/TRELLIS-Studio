@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
-import {createLightingRig} from './viewer-lighting.js?v=3.3.5';
+import {createLightingRig} from './viewer-lighting.js?v=3.3.6';
 export async function createPreparationPreview(container,url){
  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.toneMapping=THREE.ACESFilmicToneMapping;container.prepend(renderer.domElement);const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(40,1,.001,1000),controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=false;const room=new RoomEnvironment(),pmrem=new THREE.PMREMGenerator(renderer),env=pmrem.fromScene(room,.04);scene.environment=env.texture;room.dispose();pmrem.dispose();const grid=new THREE.GridHelper(10,40,0x63765b,0x3b4735);grid.material.transparent=true;grid.material.opacity=.2;scene.add(grid);const rig=createLightingRig(scene,renderer),axes=new THREE.AxesHelper(.2);axes.material.depthTest=false;axes.renderOrder=12;scene.add(axes);const box=new THREE.Box3Helper(new THREE.Box3(),0xc4f58a);box.visible=false;scene.add(box);let root=null,closed=false,mixer=null,clip=null,clock=new THREE.Clock(),dots=[],contactReport=null;
  const observer=new ResizeObserver(()=>{const w=Math.max(1,container.clientWidth),h=Math.max(1,container.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();});observer.observe(container);

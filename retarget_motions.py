@@ -3,6 +3,7 @@ from pathlib import Path
 import bpy,math,itertools
 from mathutils import Vector,Quaternion
 from retarget_catalogue import BY_ID
+from studio_import import animation_recipe
 
 ROOT=Path(__file__).resolve().parent
 
@@ -72,8 +73,11 @@ def author(scene,target,mapping,requests,height):
         start,end=src_action.frame_range;source_duration=(end-start)/24;duration=request['duration'];frames=round(duration*24)
         cycles=max(1,round(duration/max(source_duration,.001))) if recipe['loop'] else 1
         action_name='TS_'+request['id']+'_'+str(duration)+'s'
-        for existing in list(bpy.data.actions):
-            if existing in original_actions and existing.name.startswith('TS_'+request['id']+'_'):bpy.data.actions.remove(existing);original_actions.discard(existing)
+        for existing in list(original_actions):
+            previous = animation_recipe(existing.name)
+            if previous and previous['id'] == request['id']:
+                original_actions.remove(existing)
+                bpy.data.actions.remove(existing)
         action=bpy.data.actions.new(action_name);action.use_fake_user=True;target.animation_data.action=action
         # Leg length controls root displacement and ankle targets, not head size.
         ratios=[]

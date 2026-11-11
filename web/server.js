@@ -1,6 +1,6 @@
 import {
   request, getUser, element, avatar, nameOf, diskLimit, diskUsed, availableCredits, formatBytes, formatNumber,
-} from './server-shell.js?v=3.3.5';
+} from './server-shell.js?v=3.3.6';
 
 const byId = id => document.getElementById(id);
 const main = byId('server-main');

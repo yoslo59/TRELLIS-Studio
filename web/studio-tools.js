@@ -1,9 +1,9 @@
-import {createComparison} from './compare-studio.js?v=3.3.5';
-import {createDiagnostics} from './diagnostics.js?v=3.3.5';
-import {createExportStudio} from './export-studio.js?v=3.3.5';
-import {createLibrarySelection} from './library-selection.js?v=3.3.5';
-import {installButtonIcons} from './button-icons.js?v=3.3.5';
-import {icon} from './card-menu.js?v=3.3.5';
+import {createComparison} from './compare-studio.js?v=3.3.6';
+import {createDiagnostics} from './diagnostics.js?v=3.3.6';
+import {createExportStudio} from './export-studio.js?v=3.3.6';
+import {createLibrarySelection} from './library-selection.js?v=3.3.6';
+import {installButtonIcons} from './button-icons.js?v=3.3.6';
+import {icon} from './card-menu.js?v=3.3.6';
 export function createStudioTools({api,getRecords,getJob,refresh,printCopy,labelAnimation,openPreparation}){
  const compare=createComparison({getRecords,labelAnimation}),diagnostics=createDiagnostics({api});
  const exports=createExportStudio({api,printCopy,openAction(action,job){

@@ -6,6 +6,7 @@
 /.github/*
 !/.github/FUNDING.yml
 !/animation_edits.py
+!/animation_blend.py
 !/animation_worker.py
 !/api_contract.py
 !/app.py
@@ -174,6 +175,7 @@
 !/UniRig/apply-landmarks.py
 !/UniRig/verify-landmarks.py
 !/UniRig/restore-skin-frame.py
+!/UniRig/transfer-skin.py
 /animations/*
 !/animations/library.json
 /integrations/*

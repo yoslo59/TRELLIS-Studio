@@ -460,6 +460,10 @@ class StudioServices:
         def queue():
             items=[]
             for entry in self.workspace.ordered():
+                if self.g.get('WORKSPACE_CONFIG') and (self.g['animation_operations_root']()/entry['id']).is_dir():
+                    operation = self.g['animation_operation'](entry['id'])
+                    items.append({**entry, **operation, 'settings': {'source_kind': 'animation_update'}})
+                    continue
                 folder=self.output/entry['id']
                 if not folder.is_dir():continue
                 record=self.g['job_record'](folder)
@@ -480,13 +484,14 @@ class StudioServices:
             async with self.g['LOCK']:
                 entry=next((i for i in self.workspace.queue['items'] if i['id']==identifier),None)
                 if not entry:raise HTTPException(404)
-                data=await request.json();folder=self.g['job_path'](identifier);state=read(folder/'status.json',{})
+                data=await request.json()
                 if data.get('retry') and self.g.get('WORKSPACE_CONFIG'):
                     raise HTTPException(400, 'Use Retry with corrections to create a new queue item.')
                 if 'priority' in data:
                     if type(data['priority']) is not int or not -2<=data['priority']<=2:raise HTTPException(400,'Invalid priority.')
                     entry['priority']=data['priority']
                 if data.get('retry'):
+                    folder=self.g['job_path'](identifier);state=read(folder/'status.json',{})
                     if state.get('state') not in ('error','cancelled'):raise HTTPException(409,'Only interrupted, failed or cancelled jobs can be retried.')
                     entry['cancelled']=False;entry['held']=False;write(folder/'status.json',dict(state='queued',stage='Waiting in queue',progress=0))
                 self.workspace.save_queue();return queue()

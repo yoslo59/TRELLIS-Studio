@@ -1,6 +1,6 @@
 """Loopback-only local asset studio. No remote inference or hosted dependencies."""
 from pathlib import Path
-from studio_workspace import finishing_source
+from studio_workspace import ID, finishing_source, read as read_workspace_json
 from studio_version import VERSION
 from contextlib import asynccontextmanager
 from tempfile import TemporaryDirectory
@@ -140,13 +140,19 @@ def job_path(identifier):
     if not folder.is_dir(): raise HTTPException(404)
     return folder
 
+def prepared_output_ready(settings, status):
+    return (settings.get('source_kind') not in ('unirig', 'animation_copy') or status.get('state') == 'done'
+            or status.get('operation') == 'animation')
+
+
 def job_record(folder):
     try:
         settings = json.loads((folder / 'settings.json').read_text(encoding='utf-8'))
         status_path = folder / 'status.json'
         data = json.loads(status_path.read_text(encoding='utf-8')) if status_path.exists() else {'state':'queued','stage':'Starting','progress':0}
         data.update(id=folder.name, settings=settings)
-        data['media']=model_media(folder/'model.glb')
+        data['media'] = (model_media(folder/'model.glb') if prepared_output_ready(settings, data)
+                         else dict(available=False, animated=False, clips=0, bones=0))
         data['can_refinish'] = data['state'] == 'done' and bool(finishing_source(folder, settings))
         if settings.get('asset_type') not in ('terrain_unity','imported','rigged','print'):
             try:data['generation_options']=options_for_job(settings)
@@ -201,7 +207,8 @@ def status():
                 active=ACTIVE if PROCESS is not None and PROCESS.poll() is None else TERRAIN_ACTIVE,
                 export_active=EXPORT_PROCESS is not None and EXPORT_PROCESS.poll() is None,
                 resolution=DEFAULT_GENERATION['resolution'], default_profile=DEFAULT_PROFILE, local=True, studio_version=VERSION,source_revision=SOURCE_REVISION,ui_revision=UI_REVISION,multi_view=pixal3d['ready'],pixal3d=pixal3d,
-                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','rig_landmarks','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','presentation','library_turntable','collection_transfer','rest_api_v1','mcp','refinish','repair_surface','pixal3d_multiview','pixal3d_face_projection'], texture_sizes=textures,supported_resolutions=resolutions)
+                edition='server' if WORKSPACE_CONFIG else 'desktop',
+                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','rig_landmarks','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','animation_batch','animation_clip_removal','presentation','library_turntable','collection_transfer','rest_api_v1','mcp','refinish','repair_surface','pixal3d_multiview','pixal3d_face_projection'], texture_sizes=textures,supported_resolutions=resolutions)
 
 @app.get('/api/components')
 def components():
@@ -300,7 +307,7 @@ async def rig_model(identifier: str,request: Request):
         launch_worker(destination,'rig_worker.py')
         return {'id':destination.name}
 
-from retarget_catalogue import ANIMATIONS as ANIMATION_LIBRARY
+from retarget_catalogue import ANIMATIONS as ANIMATION_LIBRARY, BY_ID as ANIMATION_BY_ID
 
 @app.get('/api/asset-taxonomy')
 def asset_taxonomy():
@@ -328,7 +335,7 @@ async def print_copy(identifier: str,request: Request):
 
 @app.get('/api/animations')
 def animation_library():
-    return dict(animations=ANIMATION_LIBRARY,min_duration=2,max_duration=5,step=.5,
+    return dict(animations=ANIMATION_LIBRARY,min_duration=2,max_duration=5,step=.5,max_batch_clips=len(ANIMATION_LIBRARY),
                 description='Authored Quaternius CC0 animations, retargeted to your character.')
 
 @app.get('/api/motion-source/{pack}')
@@ -337,29 +344,223 @@ def motion_source(pack: str):
     if recipe is None:raise HTTPException(404)
     return FileResponse(ROOT/recipe['source_model'],media_type='model/gltf-binary')
 
-@app.post('/api/jobs/{identifier}/animations',status_code=202)
-async def add_animation(identifier: str,request: Request):
+async def requested_animations(request):
     try:
-        data=await request.json();clip=data['clip'];duration=float(data['duration'])
-        if clip not in {a['id'] for a in ANIMATION_LIBRARY} or not 2<=duration<=5 or duration*2!=int(duration*2):raise ValueError()
-    except (ValueError,TypeError,KeyError,OverflowError):raise HTTPException(400,'Choose a motion and a duration from 2 to 5 seconds, in 0.5-second steps.')
+        data = await request.json()
+        if not isinstance(data, dict):
+            raise ValueError()
+        items = data['clips'] if 'clips' in data else [data]
+        if not isinstance(items, list) or not 1 <= len(items) <= len(ANIMATION_LIBRARY):
+            raise ValueError()
+        clips = {}
+        for item in items:
+            clip, duration = item['clip'], float(item['duration'])
+            if clip not in ANIMATION_BY_ID or clip in clips or not 2 <= duration <= 5 or duration * 2 != int(duration * 2):
+                raise ValueError()
+            clips[clip] = dict(id=clip, duration=duration)
+        return clips
+    except (ValueError, TypeError, KeyError, OverflowError) as error:
+        raise HTTPException(400, 'Choose distinct library motions and durations from 2 to 5 seconds, in 0.5-second steps.') from error
+
+
+def stage_animation_copy(source, record, clips):
+    destination = OUTPUT / uuid.uuid4().hex
+    settings = dict(record['settings'], created=time.time(), parent_id=source.name,
+                    source_kind='animation_copy', asset_type='rigged')
+    label = record['metadata'].get('display_name') or settings['name']
+    suffix = ' · animations'
+    metadata = dict(record['metadata'], display_name=label[:80-len(suffix)] + suffix,
+                    review_state='review', favorite=False)
+    with TemporaryDirectory(prefix='.animation-copy-', dir=OUTPUT) as temporary:
+        staged = Path(temporary)
+        shutil.copy2(source/'model.glb', staged/'source.glb')
+        for filename in (*REFERENCE_FILES, 'physics.json', 'lod-manifest.json', 'motion-report.json'):
+            if (source/filename).is_file():
+                shutil.copy2(source/filename, staged/filename)
+        for directory in ('LODs', 'Collisions'):
+            if (source/directory).is_dir():
+                shutil.copytree(source/directory, staged/directory)
+        write_json(staged/'settings.json', settings)
+        write_json(staged/'metadata.json', metadata)
+        write_json(staged/'animation-request.json', dict(settings=settings, result=record.get('result') or {},
+                                                         clips=clips, linked=True))
+        write_json(staged/'status.json', dict(state='queued', stage='Waiting to add animations',
+                                              progress=0, operation='animation_copy'))
+        staged.rename(destination)
+    return destination
+
+
+def animation_operations_root():
+    return STUDIO.workspace.root / 'animation-ops'
+
+
+def animation_operation_path(identifier):
+    root = animation_operations_root()
+    path = root / identifier
+    if not WORKSPACE_CONFIG or not ID.fullmatch(identifier) or path.resolve() != path or not path.is_dir():
+        raise HTTPException(404, 'Animation operation not found.')
+    return path
+
+
+def stage_animation_operation(source, record, request, revision):
+    root = animation_operations_root()
+    root.mkdir(parents=True, exist_ok=True)
+    for entry in STUDIO.workspace.queue['items']:
+        pending = root / entry['id']
+        state = read_workspace_json(pending/'status.json', {}).get('state')
+        if state in ('queued', 'running', 'ready'):
+            current = read_workspace_json(pending/'operation.json', {})
+            if current.get('model_id') == source.name:
+                raise HTTPException(409, 'Wait for the current animation update on this model.')
+    target = root / uuid.uuid4().hex
+    with TemporaryDirectory(prefix='.animation-operation-', dir=root) as temporary:
+        staged = Path(temporary)
+        shutil.copy2(source/'model.glb', staged/'source.glb')
+        if (source/'LODs').is_dir():
+            shutil.copytree(source/'LODs', staged/'LODs')
+        if (source/'motion-report.json').is_file():
+            shutil.copy2(source/'motion-report.json', staged/'motion-report.json')
+        write_json(staged/'settings.json', record['settings'])
+        write_json(staged/'operation.json', dict(model_id=source.name, revision=revision,
+                                                name=record['metadata'].get('display_name') or record['settings']['name']))
+        write_json(staged/'animation-request.json', dict(request, linked=True, defer_publish=True))
+        write_json(staged/'status.json', dict(state='queued', stage='Waiting to update animations', progress=0,
+                                             operation='animation'))
+        staged.rename(target)
+    return target
+
+
+def removal_selection(glb, selection, revision):
+    if not isinstance(selection, dict) or 'clip' not in selection or selection.keys() - {'clip', 'index', 'revision'}:
+        raise HTTPException(400, 'Choose an animation to remove.')
+    expected = selection.get('revision')
+    if expected is not None and expected != revision:
+        raise HTTPException(409, 'The animation list changed. Reload it before removing a clip.')
+    names = [clip.get('name') for clip in glb.get('animations', [])]
+    name = selection['clip']
+    index = selection.get('index')
+    if index is not None:
+        if type(index) is not int or index < 0:
+            raise HTTPException(400, 'Choose a valid animation index.')
+        if index >= len(names) or names[index] != name:
+            raise HTTPException(409, 'The animation list changed. Reload it before removing a clip.')
+    else:
+        if not isinstance(name, str) or not name:
+            raise HTTPException(400, 'Choose a named animation or supply its index and expected name.')
+        matches = [index for index, candidate in enumerate(names) if candidate == name]
+        if not matches:
+            raise HTTPException(404, 'Animation not found on this model.')
+        if len(matches) > 1:
+            raise HTTPException(409, 'Use the animation index to select between clips with the same name.')
+        index = matches[0]
+    return dict(remove_clip=name, remove_index=index)
+
+
+async def prepare_animations(identifier, request, linked=False, remove=False):
+    if remove:
+        try:
+            selection = await request.json()
+        except ValueError as error:
+            raise HTTPException(400, 'Choose an animation to remove.') from error
+    else:
+        selected = await requested_animations(request)
     async with LOCK:
-        require_idle();source=job_path(identifier);record=job_record(source)
+        if not WORKSPACE_CONFIG:
+            require_idle()
+        source=job_path(identifier);record=job_record(source)
         if record['state']!='done' or not (source/'model.glb').is_file():raise HTTPException(409,'Choose a completed model.')
         refresh_export()
         if identifier in EXPORTING:raise HTTPException(409,'Wait for this model’s export to finish.')
         glb=validate_glb(source/'model.glb')
-        if not glb.get('skins'):raise HTTPException(409,'Add a rig to the model first.')
-        if record.get('result',{}).get('rigged') and not record['result'].get('humanoid_mapping'):
-            raise HTTPException(422,'This skeleton could not be identified as humanoid. Standard humanoid motions do not fit this character.')
-        clips=[c for c in record['settings'].get('animation_clips',[]) if c['id']!=clip]+[dict(id=clip,duration=duration)]
+        revision = str((source/'model.glb').stat().st_mtime_ns)
+        result = record.get('result') or {}
+        clips = record['settings'].get('animation_clips', [])
+        extra = {}
+        if remove:
+            extra = removal_selection(glb, selection, revision)
+        else:
+            if not glb.get('skins'):
+                raise HTTPException(409, 'Add a rig to the model first.')
+            if result.get('rigged') and not result.get('humanoid_mapping'):
+                raise HTTPException(422, 'This skeleton could not be identified as humanoid. Standard humanoid motions do not fit this character.')
+            clips = [clip for clip in clips if clip['id'] not in selected] + list(selected.values())
         if not find_blender():raise HTTPException(503,'Blender is unavailable.')
-        from studio_workspace import checkpoint
-        await asyncio.to_thread(checkpoint,source,'Before adding animation','animation')
-        write_json(source/'animation-request.json',dict(settings=record['settings'],result=record.get('result',{}),clips=clips))
-        write_json(source/'status.json',dict(state='queued',stage='Adding animation',progress=5,operation='animation',result=record.get('result',{})))
-        launch_worker(source,'animation_worker.py')
+        if linked:
+            destination = await asyncio.to_thread(stage_animation_copy, source, record, clips)
+            try:
+                launch_worker(destination, 'animation_worker.py')
+            except OSError as error:
+                write_json(destination/'status.json', dict(state='error', stage='Worker launch failed', progress=0))
+                raise HTTPException(503, 'Unable to start animation preparation.') from error
+            return {'id': destination.name}
+        recipe = dict(settings=record['settings'], result=result, clips=clips, **extra)
+        if WORKSPACE_CONFIG:
+            operation = await asyncio.to_thread(stage_animation_operation, source, record, recipe, revision)
+            launch_worker(operation, 'animation_worker.py')
+            return {'id': identifier, 'operation_id': operation.name}
+        write_json(source/'animation-request.json', recipe)
+        write_json(source/'status.json', dict(state='queued', stage='Updating animations', progress=5,
+                                              operation='animation', result=result))
+        try:
+            launch_worker(source, 'animation_worker.py')
+        except OSError as error:
+            write_json(source/'status.json', dict(state='done', stage='Model preserved', progress=100, result=result))
+            raise HTTPException(503, 'Unable to start animation preparation.') from error
         return {'id':identifier}
+
+
+@app.post('/api/jobs/{identifier}/animations',status_code=202)
+async def add_animation(identifier: str,request: Request):
+    return await prepare_animations(identifier, request)
+
+
+@app.get('/api/jobs/{identifier}/animations')
+def list_model_animations(identifier: str):
+    record = job(identifier)
+    media = record['media']
+    if not media['available']:
+        raise HTTPException(409, 'Wait until this model is available.')
+    return dict(animations=media.get('animation_items', []), revision=media.get('animation_revision'))
+
+
+@app.delete('/api/jobs/{identifier}/animations', status_code=202)
+async def remove_animation(identifier: str, request: Request):
+    return await prepare_animations(identifier, request, remove=True)
+
+
+@app.get('/api/animation-operations/{identifier}')
+def animation_operation(identifier: str):
+    folder = animation_operation_path(identifier)
+    state = read_workspace_json(folder/'status.json', {})
+    operation = read_workspace_json(folder/'operation.json', {})
+    if state.get('state') == 'ready':
+        state = dict(state='running', stage='Saving animations to model', progress=98, operation='animation')
+    return dict(state, id=identifier, model_id=operation.get('model_id'), name=operation.get('name'))
+
+
+@app.post('/api/animation-operations/{identifier}/cancel')
+async def cancel_animation_operation(identifier: str):
+    global LOG_HANDLE
+    folder = animation_operation_path(identifier)
+    state = read_workspace_json(folder/'status.json', {})
+    if state.get('state') in ('done', 'error', 'cancelled'):
+        return {'ok': True}
+    if ACTIVE == identifier and PROCESS is not None and PROCESS.poll() is None:
+        await asyncio.to_thread(stop_worker)
+        if LOG_HANDLE:
+            LOG_HANDLE.close()
+            LOG_HANDLE = None
+    for item in STUDIO.workspace.queue['items']:
+        if item['id'] == identifier:
+            item['cancelled'] = True
+    STUDIO.workspace.save_queue()
+    write_json(folder/'status.json', dict(state='cancelled', stage='Animation update cancelled', progress=0))
+    return {'ok': True}
+
+
+@app.post('/api/jobs/{identifier}/animation-copy', status_code=202)
+async def add_animation_copy(identifier: str, request: Request):
+    return await prepare_animations(identifier, request, linked=True)
 
 @app.get('/api/generation-options')
 def generation_options_schema():
@@ -1005,6 +1206,8 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
 @app.post('/api/jobs/{identifier}/cancel')
 async def cancel(identifier: str):
     global LOG_HANDLE
+    if WORKSPACE_CONFIG and ID.fullmatch(identifier) and (animation_operations_root()/identifier).is_dir():
+        return await cancel_animation_operation(identifier)
     folder = job_path(identifier)
     record=job_record(folder)
     if record['state']=='queued' and STUDIO.queued(identifier):
@@ -1089,7 +1292,12 @@ async def files(identifier: str, filename: str):
                             background=BackgroundTask(EXPORTING.discard,identifier))
     if filename not in (*REFERENCE_FILES,*PREPARED_VIEWS.values(),'conditioning.png','model.glb','model.stl','print-report.json','Unity.zip','Blender.zip','settings.json','result.json','heightmap.png','heightmap.raw','original.glb','original.fbx','original.obj','original.stl','original.ply') or not (folder / filename).exists():
         raise HTTPException(404)
-    download_name = 'TRELLIS-' + json.loads((folder/'settings.json').read_text(encoding='utf-8'))['name']
+    settings = json.loads((folder/'settings.json').read_text(encoding='utf-8'))
+    if settings.get('source_kind') in ('unirig', 'animation_copy') and filename in ('model.glb', 'result.json'):
+        status = read_workspace_json(folder / 'status.json', {})
+        if not prepared_output_ready(settings, status):
+            raise HTTPException(409, 'The model is available after preparation completes.')
+    download_name = 'TRELLIS-' + settings['name']
     if filename == 'model.glb': download_name += '.glb'
     elif filename == 'model.stl': download_name += '-mm.stl'
     elif filename == 'Unity.zip': download_name += '-Unity.zip'

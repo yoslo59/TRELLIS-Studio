@@ -95,9 +95,6 @@ if (studioHeader) {
   if (importFile) importFile.accept = '.glb,model/gltf-binary';
   const importHint = document.querySelector('#importForm > p');
   if (importHint) importHint.textContent = 'Import a self-contained GLB with embedded textures (up to 500 MiB).';
-  const animation = document.getElementById('animationLibraryControls');
-  if (animation) animation.prepend(element('p', 'hint', 'Open the model in TRELLIS Desktop to add or edit animation clips.'));
-
   const menu = element('details', 'server-shell');
   const summary = element('summary');
   summary.setAttribute('aria-label', 'TRELLIS account menu');

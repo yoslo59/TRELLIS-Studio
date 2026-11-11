@@ -562,6 +562,8 @@ def app_for(data, public_url, setup_token=None, on_setup=None):
         async with workspace.lock:
             if (workspace.exports / job_id).is_dir():
                 await workspace.studio.cancel_export(job_id)
+            elif workspace.is_animation_operation(job_id):
+                await workspace.studio.cancel_animation_operation(job_id)
             else:
                 await workspace.studio.cancel(job_id)
         return {'ok': True}
@@ -587,8 +589,8 @@ def app_for(data, public_url, setup_token=None, on_setup=None):
             raise HTTPException(404, 'This operation is unavailable in server mode.')
         if path.startswith('v1/transfers/'):
             raise HTTPException(404, 'Restore collections from the server console.')
-        if request.method == 'POST' and re.fullmatch(r'(jobs/[a-f0-9]{32}/(animations|prepare/motion)|v1/models/[a-f0-9]{32}/(animations|motion-edits))', path):
-            raise HTTPException(409, 'In-place animation editing is available in the desktop edition.')
+        if request.method == 'POST' and re.fullmatch(r'(jobs/[a-f0-9]{32}/prepare/motion|v1/models/[a-f0-9]{32}/motion-edits)', path):
+            raise HTTPException(409, 'Motion workshop edits are available in the desktop edition.')
         workspace = await runtime.workspace(user['id'])
         scoped = ScopedResponse(workspace.studio.app, request)
         writes_inspection = request.method == 'GET' and re.fullmatch(r'(jobs/[a-f0-9]{32}/(inspect|diagnostics)|v1/models/[a-f0-9]{32}/diagnostics)', path)
@@ -602,7 +604,8 @@ def app_for(data, public_url, setup_token=None, on_setup=None):
             return scoped
         if writes_inspection and request.headers.get('sec-fetch-site') in ('cross-site', 'same-site'):
             raise HTTPException(403, 'Request origin rejected.')
-        reclaim = request.method == 'DELETE' or path.endswith('/cancel') or path == 'library/trash' or re.fullmatch(r'(v1/)?trash/[a-f0-9]{32}/restore', path)
+        removes_animation = request.method == 'DELETE' and re.fullmatch(r'(jobs|v1/models)/[a-f0-9]{32}/animations', path)
+        reclaim = request.method == 'DELETE' and not removes_animation or path.endswith('/cancel') or path == 'library/trash' or re.fullmatch(r'(v1/)?trash/[a-f0-9]{32}/restore', path)
         length = int(request.headers.get('content-length', '0'))
         match = re.fullmatch(r'jobs/([a-f0-9]{32})/presentation/library-turntable', path)
         if match and request.method == 'POST':

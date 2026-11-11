@@ -4,6 +4,11 @@ Create with Blender --background --python this-file -- create JOB.
 Run the adapter using UniRig's Python: UniRig/apply-landmarks.py JOB.
 Then run this script with Blender -- ... -- verify JOB.
 This exercises an actual normalized, rotated skeleton FBX, without inference.
+
+For a complete CPU transfer test, also run Blender -- ... -- skin JOB to
+create synthetic weights on the corrected FBX. Run UniRig/transfer-skin.py
+with JOB/rig-work/{skin-fixture.fbx,input.glb,rigged.glb}, in that order.
+Run UniRig/verify-landmarks.py JOB and repeat the Blender verify step.
 """
 from pathlib import Path
 import json,sys,runpy
@@ -40,7 +45,18 @@ if stage=='create':
     target=mesh_points();horizontal=(target.min(0)+target.max(0))/2;horizontal[2]=0
     for vertex in obj.data.vertices:vertex.co-=Vector(horizontal)
     bones=(bones.reshape(-1,3)-horizontal).reshape(-1,6)
+    # Reproduce two ancestors with world scale 1.69, as emitted when Studio
+    # sizes a character whose imported mesh already belongs to a group.
+    outer=bpy.data.objects.new('Studio orientation',None);bpy.context.collection.objects.link(outer)
+    inner=bpy.data.objects.new('Source group',None);bpy.context.collection.objects.link(inner)
+    outer.scale=(1.69,)*3;inner.parent=outer;obj.parent=inner
+    for vertex in obj.data.vertices:vertex.co/=1.69
+    outer.select_set(True);inner.select_set(True)
     bpy.ops.export_scene.gltf(filepath=str(work/'input.glb'),export_format='GLB',use_selection=True,export_animations=False)
+    obj.parent=None
+    for vertex in obj.data.vertices:vertex.co*=1.69
+    bpy.data.objects.remove(inner,do_unlink=True);bpy.data.objects.remove(outer,do_unlink=True)
+    bpy.context.view_layer.update()
     target=mesh_points();center=(target.min(0)+target.max(0))/2;scale=np.ptp(target,axis=0).max()/2
     matrix=np.eye(4);matrix[:3,:3]=np.diag([-scale,-scale,scale]);matrix[:3,3]=center
     inv=np.linalg.inv(matrix)
@@ -56,6 +72,18 @@ if stage=='create':
     bpy.ops.export_scene.fbx(filepath=str(work/'skeleton.fbx'),use_selection=True,add_leaf_bones=False,bake_anim=False,object_types={'ARMATURE','MESH'})
     (work/'fixture.json').write_text(json.dumps(dict(matrix=matrix.tolist(),mapping=mapping,names=names,world_bones=bones.tolist())))
     print('CREATED CPU normalized FBX fixture',job)
+elif stage=='skin':
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.import_scene.fbx(filepath=str(work/'skeleton-landmarks.fbx'))
+    arm=next(o for o in bpy.context.scene.objects if o.type=='ARMATURE')
+    mesh=next(o for o in bpy.context.scene.objects if o.type=='MESH')
+    modifier=mesh.modifiers.new('Fixture skin','ARMATURE');modifier.object=arm
+    upper=mesh.vertex_groups.new(name='Head');lower=mesh.vertex_groups.new(name='Pelvis')
+    for vertex in mesh.data.vertices:
+        group=upper if (mesh.matrix_world@vertex.co).z>0 else lower
+        group.add([vertex.index],1,'REPLACE')
+    bpy.ops.export_scene.fbx(filepath=str(work/'skin-fixture.fbx'),add_leaf_bones=False,bake_anim=False,
+                             object_types={'ARMATURE','MESH'})
 elif stage=='verify':
     report=json.loads((work/'landmarks-report.json').read_text());options=json.loads((job/'settings.json').read_text())['rig_options']
     matrix=np.asarray(report['normalization_to_model'])
@@ -82,6 +110,15 @@ elif stage=='verify':
             for key,index in landmark_anchors(data['names'].tolist(),report['mapping']).items():
                 assert np.linalg.norm(joints[index]-report['anchors'][key]['after'])<2e-5
         print('PASS: upstream extraction passes the corrected joint coordinates to skin input')
+    if (work/'rigged.glb').exists():
+        assert report['final_rig_verification']['passed'],'Final rig moved the requested landmarks'
+        bpy.ops.wm.read_factory_settings(use_empty=True);bpy.ops.import_scene.gltf(filepath=str(work/'rigged.glb'))
+        mesh=next(o for o in bpy.context.scene.objects if o.type=='MESH' and o.vertex_groups)
+        for vertex in mesh.data.vertices:
+            strongest=max(vertex.groups,key=lambda group:group.weight)
+            expected_group='Head' if (mesh.matrix_world@vertex.co).z>matrix[2,3] else 'Pelvis'
+            assert mesh.vertex_groups[strongest.group].name==expected_group,'Skin weights shifted across world space'
+        print('PASS: nested non-unit target transforms preserve final landmarks and synthetic weights')
     print('PASS: corrected FBX round-trip preserves mesh, all 12 metre-space joint anchors and predicted depth')
 elif stage=='prepare':
     options=json.loads((job/'settings.json').read_text())['rig_options']

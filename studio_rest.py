@@ -251,8 +251,43 @@ def install(app,g):
     @router.post('/models/{identifier}/rig',tags=['Animation'],status_code=202,response_model=JobAccepted,summary='Generate a UniRig skeleton on a linked copy')
     async def rig(identifier:Identifier,data:Rig):return accepted(await legacy('POST',f'/api/jobs/{identifier}/rig',data.model_dump(exclude_none=True)))
 
-    @router.post('/models/{identifier}/animations',tags=['Animation'],status_code=202,response_model=JobAccepted,summary='Add or update one library motion on the same model',include_in_schema=not server_mode)
-    async def animation(identifier:Identifier,data:Animation):return accepted(await legacy('POST',f'/api/jobs/{identifier}/animations',data.model_dump()))
+    def animation_accepted(result):
+        if 'operation_id' not in result:
+            return accepted(result)
+        operation = result['operation_id']
+        return {**result, 'state': 'queued', 'status_url': '/api/v1/animation-operations/' + operation}
+
+    @router.get('/models/{identifier}/animations', tags=['Animation'], summary='List embedded clips by exact name and index')
+    def model_animations(identifier: Identifier):
+        return g['list_model_animations'](identifier)
+
+    @router.post('/models/{identifier}/animations', tags=['Animation'], status_code=202,
+                 response_model=AnimationAccepted, response_model_exclude_none=True,
+                 summary='Add or update library motions on the same model')
+    async def animation(identifier: Identifier, data: Animation | AnimationBatch):
+        return animation_accepted(await legacy('POST', f'/api/jobs/{identifier}/animations', data.model_dump()))
+
+    @router.delete('/models/{identifier}/animations', tags=['Animation'], status_code=202,
+                   response_model=AnimationAccepted, response_model_exclude_none=True,
+                   summary='Remove one embedded clip from the same model')
+    async def remove_animation(identifier: Identifier, data: AnimationRemoval):
+        return animation_accepted(await legacy('DELETE', f'/api/jobs/{identifier}/animations',
+                                               data.model_dump(exclude_unset=True)))
+
+    @router.get('/animation-operations/{identifier}', tags=['Animation'], include_in_schema=server_mode,
+                summary='Read progress of a server animation update')
+    def animation_operation(identifier: Identifier):
+        return g['animation_operation'](identifier)
+
+    @router.post('/animation-operations/{identifier}/cancel', tags=['Animation'], include_in_schema=server_mode,
+                 summary='Cancel a server animation update')
+    async def cancel_animation_operation(identifier: Identifier):
+        return await g['cancel_animation_operation'](identifier)
+
+    @router.post('/models/{identifier}/animation-copy', tags=['Animation'], status_code=202,
+                 response_model=JobAccepted, summary='Queue library motions on a linked copy of a rigged model')
+    async def animation_copy(identifier: Identifier, data: AnimationBatch):
+        return accepted(await legacy('POST', f'/api/jobs/{identifier}/animation-copy', data.model_dump()))
 
     @router.post('/models/{identifier}/motion-edits',tags=['Animation'],status_code=202,response_model=JobAccepted,summary='Edit a clip loop, duration or root motion with automatic checkpoint',include_in_schema=not server_mode)
     async def motion(identifier:Identifier,data:Motion):return accepted(await legacy('POST',f'/api/jobs/{identifier}/prepare/motion',data.model_dump()))

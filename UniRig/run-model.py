@@ -41,6 +41,6 @@ if settings.get('rig_options',{}).get('landmarks'):
     run(root/'restore-skin-frame.py',job)
     skin=work/'skin-model-frame.fbx'
 stage('Transferring rig to the textured model',80)
-run('-m','src.inference.merge','--require_suffix=glb,fbx','--num_runs=1','--id=0','--source='+str(skin),'--target='+str(source),'--output='+str(work/'rigged.glb'))
+run(root/'transfer-skin.py',skin,source,work/'rigged.glb')
 if settings.get('rig_options',{}).get('landmarks'):
     run(root/'verify-landmarks.py',job)

@@ -13,6 +13,7 @@ import sys
 from fastapi import HTTPException
 from starlette.responses import Response
 
+from animation_edits import publish_operation, recover as recover_animation
 from generation_options import GENERATION_PRESETS
 from server_store import StoreError
 from studio_workspace import ID, finishing_source, read, write
@@ -65,11 +66,17 @@ def children(folder):
     return set(folder.iterdir()) if folder.is_dir() else set()
 
 
-def reserve_bytes(settings, script):
+def reserve_bytes(settings, script, folder):
     if script == 'worker.py' and settings.get('source_kind') == 'refinish':
         return 32 * MIB
     if script in ('worker.py', 'pixal3d_worker.py'):
         return (256 if settings.get('keep_finishing_source') else 64) * MIB
+    if script == 'animation_worker.py' and (
+        settings.get('source_kind') == 'animation_copy' or (folder/'operation.json').is_file()
+    ):
+        # Blender creates a staging GLB, the final GLB and a packed Blender file.
+        source_bytes = (folder / 'source.glb').stat().st_size
+        return 32 * MIB + 3 * source_bytes + tree_bytes(folder / 'LODs')
     return 32 * MIB
 
 
@@ -81,6 +88,7 @@ class PrivateStudio:
         self.outputs = directory / 'outputs'
         self.exports = directory / 'exports'
         self.state = directory / 'state'
+        self.animation_operations = self.state / 'animation-ops'
         self.trash = directory / 'trash'
         self.active = None
         self.module_name = '_trellis_workspace_' + user_id
@@ -117,6 +125,8 @@ class PrivateStudio:
     def job_spec(self, folder):
         settings = read(folder / 'settings.json', {})
         work = read(folder / 'server-work.json', {})
+        if folder.parent == self.animation_operations:
+            return 'animation_worker.py', None, settings
         if settings.get('source_kind') == 'refinish':
             return 'worker.py', finishing_source(folder, settings), settings
         if work.get('script') in SAFE_SCRIPTS:
@@ -128,13 +138,23 @@ class PrivateStudio:
         if self.workspace.queue.get('paused'):
             return []
         return [entry for entry in self.workspace.ordered() if not entry.get('held') and not entry.get('cancelled')
-                and read(self.outputs / entry['id'] / 'status.json', {}).get('state') == 'queued']
+                and read(self.job_folder(entry['id']) / 'status.json', {}).get('state') == 'queued']
+
+    def is_animation_operation(self, identifier):
+        folder = self.animation_operations / identifier
+        return bool(ID.fullmatch(identifier) and folder.is_dir() and folder.resolve() == folder)
+
+    def job_folder(self, identifier):
+        if self.is_animation_operation(identifier):
+            return self.animation_operations / identifier
+        return self.outputs / identifier
 
     def busy(self):
         return any(process and process.poll() is None for process in (self.studio.PROCESS, self.studio.EXPORT_PROCESS)) or bool(self.studio.TERRAIN_ACTIVE)
 
     def snapshot(self, path):
-        folders = [self.outputs, self.exports, self.state / 'uploads', self.state / 'imports']
+        folders = [self.outputs, self.exports, self.state / 'uploads', self.state / 'imports',
+                   self.animation_operations]
         for identifier in set(path.split('/')):
             if ID.fullmatch(identifier):
                 model = self.outputs / identifier
@@ -170,9 +190,12 @@ class ServerRuntime:
                 await workspace.start()
                 admitted = {job['id'] for job in self.store.jobs(identifier) if job['state'] not in TERMINAL}
                 for entry in workspace.workspace.queue['items']:
-                    status = workspace.outputs / entry['id'] / 'status.json'
+                    folder = workspace.job_folder(entry['id'])
+                    status = folder / 'status.json'
                     if entry['id'] not in admitted and read(status, {}).get('state') == 'queued':
                         write(status, dict(state='error', stage='Interrupted before queue admission', progress=0))
+                        if folder.parent == workspace.animation_operations:
+                            await self.trim_animation_operation(workspace, folder)
                 self.workspaces[identifier] = workspace
             return self.workspaces[identifier]
 
@@ -188,7 +211,10 @@ class ServerRuntime:
     async def start(self):
         pending_users = {row['user_id'] for row in self.store.jobs() if row['state'] not in TERMINAL}
         for identifier in pending_users:
-            await self.workspace(identifier)
+            workspace = await self.workspace(identifier)
+            rows = [row for row in self.store.jobs(identifier) if row['state'] not in TERMINAL]
+            async with workspace.lock:
+                await self.reconcile(workspace, rows)
         self.scheduler = asyncio.create_task(self.run())
 
     async def close(self):
@@ -258,14 +284,15 @@ class ServerRuntime:
                     job_id = entry['id']
                     if job_id in previous_ids or entry.get('cancelled'):
                         continue
-                    script, _, settings = workspace.job_spec(workspace.outputs / job_id)
+                    folder = workspace.job_folder(job_id)
+                    script, _, settings = workspace.job_spec(folder)
                     generation = script in ('worker.py', 'pixal3d_worker.py') and settings.get('source_kind') != 'refinish' and settings.get('preset') in GENERATION_PRESETS
-                    jobs.append(dict(job_id=job_id, generation=generation, reserve_bytes=reserve_bytes(settings, script)))
+                    jobs.append(dict(job_id=job_id, generation=generation, reserve_bytes=reserve_bytes(settings, script, folder)))
                 jobs.extend(dict(job_id=path.name, generation=False, reserve_bytes=32 * MIB)
                             for path in children(workspace.exports) - before[workspace.exports])
                 if jobs:
                     self.store.reserve_jobs(identifier, jobs)
-            except StoreError:
+            except (StoreError, OSError):
                 await self.rollback(workspace, original_queue, before)
                 raise
             if reclaim:
@@ -279,6 +306,60 @@ class ServerRuntime:
                 if path.name not in REFERENCE_FILES:
                     await asyncio.to_thread(remove_child, folder, path)
 
+    async def trim_animation_operation(self, workspace, folder):
+        if folder.parent == workspace.animation_operations and ID.fullmatch(folder.name):
+            for path in children(folder):
+                if path.name not in ('operation.json', 'status.json', 'generation.log'):
+                    await asyncio.to_thread(remove_child, folder, path)
+
+    async def reconcile_animation(self, workspace, row, folder):
+        state = read(folder/'status.json', {})
+        process = workspace.studio.PROCESS
+        active = workspace.studio.ACTIVE == folder.name and process and process.poll() is None
+        used = await self.usage(workspace.user_id)
+        user = self.store.get_user(workspace.user_id)
+        limit = user['disk_limit_bytes']
+        over = limit is not None and used + max(0, user['storage_reserved_bytes'] - row['reserve_bytes']) > limit
+        if (active or state.get('state') == 'queued') and not over:
+            return
+        if active:
+            await asyncio.to_thread(workspace.studio.stop_worker)
+
+        operation = read(folder/'operation.json', {})
+        model_id = operation.get('model_id', '')
+        source = workspace.outputs / model_id if ID.fullmatch(model_id) else None
+        if source is not None and (source.resolve() != source or not source.is_dir()):
+            source = None
+        marker = source/'animation-transaction.json' if source else None
+        committed = (source and not marker.is_file()
+                     and read(source/'status.json', {}).get('last_animation_operation') == folder.name)
+        terminal = state.get('state')
+        if (terminal == 'ready' and not over) or committed:
+            try:
+                if source is None:
+                    raise ValueError('The source model is no longer available.')
+                await asyncio.to_thread(publish_operation, source, folder, state, operation.get('revision'))
+                state = dict(state='done', stage='Animations saved to model', progress=100)
+            except (OSError, ValueError) as error:
+                if marker and marker.is_file():
+                    raise
+                state = dict(state='error', stage='Animation update failed', progress=0, error=str(error))
+        elif (over and terminal != 'cancelled') or terminal not in TERMINAL:
+            if marker and marker.is_file():
+                await asyncio.to_thread(recover_animation, source)
+                backup = source / ('.animation-' + folder.name)
+                if backup.is_dir():
+                    await asyncio.to_thread(remove_child, source, backup)
+            error = ('Disk quota reached. Free space before retrying.' if over
+                     else 'Server stopped during the animation update.')
+            state = dict(state='error', stage='Animation update interrupted', progress=0, error=error)
+        write(folder/'status.json', state)
+        await self.trim_animation_operation(workspace, folder)
+        self.store.finish_job(workspace.user_id, folder.name, state['state'])
+        await self.usage(workspace.user_id)
+        if workspace.active == folder.name:
+            workspace.active = None
+
     async def settle(self, workspace):
         rows = [row for row in self.store.jobs(workspace.user_id) if row['state'] not in TERMINAL]
         if rows:
@@ -289,6 +370,9 @@ class ServerRuntime:
         user = self.store.get_user(workspace.user_id)
         for row in rows:
             job_id = row['id']
+            if workspace.is_animation_operation(job_id):
+                await self.reconcile_animation(workspace, row, workspace.job_folder(job_id))
+                continue
             export = (workspace.exports / job_id).is_dir()
             folder = (workspace.exports if export else workspace.outputs) / job_id
             state = read(folder / 'status.json', {})
@@ -313,16 +397,20 @@ class ServerRuntime:
                 used = await self.usage(workspace.user_id)
                 over = limit is not None and used + max(0, user['storage_reserved_bytes'] - row['reserve_bytes']) > limit
             terminal = state.get('state', 'error')
+            trim = False
+            if not export and folder.is_dir():
+                script, _, settings = workspace.job_spec(folder)
+                trim = script in ('worker.py', 'pixal3d_worker.py') or settings.get('source_kind') == 'animation_copy'
             if over or terminal not in TERMINAL:
                 if folder.is_dir():
                     error = 'Disk quota reached. Free space before retrying.' if over else 'Server stopped during the operation.'
                     write(folder / 'status.json', dict(state='error', stage='Operation interrupted', progress=0, error=error))
                     if export:
                         await asyncio.to_thread(remove_child, folder, folder / 'package.zip')
-                    elif workspace.job_spec(folder)[0] in ('worker.py', 'pixal3d_worker.py'):
+                    elif trim:
                         await self.trim_failed(workspace, folder)
                 terminal = 'error'
-            elif terminal != 'done' and folder.is_dir() and not export and workspace.job_spec(folder)[0] in ('worker.py', 'pixal3d_worker.py'):
+            elif terminal != 'done' and trim:
                 await self.trim_failed(workspace, folder)
             self.store.finish_job(workspace.user_id, job_id, terminal)
             await self.usage(workspace.user_id)
@@ -354,7 +442,7 @@ class ServerRuntime:
                 entry = next((item for item in workspace.pending() if item['id'] in eligible), None)
                 if entry is None:
                     continue
-                folder = workspace.outputs / entry['id']
+                folder = workspace.job_folder(entry['id'])
                 script, source_id, settings = workspace.job_spec(folder)
                 if settings.get('source_kind') == 'refinish' and not source_id:
                     write(folder / 'status.json', dict(state='error', stage='Missing source cache', progress=0))
@@ -369,6 +457,12 @@ class ServerRuntime:
                 except (OSError, StoreError):
                     LOG.exception('Could not launch worker for %s', entry['id'])
                     write(folder / 'status.json', dict(state='error', stage='Worker launch failed', progress=0))
+                    if folder.parent == workspace.animation_operations:
+                        await self.trim_animation_operation(workspace, folder)
+                        await self.usage(identifier)
+                    elif settings.get('source_kind') == 'animation_copy':
+                        await self.trim_failed(workspace, folder)
+                        await self.usage(identifier)
                     self.store.finish_job(identifier, entry['id'], 'error')
                     continue
                 workspace.active = entry['id']
@@ -392,11 +486,13 @@ class ServerRuntime:
             workspace = self.workspaces.get(row['user_id'])
             if workspace is None:
                 continue
-            job = workspace.outputs / row['id']
+            job = workspace.job_folder(row['id'])
             if not job.is_dir():
                 job = workspace.exports / row['id']
             status = read(job / 'status.json', {})
-            name = read(job / 'metadata.json', {}).get('display_name', read(job / 'settings.json', {}).get('name', 'Export'))
+            name = read(job/'operation.json', {}).get('name')
+            if not name:
+                name = read(job / 'metadata.json', {}).get('display_name', read(job / 'settings.json', {}).get('name', 'Export'))
             items.append(dict(id=row['id'], user_id=user['id'], user_name=f"{user['first_name']} {user['last_name']}",
                               name=name, state=status.get('state', 'queued'), stage=status.get('stage', ''), progress=status.get('progress', 0)))
         return dict(paused=self.paused, items=items)

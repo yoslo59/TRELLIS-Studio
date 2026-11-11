@@ -1,4 +1,4 @@
-import {icon} from './card-menu.js?v=3.3.5';
+import {icon} from './card-menu.js?v=3.3.6';
 const nameOf=j=>j.metadata?.display_name||j.settings.name;
 export function createLibrarySelection({api,getRecords,refresh,compare,exports}){
  let mode=false,selected=new Set(),visible=[],matching=[];const $=id=>document.getElementById(id);

@@ -219,8 +219,6 @@
 .trellis-server-mode .server-credit-badge:focus-visible { outline: 2px solid #c4f58a; outline-offset: 3px; }
 .server-credit-count { font-size: .85rem; font-weight: 680; font-variant-numeric: tabular-nums; color: #c4f58a; }
 .server-credit-label { font-size: .55rem; color: #bfceb6; }
-.trellis-server-mode #animationCards button[data-clip],
-.trellis-server-mode #animationLibraryControls .duration-control,
 .trellis-server-mode #prepareMenu button:has(use[href$="#motion"]),
 .trellis-server-mode #transferDialog .wb-tabs button:has(use[href$="#import"]) { display: none; }
 .server-shell { position: relative; margin-left: .35rem; font: inherit; color: #eef1eb; }

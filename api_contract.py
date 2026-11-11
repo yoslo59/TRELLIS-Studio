@@ -4,6 +4,7 @@ from pydantic import BaseModel,ConfigDict,Field,field_validator,model_validator
 
 from studio_version import VERSION
 from generation_options import DENSE_MASTER, HUMANOID_EXPERIMENTAL, TRIANGLE_MIN, TRIANGLE_MAX
+from retarget_catalogue import ANIMATIONS
 Identifier=Annotated[str,Field(pattern=r'^[a-f0-9]{32}$')]
 
 class Contract(BaseModel):
@@ -120,6 +121,29 @@ class Animation(Contract):
     clip:str=Field(min_length=1,max_length=80,description='Library motion ID, not an embedded clip name.')
     duration:float=Field(default=2.5,ge=2,le=5,multiple_of=.5)
 
+class AnimationBatch(Contract):
+    clips: list[Animation] = Field(min_length=1, max_length=len(ANIMATIONS))
+
+    @field_validator('clips')
+    @classmethod
+    def distinct_clips(cls, clips):
+        if len({item.clip for item in clips}) != len(clips):
+            raise ValueError('Choose distinct library motions.')
+        return clips
+
+class AnimationRemoval(Contract):
+    clip: str | None = Field(default=None, max_length=500, description='Exact embedded clip name, or null for an unnamed indexed clip.')
+    index: int | None = Field(default=None, ge=0)
+    revision: str | None = Field(default=None, pattern=r'^[0-9]+$')
+
+    @model_validator(mode='after')
+    def validate_selection(self):
+        if self.index is None and not self.clip:
+            raise ValueError('Choose a named clip or supply its index and expected name.')
+        if self.index is not None and 'clip' not in self.model_fields_set:
+            raise ValueError('Supply the expected clip name with its index.')
+        return self
+
 class Rig(Contract):
     rotation:tuple[float,float,float]=(0,0,0)
     height_m:float=Field(default=1.7,ge=.2,le=3)
@@ -235,6 +259,9 @@ class JobAccepted(Contract):
     id:str
     state:str
     status_url:str
+
+class AnimationAccepted(JobAccepted):
+    operation_id: Identifier | None = None
 
 class JobRetryAccepted(JobAccepted):
     retry_of: Identifier

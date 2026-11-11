@@ -14,7 +14,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from starlette.responses import JSONResponse
 from api_contract import (
-    Animation, Assign, Export, Folder, Game, Generation, Identifier, ImportModel,
+    Animation, AnimationBatch, AnimationRemoval, Assign, Export, Folder, Game, Generation, Identifier, ImportModel,
     JobRetry, LOD, Metadata, Motion, MultiViewGeneration, PrintCopy, Refinish, Rig,
     SavedView, VERSION,
 )
@@ -204,8 +204,30 @@ async def rig_model(model_id:Identifier,settings:Rig)->dict[str,Any]:
 
 @tool()
 async def add_animation(model_id:Identifier,motion:Animation)->dict[str,Any]:
-    """Add/update one authored motion, 2â€“5 seconds, on the SAME model; retains its other clips and updates LODs."""
+    """Add or update one authored motion on the selected model. Poll its returned status URL."""
     return await api('POST','/models/'+model_id+'/animations',motion.model_dump())
+
+@tool()
+async def add_animations(model_id:Identifier,motions:AnimationBatch)->dict[str,Any]:
+    """Add multiple authored motions in one operation on the selected model. Poll its returned status URL."""
+    return await api('POST',f'/models/{model_id}/animations',motions.model_dump())
+
+@tool(read=True)
+async def list_model_animations(model_id:Identifier)->dict[str,Any]:
+    """List the animations embedded in the selected model, including imported clips."""
+    return await api('GET',f'/models/{model_id}/animations')
+
+@tool(destructive=True)
+async def remove_animation(model_id:Identifier,selection:AnimationRemoval)->dict[str,Any]:
+    """Remove one embedded animation from the selected model. Use its listed index and exact name."""
+    return await api('DELETE',f'/models/{model_id}/animations',selection.model_dump(exclude_unset=True))
+
+@tool(read=True)
+async def get_animation_update(status_url:str)->dict[str,Any]:
+    """Read the status URL returned by an animation addition or removal."""
+    if not re.fullmatch(r'/api/v1/(?:jobs|animation-operations)/[a-f0-9]{32}', status_url):
+        raise ToolError('Use the status_url returned by the animation update.')
+    return await api('GET',status_url.removeprefix('/api/v1'))
 
 @tool()
 async def edit_motion(model_id:Identifier,settings:Motion)->dict[str,Any]:
