@@ -1,18 +1,17 @@
 import {
   request, getUser, element, avatar, nameOf, diskLimit, diskUsed, availableCredits, formatBytes, formatNumber,
-} from './server-shell.js';
+} from './server-shell.js?v=3.3.5';
 
 const byId = id => document.getElementById(id);
 const main = byId('server-main');
 const route = location.pathname.replace(/\/$/, '');
 const socialKeys = ['linkedin', 'github', 'mastodon', 'instagram', 'other'];
-const dateFormat = new Intl.DateTimeFormat('fr-FR', {dateStyle: 'short', timeStyle: 'short'});
-const adminDateFormat = new Intl.DateTimeFormat('en-US', {dateStyle: 'short', timeStyle: 'short'});
+const dateFormat = new Intl.DateTimeFormat('en-US', {dateStyle: 'short', timeStyle: 'short'});
 const stateNames = {
   active: 'Active', pending: 'Pending', disabled: 'Disabled', queued: 'Queued', running: 'Running',
   done: 'Completed', error: 'Failed', failed: 'Failed', cancelled: 'Cancelled', paused: 'Paused',
 };
-const roleName = user => user.role === 'admin' ? 'Administrateur' : 'Utilisateur';
+const roleName = user => user.role === 'admin' ? 'Administrator' : 'User';
 const isMfa = user => user.totp_enabled ?? user.mfa_enabled;
 const withData = form => Object.fromEntries(new FormData(form));
 
@@ -47,7 +46,7 @@ function bindForm(id, feedback, action) {
 }
 
 function checkPassword(data, key = 'password') {
-  if (data[key] !== data.confirm_password) throw new Error('Les mots de passe ne correspondent pas.');
+  if (data[key] !== data.confirm_password) throw new Error('The passwords do not match.');
   delete data.confirm_password;
 }
 
@@ -59,10 +58,10 @@ function patch(path, body) {
   return request(path, {method: 'PATCH', body});
 }
 
-function dateOf(value, formatter = dateFormat) {
+function dateOf(value) {
   if (!value) return '—';
   const date = new Date(typeof value === 'number' && value < 1e12 ? value * 1000 : value);
-  return Number.isNaN(date.getTime()) ? '—' : formatter.format(date);
+  return Number.isNaN(date.getTime()) ? '—' : dateFormat.format(date);
 }
 
 function stateChip(state) {
@@ -147,7 +146,7 @@ function loginPage() {
   const register = byId('register-section');
   const feedback = byId('auth-notice');
   const changed = new URLSearchParams(location.search).get('changed');
-  if (changed === 'password') notice(feedback, 'Mot de passe modifié. Connectez-vous avec le nouveau mot de passe.');
+  if (changed === 'password') notice(feedback, 'Password changed. Sign in with your new password.');
   const toggle = (showRegistration, focus = true) => {
     login.hidden = showRegistration;
     register.hidden = !showRegistration;
@@ -162,7 +161,7 @@ function loginPage() {
       const response = await post('/login', data);
       location.replace(destination(getUser(response)));
     } catch (error) {
-      if (error.code === 'mfa_required' || error.code === 'totp_required' || /authenticat|verification|code/i.test(error.message)) {
+      if (['mfa_required', 'totp_required', 'invalid_factor'].includes(error.code)) {
         byId('login-code-details').open = true;
         byId('login-form').elements.code.focus();
       }
@@ -175,7 +174,7 @@ function loginPage() {
     form.reset();
     toggle(false);
     byId('login-form').elements.email.value = data.email;
-    notice(feedback, 'Demande reçue. Vous pourrez vous connecter après l’activation de votre compte par l’administrateur.');
+    notice(feedback, 'Request received. You can sign in once an administrator activates your account.');
   });
 }
 
@@ -187,7 +186,7 @@ function setupPage() {
   const feedback = byId('setup-notice');
   if (!token) {
     form.hidden = true;
-    notice(feedback, 'Revenez à l’installeur pour ouvrir un lien de configuration valide.', true);
+    notice(feedback, 'Return to the installer to open a valid setup link.', true);
     return;
   }
   bindForm('setup-form', 'setup-notice', async data => {
@@ -195,7 +194,7 @@ function setupPage() {
     await post('/setup', {...data, token});
     form.reset();
     form.hidden = true;
-    notice(feedback, 'Le compte administrateur a été créé. Revenez à l’installeur pour terminer la configuration du serveur.');
+    notice(feedback, 'Administrator account created. Return to the installer to finish setting up the server.');
   });
 }
 
@@ -231,26 +230,26 @@ function usagePage(user) {
   const used = diskUsed(user);
   const limit = diskLimit(user);
   const admin = user.role === 'admin';
-  const reserved = user.storage_reserved_bytes ? ` · ${formatBytes(user.storage_reserved_bytes)} réservés` : '';
+  const reserved = user.storage_reserved_bytes ? ` · ${formatBytes(user.storage_reserved_bytes)} reserved` : '';
   byId('usage-metrics').replaceChildren(
-    metric('Stockage utilisé', formatBytes(used), admin ? 'Quota illimité' : `sur ${formatBytes(limit)}${reserved}`,
-      limit > 0 ? progress(used, limit, 'Stockage utilisé') : null),
-    metric('Crédits disponibles', admin ? 'Illimités' : formatNumber(availableCredits(user)), 'Générations à lancer'),
-    metric('Crédits réservés', admin ? '—' : formatNumber(user.credits_reserved || 0), 'Générations en attente ou en cours'),
+    metric('Storage used', formatBytes(used), admin ? 'Unlimited quota' : `of ${formatBytes(limit)}${reserved}`,
+      limit > 0 ? progress(used, limit, 'Storage used') : null),
+    metric('Available credits', admin ? 'Unlimited' : formatNumber(availableCredits(user)), 'New generations'),
+    metric('Reserved credits', admin ? '—' : formatNumber(user.credits_reserved || 0), 'Queued or running generations'),
   );
 }
 
 function usageLedger(data) {
-  const labels = {reserve: 'Crédit réservé', reserved: 'Crédit réservé', debit: 'Génération terminée',
-    charged: 'Génération terminée', release: 'Réservation libérée', released: 'Réservation libérée',
-    grant: 'Crédits attribués', adjust: 'Ajustement', adjustment: 'Ajustement'};
+  const labels = {reserve: 'Credit reserved', reserved: 'Credit reserved', debit: 'Generation completed',
+    charged: 'Generation completed', release: 'Reservation released', released: 'Reservation released',
+    grant: 'Credits granted', adjust: 'Credit adjustment', adjustment: 'Credit adjustment'};
   const entries = data.ledger || data.entries || [];
   return entries.map(entry => {
     const action = entry.kind || entry.action || entry.event;
     const amount = entry.delta ?? entry.amount;
     const suffix = typeof amount === 'number' && amount !== 0
       ? element('strong', '', `${amount > 0 ? '+' : ''}${formatNumber(amount)}`) : null;
-    return activity(labels[action] || action || 'Mouvement de crédits',
+    return activity(labels[action] || action || 'Credit activity',
       [dateOf(entry.created_at || entry.created), entry.reason].filter(Boolean).join(' · '), suffix);
   });
 }
@@ -258,9 +257,9 @@ function usageLedger(data) {
 function secureAccount(user) {
   const enrolled = isMfa(user);
   byId('mfa-summary').textContent = enrolled
-    ? 'Votre compte demande un code à chaque nouvelle connexion.'
-    : 'Ajoutez un code généré par votre application d’authentification.';
-  byId('mfa-action').textContent = enrolled ? 'Désactiver la double authentification' : 'Configurer la double authentification';
+    ? 'A verification code is required each time you sign in.'
+    : 'Use an authenticator app to generate verification codes.';
+  byId('mfa-action').textContent = enrolled ? 'Disable two-factor authentication' : 'Set up two-factor authentication';
   const start = byId('mfa-start-form');
   const locked = (enrolled && user.role === 'admin') || user.password_change_required;
   start.hidden = locked;
@@ -274,7 +273,7 @@ function secureAccount(user) {
   });
   bindForm('mfa-start-form', 'mfa-notice', async (data, form) => {
     if (enrolled) {
-      if (!confirm('Désactiver la double authentification pour votre compte ?')) return;
+      if (!confirm('Disable two-factor authentication for your account?')) return;
       await post('/mfa/disable', data);
       form.reset();
       location.replace('/server/login');
@@ -304,14 +303,14 @@ function secureAccount(user) {
       item.append(element('code', '', code));
       return item;
     }));
-    const message = element('p', '', 'Conservez ces codes de récupération dans un endroit sûr. Chacun ne peut être utilisé qu’une fois.');
-    const loginLink = element('a', 'server-primary', 'Se reconnecter');
+    const message = element('p', '', 'Store these recovery codes in a safe place. Each code can be used once.');
+    const loginLink = element('a', 'server-primary', 'Sign in again');
     loginLink.href = '/server/login';
     const actions = element('div', 'server-actions');
     actions.append(loginLink);
     recovery.replaceChildren(message, list, actions);
     recovery.hidden = false;
-    notice(byId('mfa-notice'), 'Double authentification activée.');
+    notice(byId('mfa-notice'), 'Two-factor authentication enabled.');
   });
 }
 
@@ -341,19 +340,19 @@ function apiKeys(restricted) {
       const {tokens} = await request('/tokens');
       if (revision !== latestList) return;
       const rows = tokens.map(key => {
-        const revoke = button('Révoquer', control => perform(control, feedback, async () => {
-          if (!confirm(`Révoquer la clé « ${key.label} » ? Les clients qui l’utilisent devront être reconfigurés.`)) return;
+        const revoke = button('Revoke', control => perform(control, feedback, async () => {
+          if (!confirm(`Revoke “${key.label}”? Clients using this key will need a replacement key.`)) return;
           await request(`/tokens/${encodeURIComponent(key.id)}`, {method: 'DELETE'});
           if (revealedKey === key.id) clearKey();
-          notice(feedback, 'Clé révoquée.');
+          notice(feedback, 'API key revoked.');
           await loadKeys();
         }));
-        revoke.setAttribute('aria-label', `Révoquer la clé ${key.label}`);
-        const detail = [`${key.prefix}…`, `Créée le ${dateOf(key.created)}`];
-        if (key.last_used) detail.push(`Dernière utilisation le ${dateOf(key.last_used)}`);
+        revoke.setAttribute('aria-label', `Revoke API key ${key.label}`);
+        const detail = [`${key.prefix}…`, `Created ${dateOf(key.created)}`];
+        if (key.last_used) detail.push(`Last used ${dateOf(key.last_used)}`);
         return activity(key.label, detail.join(' · '), revoke);
       });
-      showList(list, rows, 'Aucune clé API.');
+      showList(list, rows, 'No API keys yet.');
     } catch (error) {
       if (revision === latestList) notice(feedback, error.message, true);
     }
@@ -361,11 +360,11 @@ function apiKeys(restricted) {
 
   bindForm('api-token-form', 'api-token-notice', async (data, form) => {
     const label = data.label.trim();
-    if (!label) throw new Error('Saisissez un nom pour la clé.');
+    if (!label) throw new Error('Enter a name for the API key.');
     const result = await post('/tokens', {label});
     form.reset();
     if (byId('panel-security').hidden) {
-      notice(feedback, 'Clé créée. Révoquez-la et créez-en une autre pour obtenir une nouvelle valeur.');
+      notice(feedback, 'API key created. To get a new key, revoke this one and create another.');
       return;
     }
     revealedKey = result.key.id;
@@ -377,11 +376,11 @@ function apiKeys(restricted) {
   byId('api-token-copy').addEventListener('click', event => perform(event.currentTarget, feedback, async () => {
     try {
       await navigator.clipboard.writeText(secret.value);
-      notice(feedback, 'Clé copiée.');
+      notice(feedback, 'API key copied.');
     } catch {
       secret.focus();
       secret.select();
-      notice(feedback, 'Clé sélectionnée. Copiez-la avec le raccourci clavier de votre appareil.');
+      notice(feedback, 'API key selected. Use your keyboard shortcut to copy it.');
     }
   }));
   hide.addEventListener('click', () => {
@@ -408,8 +407,8 @@ function accountPage(user) {
       byId(`panel-${key}`).hidden = true;
     }
     notice(byId('account-required'), user.password_change_required
-      ? 'Choisissez un nouveau mot de passe pour accéder au Studio.'
-      : 'Activez la double authentification pour accéder au Studio et à l’administration.');
+      ? 'Choose a new password to access Studio.'
+      : 'Enable two-factor authentication to access Studio and Administration.');
   }
 
   const profile = byId('profile-form');
@@ -427,7 +426,7 @@ function accountPage(user) {
     user = getUser(await patch('/me', data));
     profileIdentity(user);
     fill(profile, user, profileKeys);
-    notice(byId('profile-notice'), 'Votre profil a été enregistré.');
+    notice(byId('profile-notice'), 'Profile saved.');
   });
 
   const avatarForm = byId('avatar-form');
@@ -446,7 +445,7 @@ function accountPage(user) {
     if (file.size > 2 * 1024 ** 2 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       fileInput.value = '';
       profileIdentity(user);
-      notice(byId('avatar-notice'), 'Choisissez une image JPEG, PNG ou WebP de 2 Mio maximum.', true);
+      notice(byId('avatar-notice'), 'Choose a JPEG, PNG, or WebP image up to 2 MiB.', true);
       return;
     }
     preview = URL.createObjectURL(file);
@@ -455,7 +454,7 @@ function accountPage(user) {
     image.src = preview;
     byId('profile-avatar').replaceChildren(image);
     avatarSave.hidden = false;
-    notice(byId('avatar-notice'), 'Aperçu de votre nouvel avatar.');
+    notice(byId('avatar-notice'), 'New avatar preview.');
   });
   window.addEventListener('pagehide', discardPreview);
   bindForm('avatar-form', 'avatar-notice', async (_data, form) => {
@@ -465,7 +464,7 @@ function accountPage(user) {
     avatarSave.hidden = true;
     discardPreview();
     profileIdentity(user, Date.now());
-    notice(byId('avatar-notice'), 'Votre avatar a été enregistré.');
+    notice(byId('avatar-notice'), 'Avatar saved.');
   });
 
   secureAccount(user);
@@ -483,22 +482,22 @@ function accountPage(user) {
       const breakdown = data.breakdown;
       byId('usage-breakdown').hidden = !breakdown;
       if (breakdown) {
-        const labels = {models: 'Modèles et références', caches: 'Caches de Remesh', exports: 'Exports',
-          trash: 'Corbeille', other: 'Autres fichiers'};
+        const labels = {models: 'Models and references', caches: 'Remesh caches', exports: 'Exports',
+          trash: 'Trash', other: 'Other files'};
         byId('usage-storage').replaceChildren(...Object.entries(labels).map(([key, label]) =>
           activity(label, '', element('strong', '', formatBytes(breakdown[key] ?? 0)))));
       }
-      showList(ledger, usageLedger(data), 'Aucun mouvement pour le moment.');
+      showList(ledger, usageLedger(data), 'No credit activity yet.');
       const rows = [
-        ...(data.trash || []).map(item => ({...item, type: 'trash', label: 'Corbeille'})),
+        ...(data.trash || []).map(item => ({...item, type: 'trash', label: 'Trash'})),
         ...(data.exports || []).map(item => ({...item, type: 'exports', label: 'Export'})),
-        ...(data.uploads || []).map(item => ({...item, type: 'uploads', label: 'Fichier transféré'})),
+        ...(data.uploads || []).map(item => ({...item, type: 'uploads', label: 'Upload'})),
       ].map(item => {
         const feedback = element('p', 'server-notice');
         feedback.setAttribute('role', 'status');
         feedback.hidden = true;
-        const remove = button('Supprimer', control => perform(control, feedback, async () => {
-          if (!confirm('Supprimer définitivement cet élément de votre bibliothèque ?')) return;
+        const remove = button('Delete', control => perform(control, feedback, async () => {
+          if (!confirm('Permanently delete this item?')) return;
           await request(`/${item.type}/${encodeURIComponent(item.id)}`, {method: 'DELETE'});
           await loadUsage();
         }));
@@ -506,7 +505,7 @@ function accountPage(user) {
         wrapper.append(activity(item.name || item.id, `${item.label} · ${formatBytes(item.bytes)}`, remove), feedback);
         return wrapper;
       });
-      showList(cleanup, rows, 'Aucun fichier à supprimer ici.');
+      showList(cleanup, rows, 'No files available for cleanup.');
     } catch (error) {
       showList(ledger, [], error.message);
       cleanup.replaceChildren();
@@ -521,22 +520,9 @@ function accountPage(user) {
 }
 
 function adminPage(actor) {
-  document.documentElement.lang = 'en';
   document.title = 'TRELLIS Studio · Administration';
-  document.querySelector('.server-skip').textContent = 'Skip to content';
-  document.querySelector('.server-edition').textContent = 'Server';
-  document.querySelector('.server-footer').lastChild.textContent = ' 3D workspace';
-  byId('server-navigation').setAttribute('aria-label', 'Main navigation');
-  byId('account-link').textContent = 'My account';
-  byId('server-docs-link').textContent = 'API and MCP';
-  byId('server-docs-link').title = 'API and MCP documentation';
-  byId('server-logout').lastChild.textContent = 'Sign out';
   render('admin');
   connectNavigation(actor);
-  const formatAdminNumber = value => formatNumber(value, 'en');
-  const formatAdminBytes = value => formatBytes(value, 'en');
-  const formatAdminDate = value => dateOf(value, adminDateFormat);
-  const adminRoleName = user => user.role === 'admin' ? 'Administrator' : 'User';
   const feedback = byId('admin-notice');
   const dialog = byId('user-dialog');
   const dialogNotice = byId('user-dialog-notice');
@@ -565,12 +551,12 @@ function adminPage(actor) {
       const storage = element('div', 'server-storage');
       const used = diskUsed(user);
       const limit = diskLimit(user);
-      storage.append(element('span', '', user.role === 'admin' ? 'Unlimited' : `${formatAdminBytes(used)} / ${formatAdminBytes(limit)}`));
+      storage.append(element('span', '', user.role === 'admin' ? 'Unlimited' : `${formatBytes(used)} / ${formatBytes(limit)}`));
       if (limit > 0) storage.append(progress(used, limit, 'Storage used'));
       const open = button(user.status === 'pending' ? 'Review' : 'Details', () => editUser(user));
       open.setAttribute('aria-label', `${open.textContent} · ${nameOf(user)}`);
-      const cells = [identity, element('span', 'server-chip', adminRoleName(user)), stateChip(user.status), storage,
-        element('span', '', user.role === 'admin' ? 'Unlimited' : formatAdminNumber(availableCredits(user))), open];
+      const cells = [identity, element('span', 'server-chip', roleName(user)), stateChip(user.status), storage,
+        element('span', '', user.role === 'admin' ? 'Unlimited' : formatNumber(availableCredits(user))), open];
       for (const [index, content] of cells.entries()) {
         const cell = element('td');
         cell.setAttribute('role', 'cell');
@@ -600,10 +586,10 @@ function adminPage(actor) {
     const pending = data.pending_users ?? users.filter(user => user.status === 'pending').length;
     const active = data.active_jobs ?? 0;
     byId('admin-metrics').replaceChildren(
-      metric('Accounts', formatAdminNumber(total), `${formatAdminNumber(pending)} pending ${pending === 1 ? 'request' : 'requests'}`),
-      metric('Library data', formatAdminBytes(data.used_bytes), 'Storage used'),
-      metric('Free space', formatAdminBytes(data.free_bytes), 'Server drive'),
-      metric('Server queue', data.paused ? 'Paused' : 'Open', `${formatAdminNumber(active)} active ${active === 1 ? 'job' : 'jobs'}`),
+      metric('Accounts', formatNumber(total), `${formatNumber(pending)} pending ${pending === 1 ? 'request' : 'requests'}`),
+      metric('Library data', formatBytes(data.used_bytes), 'Storage used'),
+      metric('Free space', formatBytes(data.free_bytes), 'Server drive'),
+      metric('Server queue', data.paused ? 'Paused' : 'Open', `${formatNumber(active)} active ${active === 1 ? 'job' : 'jobs'}`),
     );
   }
 
@@ -640,7 +626,7 @@ function adminPage(actor) {
     const rows = (result.entries || result.events || []).map(entry => {
       const target = entry.subject_name || entry.target_name || entry.subject_email || entry.target_email;
       return activity([actions[entry.action] || entry.action || 'Administration', target].filter(Boolean).join(' · '),
-        [entry.actor_name || entry.actor_email, formatAdminDate(entry.created_at || entry.created), entry.reason].filter(Boolean).join(' · '));
+        [entry.actor_name || entry.actor_email, dateOf(entry.created_at || entry.created), entry.reason].filter(Boolean).join(' · '));
     });
     showList(byId('audit-list'), rows, 'No activity recorded.');
   }
@@ -669,7 +655,7 @@ function adminPage(actor) {
     const details = byId('user-inspect-details');
     details.replaceChildren();
     const rows = [
-      ['Last sign-in', formatAdminDate(user.last_login_at || user.last_login)],
+      ['Last sign-in', dateOf(user.last_login_at || user.last_login)],
       ['Two-factor authentication', isMfa(user) ? 'Enabled' : 'Disabled'],
       ['Bio', user.bio], ['Website', user.website],
       ...socialKeys.map(key => [key === 'other' ? 'Other link' : key.charAt(0).toUpperCase() + key.slice(1), user.social_links?.[key]]),
@@ -695,7 +681,7 @@ function adminPage(actor) {
     notice(dialogNotice);
     if (!keepTemporary) showTemporary();
     byId('user-dialog-title').textContent = user ? nameOf(user) : 'Create user';
-    byId('user-dialog-subtitle').textContent = user ? `${stateNames[user.status]} · ${adminRoleName(user)}` : 'Set access and the initial quotas.';
+    byId('user-dialog-subtitle').textContent = user ? `${stateNames[user.status]} · ${roleName(user)}` : 'Set access and the initial quotas.';
     const icon = byId('user-dialog-avatar');
     icon.hidden = !user;
     if (user) avatar(icon, user);
@@ -717,7 +703,7 @@ function adminPage(actor) {
     byId('user-reset-mfa').hidden = user?.id === actor.id || !user || !isMfa(user);
     if (user) {
       inspectDetails(user);
-      byId('user-credit-summary').textContent = `${formatAdminNumber(availableCredits(user))} available · ${formatAdminNumber(user.credits_reserved || 0)} reserved`;
+      byId('user-credit-summary').textContent = `${formatNumber(availableCredits(user))} available · ${formatNumber(user.credits_reserved || 0)} reserved`;
     }
     quotaControls();
     if (!dialog.open) dialog.showModal();
@@ -818,7 +804,7 @@ async function start() {
 start().catch(error => {
   if (error.status === 401) location.replace('/server/login');
   else {
-    const feedback = element('p', 'server-notice', error.message || 'Le serveur est indisponible.');
+    const feedback = element('p', 'server-notice', error.message || 'The server is unavailable.');
     feedback.dataset.error = '';
     feedback.setAttribute('role', 'alert');
     main.replaceChildren(feedback);

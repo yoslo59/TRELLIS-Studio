@@ -1,4 +1,4 @@
-import {button, dialog, el, field, input, select, action} from './workbench-ui.js?v=3.3.4';
+import {button, dialog, el, field, input, select, action} from './workbench-ui.js?v=3.3.5';
 
 const PRIORITIES = [['2', 'Highest'], ['1', 'High'], ['0', 'Normal'], ['-1', 'Low'], ['-2', 'Lowest']];
 const STATE_ORDER = {running: 0, queued: 1, error: 2, cancelled: 2, done: 3};

@@ -37,7 +37,7 @@ python -m venv .mcp-venv
 
 ## Connect to TRELLIS Server
 
-In TRELLIS Server, open **Sécurité → Clés API** and create a key for your MCP
+In TRELLIS Server, open **Security → API keys** and create a key for your MCP
 client. Copy it when it is displayed. The bridge uses the library, disk quota
 and generation credits of the account that created the key.
 
@@ -73,7 +73,7 @@ origin. For an authenticated test on the server itself, the bridge accepts a
 loopback HTTP origin such as `http://127.0.0.1:7862`.
 
 Use the client's secret store for the key where available, or protect the
-configuration file that contains it. Revoke the key in **Clés API** when you
+configuration file that contains it. Revoke the key in **API keys** when you
 remove the client connection. If an export is ready, fetch its `download_url`
 with the same `Authorization: Bearer` header or from your signed-in Studio
 browser session.

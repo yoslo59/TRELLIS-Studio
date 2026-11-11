@@ -11,7 +11,7 @@ Open `/developers` in the browser for the developer workspace, `/api/docs` for t
 reference and `/api/openapi.json` for the OpenAPI contract. On Server, sign in to
 view these pages. The reference lists the v1 routes for the running edition.
 
-For Server scripts, create a personal key in **Sécurité → Clés API**, then send
+For Server scripts, create a personal key in **Security → API keys**, then send
 `Authorization: Bearer <key>` to `/api/v1`. Every operation uses the key owner's
 library, disk quota and generation credits. One credit is reserved per new
 generation or generation retry and spent on success. Failed and cancelled jobs

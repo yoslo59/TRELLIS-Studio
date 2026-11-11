@@ -575,7 +575,8 @@ def app_for(data, public_url, setup_token=None, on_setup=None):
         if user['password_change_required'] or user['role'] == 'admin' and not user['totp_enabled']:
             return RedirectResponse('/server/account#security')
         html = (ROOT / 'web' / 'studio.html').read_text(encoding='utf-8')
-        shell = '<link rel="stylesheet" href="/web/server.css"><script type="module" src="/web/server-shell.js"></script>'
+        shell = (f'<link rel="stylesheet" href="/web/server.css?v={VERSION}">'
+                 f'<script type="module" src="/web/server-shell.js?v={VERSION}"></script>')
         return HTMLResponse(html.replace('</head>', shell + '</head>', 1))
 
     @app.api_route('/api/{path:path}', methods=['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE'])

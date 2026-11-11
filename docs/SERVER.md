@@ -41,18 +41,18 @@ TRELLIS Server**. Server settings are saved in `config/server.json`.
 
 ## Manage access and quotas
 
-Users can request an account from the sign-in page with **Demander un compte**
-(Request an account). Open **Administration → Users**, select **Review**, set
+Users can select **Request an account** on the sign-in page. Open
+**Administration → Users**, select **Review**, set
 the disk quota, and select **Activate account**. Use **Adjust credits** to
 grant generation credits. Let the user know once their account is active.
 
-Users can check their usage from the account menu. The server queue schedules
+Users can select **Usage** from the account menu. The server queue schedules
 jobs across accounts. Disabling an account blocks sign-in and keeps its library.
 Administrators can adjust quotas and credits from **Administration**.
 
 ## Connect a script or MCP client
 
-Create a personal key in **Sécurité → Clés API** (Security → API keys). The key
+Create a personal key in **My account → Security → API keys**. The key
 is shown when you create it. Requests use your account's library, disk quota,
 and generation credits. Revoke keys from the same page.
 

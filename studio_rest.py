@@ -319,7 +319,7 @@ def install(app,g):
             schema = workspace_openapi()
             schema['info']['title'] = 'TRELLIS Server API'
             schema['info']['description'] = ('Versioned API for the personal library. Calls use the rights, disk quota and generation credits of the authenticated account. '
-                                              'Create a personal API key in Mon compte → Sécurité → Clés API. The browser reference can use the signed-in session.')
+                                              'Create a personal API key in My account → Security → API keys. The browser reference can use the signed-in session.')
             schema.setdefault('components', {}).setdefault('securitySchemes', {})['TrellisApiKey'] = {
                 'type': 'http', 'scheme': 'bearer', 'description': 'Personal TRELLIS Server API key.',
             }

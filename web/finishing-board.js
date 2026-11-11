@@ -1,4 +1,4 @@
-import {button, dialog, el, field, input, select} from './workbench-ui.js?v=3.3.4';
+import {button, dialog, el, field, input, select} from './workbench-ui.js?v=3.3.5';
 
 const number = value => Number.isFinite(value) ? value.toLocaleString('en-US') : '—';
 const nameOf = job => job?.metadata?.display_name || job?.settings?.name || 'Source model';

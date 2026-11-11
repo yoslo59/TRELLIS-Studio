@@ -1,4 +1,4 @@
-import {icon} from './card-menu.js?v=3.3.4';
+import {icon} from './card-menu.js?v=3.3.5';
 
 // A card keeps its existing poster. Only the active card owns a video decoder.
 export function createCardTurntables(grid) {

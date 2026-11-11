@@ -13,7 +13,7 @@ $taskDefaultData = if (Test-Path -LiteralPath (Join-Path $taskRoot 'bundled-web.
     Join-Path $env:LOCALAPPDATA 'TRELLIS Studio Server\data'
 } else { Join-Path $taskRoot 'server-data' }
 $taskForm = New-Object Windows.Forms.Form
-$taskForm.Text = 'TRELLIS Studio · Serveur'
+$taskForm.Text = 'TRELLIS Server Setup'
 $taskForm.StartPosition = 'CenterScreen'
 $taskForm.AutoScaleMode = 'Font'
 $taskForm.ClientSize = New-Object Drawing.Size(710, 414)
@@ -37,17 +37,19 @@ function Add-ServerField([string]$Name,[string]$Value,[int]$Y,[string]$Picker=''
     $taskForm.Controls.Add($field)
     if ($Picker) {
         $browse = New-Object Windows.Forms.Button
-        $browse.Text = 'Parcourir'
+        $browse.Text = 'Browse'
         $browse.SetBounds(601,$Y-1,85,26)
         $browse.Add_Click({
             if ($Picker -eq 'folder') {
                 $dialog = New-Object Windows.Forms.FolderBrowserDialog
+                $dialog.Description = 'Select the library data folder.'
                 $dialog.SelectedPath = $field.Text
                 try { if ($dialog.ShowDialog() -eq 'OK') { $field.Text = $dialog.SelectedPath } }
                 finally { $dialog.Dispose() }
             } else {
                 $dialog = New-Object Windows.Forms.OpenFileDialog
-                $dialog.Filter = 'Fichiers PEM (*.pem;*.crt;*.key)|*.pem;*.crt;*.key|Tous les fichiers (*.*)|*.*'
+                $dialog.Title = "Select $Name"
+                $dialog.Filter = 'PEM files (*.pem;*.crt;*.key)|*.pem;*.crt;*.key|All files (*.*)|*.*'
                 try { if ($dialog.ShowDialog() -eq 'OK') { $field.Text = $dialog.FileName } }
                 finally { $dialog.Dispose() }
             }
@@ -58,28 +60,28 @@ function Add-ServerField([string]$Name,[string]$Value,[int]$Y,[string]$Picker=''
     return $field
 }
 
-$title = Add-ServerLabel 'Configurer TRELLIS Server' 20 16 666 31
+$title = Add-ServerLabel 'Configure TRELLIS Server' 20 16 666 31
 $title.Font = New-Object Drawing.Font($title.Font.FontFamily, 15, [Drawing.FontStyle]::Bold)
-[void](Add-ServerLabel 'Le compte administrateur sera créé dans le navigateur avant le démarrage du serveur.' 20 52 666 30)
-$data = Add-ServerField 'Dossier des bibliothèques' $(if ($taskExisting) { $taskExisting.data_dir } else { $taskDefaultData }) 87 'folder'
+[void](Add-ServerLabel 'When setting up a new server, create the first administrator in your browser.' 20 52 666 30)
+$data = Add-ServerField 'Library data folder' $(if ($taskExisting) { $taskExisting.data_dir } else { $taskDefaultData }) 87 'folder'
 $data.ReadOnly = [bool]$taskExisting
-$bind = Add-ServerField 'Adresse d’écoute IPv4' $(if ($taskExisting) { $taskExisting.host } else { '127.0.0.1' }) 120
+$bind = Add-ServerField 'IPv4 listen address' $(if ($taskExisting) { $taskExisting.host } else { '127.0.0.1' }) 120
 $port = Add-ServerField 'Port' $(if ($taskExisting) { $taskExisting.port } else { '7862' }) 153
-$url = Add-ServerField 'Adresse pour le navigateur' $(if ($taskExisting) { $taskExisting.public_url } else { 'http://127.0.0.1:7862' }) 186
-$cert = Add-ServerField 'Certificat HTTPS (PEM)' $taskExisting.tls_cert 219 'file'
-$key = Add-ServerField 'Clé privée (PEM)' $taskExisting.tls_key 252 'file'
-[void](Add-ServerLabel '127.0.0.1 limite l’accès à ce PC. Pour le réseau, indiquez l’IP du serveur et une URL HTTPS compatible avec le certificat.' 20 287 666 40)
+$url = Add-ServerField 'Browser address' $(if ($taskExisting) { $taskExisting.public_url } else { 'http://127.0.0.1:7862' }) 186
+$cert = Add-ServerField 'HTTPS certificate (PEM)' $taskExisting.tls_cert 219 'file'
+$key = Add-ServerField 'Private key (PEM)' $taskExisting.tls_key 252 'file'
+[void](Add-ServerLabel '127.0.0.1 limits access to this PC. For LAN access, use the server IP and an HTTPS URL that matches the certificate.' 20 287 666 40)
 $autostart = New-Object Windows.Forms.CheckBox
-$autostart.Text = 'Démarrer à l’ouverture de cette session Windows'
+$autostart.Text = 'Start when I sign in to Windows'
 $autostart.Checked = [bool]$taskExisting.autostart
 $autostart.SetBounds(20,332,666,27)
 $taskForm.Controls.Add($autostart)
 $cancel = New-Object Windows.Forms.Button
-$cancel.Text = 'Annuler'
+$cancel.Text = 'Cancel'
 $cancel.DialogResult = 'Cancel'
 $cancel.SetBounds(482,371,98,28)
 $save = New-Object Windows.Forms.Button
-$save.Text = 'Continuer'
+$save.Text = 'Continue'
 $save.DialogResult = 'OK'
 $save.SetBounds(588,371,98,28)
 $taskForm.Controls.Add($cancel)
