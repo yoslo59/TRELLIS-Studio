@@ -36,6 +36,20 @@ class Runtime:
     source: Path
 
 
+class WTiVoTimeout(ValueError):
+    """The WTiVo subprocess exhausted its finishing time limit."""
+
+
+def _print_runtime_log(output, *directories):
+    if isinstance(output, bytes):
+        output = output.decode('utf-8', errors='replace')
+    if not output:
+        return
+    for path in directories:
+        output = output.replace(str(path), path.name).replace(path.as_posix(), path.name)
+    print(output, end='' if output.endswith('\n') else '\n', flush=True)
+
+
 def validate_wtivo_recipe(enabled, resolution, *, refinish=True, hd_reconstruction=False,
                           repair_surface=False, adaptive=False, budget_preset=None, inline_master=False):
     if type(enabled) is not bool:
@@ -114,10 +128,22 @@ def _check_mesh(vertices, faces):
         raise ValueError('WTiVo requires finite 3D vertices and valid indexed triangle faces.')
 
 
-def reconstruct(root, job, vertices, faces):
+def reconstruct(root, job, vertices, faces, *, grid=WTIVO_RESOLUTION, component_mode='keep_all',
+                options=None):
     """Run pinned WTiVo on copies of geometry in the original decoded coordinates."""
     import numpy as np
 
+    if options is None:
+        if (grid, component_mode) not in ((WTIVO_RESOLUTION, 'keep_all'), (1536, 'largest')):
+            raise ValueError('Unsupported WTiVo recipe.')
+        options = dict(input_res=grid, final_res=grid, proxy_points=WTIVO_PROXY_POINTS, proxy_eps_scale=1.0,
+                       proxy_feature_weight=1.5, lambda_fill=20.0, threads=16, thin_iso_vox=0.0,
+                       faithc_component_mode=component_mode)
+    grid, final_grid = options['input_res'], options['final_res']
+    component_mode = options['faithc_component_mode']
+    if (grid < 2 or final_grid < 2 or options['proxy_points'] < 4 or options['threads'] < 1
+            or not 1.0e-4 < options['proxy_eps_scale'] / grid < 0.5):
+        raise ValueError('WTiVo grid, proxy points, proxy epsilon, or thread count is outside the runtime range.')
     runtime = _read_runtime(root)
     _check_mesh(vertices, faces)
     input_bytes = (vertices.size * 8) + (faces.size * 4)
@@ -133,11 +159,13 @@ def reconstruct(root, job, vertices, faces):
         command = [str(runtime.python), '-I', '-B', '-u', '-X', 'utf8', str(runtime.source / 'wtivo.py'),
                    '--input-vertices-npy', str(v_in), '--input-faces-npy', str(f_in),
                    '--output-vertices-npy', str(v_out), '--output-faces-npy', str(f_out),
-                   '--input-res', str(WTIVO_RESOLUTION), '--final-res', str(WTIVO_RESOLUTION),
-                   '--proxy_points', str(WTIVO_PROXY_POINTS), '--proxy_eps_scale', '1.0',
-                   '--proxy_feature_weight', '1.5', '--lambda_fill', '20.0', '--threads', '16',
-                   '--thick_band_voxels', '3.0', '--thin_band_voxels', '3.0', '--thin_iso_vox', '0.0',
-                   '--faithc_component_mode', 'keep_all', '--faithc_tri_mode', 'auto',
+                   '--input-res', str(grid), '--final-res', str(final_grid),
+                   '--proxy_points', str(options['proxy_points']), '--proxy_eps_scale', str(float(options['proxy_eps_scale'])),
+                   '--proxy_feature_weight', str(float(options['proxy_feature_weight'])),
+                   '--lambda_fill', str(float(options['lambda_fill'])), '--threads', str(options['threads']),
+                   '--thick_band_voxels', '3.0', '--thin_band_voxels', '3.0',
+                   '--thin_iso_vox', str(float(options['thin_iso_vox'])),
+                   '--faithc_component_mode', component_mode, '--faithc_tri_mode', 'auto',
                    '--faithc_clamp_anchors', '1', '--faithc_lambda_n', '1.0', '--faithc_lambda_d', '0.1']
         # Use only the host's native runtime and this job's temporary directory.
         env = {**os.environ, 'WTIVO_SUBPROCESS': '1', 'TEMP': str(work), 'TMP': str(work),
@@ -147,13 +175,12 @@ def reconstruct(root, job, vertices, faces):
                                      stderr=subprocess.STDOUT, encoding='utf-8', errors='replace',
                                      creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         except subprocess.TimeoutExpired as error:
-            raise ValueError('WTiVo timed out. The original model is intact.') from error
+            _print_runtime_log(error.stdout, runtime.source, runtime.python.parent.parent, work)
+            raise WTiVoTimeout(f'WTiVo exceeded 30 minutes at {grid} → {final_grid}. '
+                               'Try smaller WTiVo grids or fewer proxy points.') from None
         except OSError as error:
             raise ValueError('Unable to start the configured WTiVo runtime.') from error
-        log = process.stdout
-        for prefix in (runtime.source, runtime.python.parent.parent, work):
-            log = log.replace(str(prefix), prefix.name).replace(prefix.as_posix(), prefix.name)
-        print(log, flush=True)
+        _print_runtime_log(process.stdout, runtime.source, runtime.python.parent.parent, work)
         audit = AUDIT.search(process.stdout)
         if process.returncode != 0 or not audit:
             raise ValueError('WTiVo did not return a verified mesh. See the generation log or choose Studio 768.')
@@ -165,12 +192,14 @@ def reconstruct(root, job, vertices, faces):
             _check_mesh(rebuilt_vertices, rebuilt_faces)
         except (OSError, ValueError, EOFError) as error:
             raise ValueError('WTiVo returned an invalid model. The original model is intact.') from error
-    margin = 4 / WTIVO_RESOLUTION
+    margin = (4 + abs(options['thin_iso_vox'])) / min(grid, final_grid)
     if (np.any(rebuilt_vertices.min(axis=0) < vertices.min(axis=0) - margin)
             or np.any(rebuilt_vertices.max(axis=0) > vertices.max(axis=0) + margin)):
         raise ValueError('WTiVo reconstruction exceeded the decoded source bounds. The original model is intact.')
-    report = dict(engine='WTiVo', revision=WTIVO_REVISION, grid=WTIVO_RESOLUTION, component_mode='keep_all',
-                  proxy_points=WTIVO_PROXY_POINTS, reconstructed_triangles=len(rebuilt_faces),
+    report = dict(engine='WTiVo', revision=WTIVO_REVISION, grid=grid, component_mode=component_mode,
+                  proxy_points=options['proxy_points'], reconstructed_triangles=len(rebuilt_faces),
                   watertight_before_reduction=audit[1] == 'True', bad_edge_groups_before_reduction=int(audit[2]),
                   native_edge_watertight_before_reduction=audit[3] == 'True', seconds=round(perf_counter() - started, 3))
+    if final_grid != grid:
+        report['final_grid'] = final_grid
     return np.ascontiguousarray(rebuilt_vertices, dtype=np.float32), np.ascontiguousarray(rebuilt_faces, dtype=np.int32), report

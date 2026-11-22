@@ -11,7 +11,7 @@ import {
 } from './texture-projection-geometry.js?v=3.9.0-resize';
 import { button, dialog, el, field, input, select } from './workbench-ui.js?v=3.4.0';
 import { matchTextureProjectionCamera, readReferenceSilhouette } from './texture-projection-auto-align.js?v=3.7.0';
-import { createGameCopyRegions } from './game-copy-regions.js?v=3.9.0';
+import { createGameCopyRegions } from './game-copy-regions.js?v=native-options';
 
 const MATCH_RENDER_SIZE = 128;
 const placementScaleLimits = [0.25, 3];

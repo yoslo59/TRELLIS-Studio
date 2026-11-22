@@ -138,11 +138,15 @@ export function createFinishingBoard({api, getRecords, refresh, compare}) {
         if (option?.ready === true) {
             const size = option.atlas;
             const recipe = [Number.isFinite(option.triangles) ? `${number(option.triangles)} triangles` : '',
-                Array.isArray(size) && size.length === 2 ? `${size[0]} × ${size[1]} texture` : '']
+                Array.isArray(size) && size.length === 2 ? `${size[0]} × ${size[1]} source atlas` : '']
                 .filter(Boolean).join(' · ');
-            hint = textureMethod.value === 'ultratex'
-                ? 'Generates color, metal and roughness from six views on the existing 2K UV atlas. Local non-commercial testing.'
-                : 'Refines the baked color from six generated views and keeps the existing UVs and material maps.';
+            if (option.native) {
+                hint = 'Creates 2K color, metal and roughness maps from the original reference and keeps the existing mesh and UVs.';
+            } else {
+                hint = textureMethod.value === 'ultratex'
+                    ? 'Generates color, metal and roughness from six views on the existing 2K UV atlas. Local non-commercial testing.'
+                    : 'Refines the baked color from six generated views and keeps the existing UVs and material maps.';
+            }
             if (recipe) hint += ` ${recipe}.`;
         } else if (!textureInfo) {
             hint = 'Checking the saved model and reference…';
@@ -187,6 +191,7 @@ export function createFinishingBoard({api, getRecords, refresh, compare}) {
             const capability = await api(`${textureEndpoint(id)}?include_methods=true`);
             if (token === opening) {
                 textureInfo = capability || {ready: false};
+                textureMethod.options[0].hidden = capability?.methods?.ultratex?.native === true && capability.ready !== true;
                 textureMethod.value = !capability?.ready && capability?.methods?.ultratex?.ready
                     ? 'ultratex' : 'multiview';
             }

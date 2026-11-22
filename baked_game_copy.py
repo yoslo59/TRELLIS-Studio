@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 from api_contract import PROTECTED_REGION_COORD_LIMIT, PROTECTED_REGION_LIMIT, PROTECTED_REGION_RADIUS_LIMIT
-from glb_data import accessor, read
+from glb_data import accessor, placed_vertices, read, static_placement
 from studio_import import find_blender
 
 PYMESHLAB_VERSION = '2025.7.post1'
@@ -113,14 +113,12 @@ def _source(path):
             instances += 1
             if node['mesh'] != 0:
                 raise ValueError('Mesh instances are not supported by this bake.')
-        for name, identity in (('matrix', np.eye(4).ravel()), ('translation', [0, 0, 0]),
-                               ('rotation', [0, 0, 0, 1]), ('scale', [1, 1, 1])):
-            if name in node and not np.array_equal(np.asarray(node[name]), identity):
-                raise ValueError('Apply object transforms before creating this game copy.')
     if instances != 1:
         raise ValueError('Choose a GLB containing exactly one mesh instance.')
     primitive = primitives[0]
-    if primitive.get('extensions') or set(primitive.get('attributes', {})) - {'POSITION', 'NORMAL', 'TANGENT', 'TEXCOORD_0'}:
+    attrs = primitive.get('attributes', {})
+    color_attributes = {'COLOR_0', 'COLOR_1'}
+    if primitive.get('extensions') or set(attrs) - {'POSITION', 'NORMAL', 'TANGENT', 'TEXCOORD_0'} - color_attributes:
         raise ValueError('Vertex colours, skin weights and additional UV sets are not supported by this bake.')
     materials = data.get('materials', [])
     if type(primitive.get('material')) is not int or not 0 <= primitive['material'] < len(materials):
@@ -135,7 +133,6 @@ def _source(path):
     for info in (pbr.get('baseColorTexture'), pbr.get('metallicRoughnessTexture'), material.get('normalTexture')):
         if info and (info.get('texCoord', 0) != 0 or info.get('extensions')):
             raise ValueError('Use the first UV map without texture transforms for this bake.')
-    attrs = primitive['attributes']
     vertices = accessor(data, binary, attrs['POSITION'])
     normals = accessor(data, binary, attrs['NORMAL'])
     uv = accessor(data, binary, attrs['TEXCOORD_0'])
@@ -144,9 +141,17 @@ def _source(path):
             or normals.shape != vertices.shape or uv.shape != (len(vertices), 2)
             or not 1 <= len(faces) <= MAX_TRIANGLES or faces.dtype.kind not in ('i', 'u')
             or faces.min() < 0 or faces.max() >= len(vertices)
-            or not all(np.isfinite(a).all() for a in (vertices, normals, uv))
-            or (np.linalg.norm(normals, axis=1) < .1).any()):
+            or not all(np.isfinite(a).all() for a in (vertices, normals, uv))):
         raise ValueError('The HD model has invalid or oversized geometry, normals or UVs.')
+    # Blender's glTF importer uses automatic normals where custom normals are zero.
+    lengths = np.linalg.norm(normals, axis=1)
+    if ((lengths > 0) & (lengths < .1)).any():
+        raise ValueError('The HD model has invalid or oversized geometry, normals or UVs.')
+    # Game Asset's baked donor carries white colour layers with no visible effect.
+    for name in color_attributes.intersection(attrs):
+        colors = accessor(data, binary, attrs[name])
+        if colors.shape not in ((len(vertices), 3), (len(vertices), 4)) or not np.all(colors == 1):
+            raise ValueError('Only neutral white vertex colour layers are supported by this bake.')
     # Bound decoded image memory and reject unsupported external/image encodings.
     for image in data.get('images', []):
         if image.get('mimeType', '') not in ('image/png', 'image/jpeg') or 'bufferView' not in image:
@@ -157,16 +162,17 @@ def _source(path):
         with Image.open(io.BytesIO(binary[start:start + view['byteLength']])) as decoded:
             if max(decoded.size) > 8192 or decoded.width * decoded.height > 8192 ** 2:
                 raise ValueError('Source textures must be no larger than 8K.')
-    extent = np.ptp(vertices, axis=0)
+    placement = static_placement(data, allow_identity=True)
+    extent = np.ptp(placed_vertices(vertices, placement), axis=0)
     if not np.isfinite(extent).all() or extent.max() <= 1e-8:
         raise ValueError('The HD model has no usable dimensions.')
-    return data, vertices, faces
+    return data, vertices, faces, placement
 
 
 def inspect_baked_game_copy(model_path):
     dependencies = game_copy_dependencies()
     try:
-        data, vertices, faces = _source(model_path)
+        data, vertices, faces, _ = _source(model_path)
         profiles = ['object']
         try:
             _region_weights(vertices, 'humanoid')
@@ -305,7 +311,7 @@ def run_baked_game_copy(source_path, output_glb, *, options, progress=None):
         shutil.copyfile(source, donor)
         if _hash(donor) != original_hash or _hash(source) != original_hash:
             raise ValueError('The selected HD model changed while preparing the copy.')
-        data, native, faces = _source(donor)
+        data, native, faces, placement = _source(donor)
         if _material(data).get('normalTexture') and not options['bake_normals']:
             raise ValueError('Enable normal-map baking to preserve this donor\'s existing normal detail.')
         original_triangles = len(faces)
@@ -349,7 +355,9 @@ def run_baked_game_copy(source_path, output_glb, *, options, progress=None):
                 break
         if not len(low_faces) or not np.isfinite(low_vertices).all():
             raise RuntimeError('Reduction did not produce usable geometry.')
-        np.savez(stage / 'target.npz', vertices=low_vertices, faces=low_faces)
+        # Protection coordinates belong to the source mesh. Bake the reduced target
+        # in world space so it aligns with Blender's imported donor hierarchy.
+        np.savez(stage / 'target.npz', vertices=placed_vertices(low_vertices, placement), faces=low_faces)
         request = dict(options=options, double_sided=_material(data).get('doubleSided', False))
         (stage / 'request.json').write_text(json.dumps(request), encoding='utf-8')
         notify('Unwrapping the reduced mesh', .35)
@@ -388,7 +396,8 @@ def run_baked_game_copy(source_path, output_glb, *, options, progress=None):
                     child.wait(timeout=10)
         notify('Checking exported triangles and texture coverage', .94)
         finished = stage / 'model.glb'
-        final_data, final_vertices, final_faces = _source(finished)
+        final_data, final_vertices, final_faces, final_placement = _source(finished)
+        final_vertices = placed_vertices(final_vertices, final_placement)
         coverage = _coverage(finished, stage / 'hit_mask.png', options['texture_size'])
         bake = json.loads((stage / 'bake-report.json').read_text(encoding='utf-8'))
         warnings = list(LIMITATIONS)

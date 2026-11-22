@@ -12,7 +12,7 @@
 <script type="importmap">{"imports":{"three":"/vendor/build/three.module.js","three/addons/":"/vendor/examples/jsm/"}}</script>
 <script type="module" src="/web/release-notification.js?v=1"></script>
 <link rel="stylesheet" href="/web/animation-studio.css?v=creature-motions"><link rel="stylesheet" href="/web/details.css?v=studio-visual-refresh"><link rel="stylesheet" href="/web/studio-tools.css?v=3.9.0"><link rel="stylesheet" href="/web/lighting.css?v=studio-visual-refinement"><link rel="stylesheet" href="/web/workbench.css?v=board-retexture"><link rel="stylesheet" href="/web/personal-animation.css?v=3.4.0"><link rel="stylesheet" href="/web/texture-projection.css?v=3.9.0">
-<link rel="stylesheet" href="/web/studio-panels.css?v=figure-master-ultratex">
+<link rel="stylesheet" href="/web/studio-panels.css?v=native-options">
 <link rel="stylesheet" href="/web/studio-shell.css?v=studio-visual-refresh">
 </head><body>
 <header class="topbar">
@@ -123,7 +123,7 @@
     </div>
     <small id="detailRefinementUnavailable" hidden></small>
   </div>
-<div class="generation-engine">
+<div id="generationEngine" class="generation-engine">
 <details id="generationMethod" class="generation-method">
   <summary aria-labelledby="generationMethodTitle generationMethodLabel">
     <span><small id="generationMethodTitle">Generation engine</small><strong id="generationMethodLabel">TRELLIS.2 · Single image</strong></span>
@@ -141,7 +141,7 @@
 <section class="quality-card creation-step" aria-labelledby="outputQualityTitle">
   <div class="creation-step-header"><h2 id="outputQualityTitle"><span class="creation-step-number" aria-hidden="true">3</span> Output Quality</h2></div>
   <div class="output-budget"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#layers"/></svg><p id="profileSummary" class="hint" role="status"></p></div>
-  <div class="texture-method-choice">
+  <div class="texture-method-choice" id="textureMethodChoice">
     <label class="field">
       <span>Texture method</span>
       <span class="generation-select">
@@ -161,27 +161,28 @@
   <label class="field">Asset type<select id="assetType" name="asset_type"><option value="object">Static prop</option></select></label>
   <p id="assetHint" class="hint"></p>
   <div class="reference-tools"><button id="copyReferencePrompt" type="button" class="text-button">Copy an image brief ↗</button></div>
-  <div class="two-fields">
+  <div class="two-fields" id="generationSizeFields">
     <label class="field">3D resolution<select id="resolution" name="resolution"><option value="512">512³ · Fast</option><option value="1024" selected>1024³ · Quality</option><option value="1536" disabled>1536³ · Fine detail</option></select></label>
     <label class="field">Texture size<select id="textureSize" name="texture_size"><option value="0">Use profile default</option><option value="1024">1K · 1 024 px</option><option value="2048" selected>2K · 2 048 px</option><option value="4096" disabled>4K · 4 096 px</option></select></label>
   </div>
   <p id="qualityHint" class="hint" hidden></p>
-  <div class="two-fields"><label id="monoTrianglesField" class="field"><span id="monoTrianglesLabel">Target triangles</span><input id="triangles" name="triangles" type="number" min="0" max="8000000" step="1" value="28000"><small id="monoTrianglesHint">0 uses the profile budget.</small></label><label class="field">3D seed<input id="seed" name="seed" type="number" value="42" min="0" max="2147483647" step="1"></label></div>
+  <div class="two-fields" id="generationMeshFields"><label id="monoTrianglesField" class="field"><span id="monoTrianglesLabel">Target triangles</span><input id="triangles" name="triangles" type="number" min="0" max="8000000" step="1" value="28000"><small id="monoTrianglesHint">0 uses the profile budget.</small></label><label class="field">3D seed<input id="seed" name="seed" type="number" value="42" min="0" max="2147483647" step="1"></label></div>
   <label id="advancedMasterField" class="field" hidden>Finishing override<select id="advancedMasterFinishing" disabled><option value="">Use master finishing</option><option value="direct">Direct Export</option><option value="repair">Repair Holes</option></select></label>
   <label id="removeBgField" class="check"><input id="removeBg" name="remove_bg" type="checkbox" checked><span>Remove image background</span></label>
   <div id="faceProjectionField" hidden><label class="check"><input id="reprojectFace" type="checkbox" autocomplete="off" aria-describedby="reprojectFaceHelp" disabled><span>Reproject the reference face</span></label><p class="hint" id="reprojectFaceHelp"></p></div>
-  <label class="check"><input id="keepFinishingSource" name="keep_finishing_source" type="checkbox" value="true"><span>Keep source for finishing variants</span></label>
+  <label id="keepFinishingSourceField" class="check"><input id="keepFinishingSource" name="keep_finishing_source" type="checkbox" value="true"><span>Keep source for finishing variants</span></label>
   <p id="finishingSourceHelp" class="hint">Stores the decoded geometry and materials so finishing can be repeated.</p>
   <fieldset id="generationSampling" class="mode-fields">
-    <label class="field">Base preset<select id="profileBase"><option value="game_d">Game Asset</option><option value="high_detail">High Detail</option><option value="figure_master">Figure Master</option><option value="dense_master">HD Master</option></select></label>
+    <label class="field">Base preset<select id="profileBase"><option value="high_detail">High Detail (Props)</option><option value="figure_master">Figure Master</option></select></label>
     <div id="advancedControls"></div>
     <div id="detailTexturingField" class="detail-texturing-field" hidden>
       <label class="check option-boolean"><input id="retextureAfterRefinement" type="checkbox" aria-describedby="detailTexturingStatus"><span>Retexture after Hi3D</span></label>
       <p id="detailTexturingStatus" class="hint" role="status" hidden></p>
     </div>
   </fieldset>
+  <div id="workflowAdvancedControls" hidden></div>
   <label class="field">Reference context / prompt<textarea id="referencePrompt" name="reference_prompt" rows="4" maxlength="6000" placeholder="Object function, setting, materials…"></textarea></label>
-  <div class="profile-actions"><button id="saveProfileAs" type="button" disabled>Save a copy</button><button id="updateProfile" type="button" hidden>Edit this profile</button><button id="deleteProfile" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#trash"/></svg>Delete profile</button><button id="useProfileAtStartup" type="button" aria-pressed="false" disabled>Use at startup</button><button id="resetAdvanced" type="button" class="quiet">Reset to Game Asset</button></div>
+  <div class="profile-actions"><button id="saveProfileAs" type="button" disabled>Save a copy</button><button id="updateProfile" type="button" hidden>Edit this profile</button><button id="deleteProfile" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#trash"/></svg>Delete profile</button><button id="useProfileAtStartup" type="button" aria-pressed="false" disabled>Use at startup</button><button id="resetAdvanced" type="button" class="quiet">Reset profile settings</button></div>
   <p id="profileNotice" role="status" aria-live="polite"></p>
 </details>
 <div class="generation-dock"><p id="generationSummary" class="sr-only">Local compute</p><button id="generate" class="primary generate-button" type="submit" aria-describedby="generationSummary" disabled><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#sparkles"/></svg><span>Add to Queue</span></button><button id="cancel" class="cancel" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#close"/></svg>Cancel generation</button></div>
@@ -347,7 +348,7 @@
 <dialog id="animationRemoveDialog" aria-labelledby="animationRemoveTitle" aria-describedby="animationRemoveDescription"><form method="dialog"><h2 id="animationRemoveTitle">Remove animation?</h2><p id="animationRemoveDescription">Remove <strong id="animationRemoveName"></strong> from this model?</p><div class="dialog-actions"><button value="cancel" class="secondary" autofocus>Keep clip</button><button value="remove" class="danger has-icon"><svg class="ui-icon" aria-hidden="true"><use href="/web/icons.svg#trash"/></svg>Remove clip</button></div></form></dialog>
 <dialog id="imageDialog"><button class="dialog-close" id="closeImage">Close ×</button><img id="largeImage" alt="Full-size texture or UV layout"></dialog>
 <footer><span>TRELLIS STUDIO</span><span>Reference → generation → review → Blender</span><span>UV & PBR · local compute</span></footer>
-<script type="module" src="/web/studio.js?v=creature-bell"></script><script type="module" src="/web/validation-en.js?v=3.4.0"></script>
+<script type="module" src="/web/studio.js?v=profile-catalogue"></script><script type="module" src="/web/validation-en.js?v=3.4.0"></script>
 <div id="refinishDialog" class="refinish-popover" popover="auto" role="dialog" aria-labelledby="refinishTitle">
 <form id="refinishForm">
   <header class="refinish-head">

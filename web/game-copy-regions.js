@@ -1,5 +1,5 @@
 import { button, el, field, input } from './workbench-ui.js?v=3.4.0';
-import { openReductionRegionPreview } from './reduction-region-preview.js?v=3.8.0';
+import { openReductionRegionPreview } from './reduction-region-preview.js?v=native-options';
 
 const radiusPercent = new Intl.NumberFormat('en', { maximumFractionDigits: 2 });
 
@@ -65,7 +65,7 @@ export function createGameCopyRegions(disposeModel) {
     let preview = null, active = -1, limit = 0, mode = 'orbit';
     radius.oninput = strength.oninput = () => {
         const region = regions[active];
-        region.radius = Number(radius.value) * preview.span / 100;
+        region.radius = Number(radius.value) * preview.localSpan / 100;
         region.strength = Number(strength.value) / 100;
         applySliders();
         preview.setZones(regions, active);
@@ -127,7 +127,7 @@ export function createGameCopyRegions(disposeModel) {
         list.replaceChildren(...entries);
         if (active >= 0) {
             activeLabel.textContent = `Zone ${active + 1}`;
-            radius.value = regions[active].radius / preview.span * 100;
+            radius.value = regions[active].radius / preview.localSpan * 100;
             strength.value = regions[active].strength * 100;
             applySliders();
         }
@@ -140,7 +140,7 @@ export function createGameCopyRegions(disposeModel) {
             return;
         }
         if (regions.length >= limit) return;
-        regions.push({ center, radius: preview.span * .04, strength: .85 });
+        regions.push({ center, radius: preview.localSpan * .04, strength: .85 });
         active = regions.length - 1;
         if (regions.length === limit) selectMode('orbit');
         else guidance.textContent = 'Adjust the selected zone or select another point on the model.';

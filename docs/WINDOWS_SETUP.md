@@ -155,6 +155,14 @@ need more memory on complex assets or when other applications are using the
 GPU. The Setup can continue with the other supported components on GPUs
 outside Hi3D's supported range.
 
+## Standalone generation profiles
+
+Setup includes the adapters and editable graphs for **High Detail** and
+**Game Asset**. Their optional standalone runtimes, model weights, and local
+verification records are configured separately. The Setup option **UltraTex · 2K
+preview** installs the existing six-view adapter. See [Native profiles](NATIVE_PROFILES.md)
+for the standalone workflow requirements and locations.
+
 ## Build and qualify
 
 Build the public installer from a clean checkout of the merged `main` commit.

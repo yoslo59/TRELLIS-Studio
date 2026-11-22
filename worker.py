@@ -2,7 +2,7 @@
 from contextlib import nullcontext
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import gc, hashlib, json, os, sys, time, traceback
+import gc, hashlib, json, os, struct, sys, time, traceback, shutil
 
 ROOT = Path(__file__).resolve().parent
 JOB = Path(sys.argv[1]).resolve()
@@ -530,7 +530,81 @@ def preserve_master_generation_views(source_id, result):
         print(f'Unable to preserve calibrated generation views: {error}', flush=True)
 
 
+def generate_standalone_workflow():
+    from generation_profiles import COMFY_INPUT_FILES, STANDALONE_PROFILES
+    from native_workflow_options import settings as workflow_settings, summary as workflow_summary
+    from glb_data import posed_bounds, read
+    import numpy as np
+
+    profile_id = settings['workflow_id']
+    if profile_id not in STANDALONE_PROFILES:
+        raise ValueError('Choose an available standalone generation profile.')
+    if profile_id == 'game_asset_native':
+        from native_game_profile import run_profile
+    else:
+        from native_high_detail import run_profile
+
+    recipe = workflow_settings(profile_id, settings['workflow_options'])
+    summary = workflow_summary(profile_id, recipe)
+    filename = settings.get('workflow_input')
+    if filename not in COMFY_INPUT_FILES:
+        raise ValueError('The original workflow image is missing.')
+    image_path = JOB / filename
+    if not image_path.is_file() or image_path.is_symlink():
+        raise ValueError('The original workflow image is missing.')
+
+    with TemporaryDirectory(prefix='.workflow-result-', dir=JOB) as scratch:
+        native = Path(scratch) / 'native.glb'
+        receipt = run_profile(image_path, native, JOB, recipe,
+                              progress=lambda label, percent: status('running', label, percent))
+        document, binary = read(native)
+        low, high = posed_bounds(document, binary)
+        del binary
+        size = high - low
+        if not np.isfinite(size).all() or size[1] <= 0 or not np.isfinite(low).all():
+            raise ValueError('The native workflow returned invalid model dimensions.')
+        scale = settings['height_m'] / float(size[1])
+        center = np.array([(low[0] + high[0]) / 2, low[1], (low[2] + high[2]) / 2])
+        if not document.get('scenes'):
+            raise ValueError('The native workflow returned no GLB scene.')
+        # Place the output in Studio units while preserving all mesh and material buffers.
+        for scene in document['scenes']:
+            root = dict(children=scene['nodes'], scale=[scale] * 3, translation=(-center * scale).tolist())
+            scene['nodes'] = [len(document['nodes'])]
+            document['nodes'].append(root)
+        encoded = json.dumps(document, separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode('utf-8')
+        encoded += b' ' * (-len(encoded) % 4)
+        staged = Path(scratch) / 'model.glb'
+        with native.open('rb') as incoming, staged.open('wb') as output:
+            total, old_size = struct.unpack('<II', incoming.read(16)[8:16])
+            incoming.seek(20 + old_size)
+            output.write(struct.pack('<4sIIII', b'glTF', 2, total - old_size + len(encoded), len(encoded), 0x4e4f534a))
+            output.write(encoded)
+            shutil.copyfileobj(incoming, output)
+        accessors = document['accessors']
+        triangles = vertices = 0
+        for mesh in document['meshes']:
+            for primitive in mesh['primitives']:
+                count = accessors[primitive['attributes']['POSITION']]['count']
+                vertices += count
+                if primitive.get('mode', 4) != 4:
+                    raise ValueError('The native workflow did not return a triangular mesh.')
+                triangles += (accessors[primitive['indices']]['count'] if 'indices' in primitive else count) // 3
+        if not triangles:
+            raise ValueError('The native workflow returned an empty model.')
+        os.replace(staged, JOB / 'model.glb')
+    result = dict(name=settings['name'], engine=receipt['engine'], workflow=receipt, pipeline_type=profile_id,
+                  height_m=settings['height_m'], dimensions_m=(size * scale).tolist(),
+                  seed=summary['seed'], resolution=summary['resolution'], triangles=triangles, vertices=vertices,
+                  texture_size=summary['texture_size'], texture_method=summary['texture_method'],
+                  seconds=round(time.time() - started, 1))
+    write(JOB / 'result.json', result)
+    status('done', 'Model ready', 100, result=result)
+
+
 def main():
+    if settings.get('workflow_id') and not settings.get('source_kind'):
+        return generate_standalone_workflow()
     source_id = settings.get('finish_source_id') if settings.get('source_kind') == 'refinish' else None
     validate_retexture_request(source_id)
     import torch
@@ -608,7 +682,9 @@ if __name__ == '__main__':
         message = str(error)
         finishing = settings.get('source_kind') == 'refinish'
         if 'out of memory' in message.lower():
-            if settings.get('master_finishing') == NO_MASTER_FINISHING:
+            if settings.get('workflow_id'):
+                message = 'Insufficient GPU memory for this workflow. See the generation log.'
+            elif settings.get('master_finishing') == NO_MASTER_FINISHING:
                 message = ('Insufficient GPU memory to unwrap and bake the complete decoded mesh. '
                            'Try a smaller atlas or generation resolution, or enable mesh finishing.')
             elif settings.get('master_finishing'):

@@ -28,9 +28,10 @@ export function createMultiviewInputs({ changed, invalid }) {
   }));
   let method = 'trellis2';
   let status = {};
+  let fixedWorkflow = false;
 
-  const isMulti = () => method === 'pixal3d';
-  const usesPixal = () => method !== 'trellis2';
+  const isMulti = () => !fixedWorkflow && method === 'pixal3d';
+  const usesPixal = () => !fixedWorkflow && method !== 'trellis2';
   const activeRoles = () => isMulti() ? roles : ['front'];
   const countViews = () => activeRoles().filter(role => slots.get(role).file).length;
 
@@ -113,12 +114,12 @@ export function createMultiviewInputs({ changed, invalid }) {
     for (const id of ['supplementalViews', 'pixalViewAngles']) {
       $(id).hidden = $(id).disabled = !isMulti();
     }
-    $('generationSampling').hidden = $('generationSampling').disabled = usesPixal();
-    $('resolution').closest('label').hidden = usesPixal();
-    $('resolution').disabled = usesPixal();
-    $('removeBgField').hidden = usesPixal();
-    $('removeBg').disabled = usesPixal();
-    addView.hidden = isMulti();
+    const locked = fixedWorkflow || usesPixal();
+    $('generationEngine').hidden = fixedWorkflow;
+    $('generationSampling').hidden = $('generationSampling').disabled = locked;
+    $('resolution').closest('label').hidden = $('resolution').disabled = locked;
+    $('removeBgField').hidden = $('removeBg').disabled = locked;
+    addView.hidden = fixedWorkflow || isMulti();
     addView.setAttribute('aria-expanded', String(isMulti()));
     $('frontDropTitle').textContent = isMulti() ? 'Front view' : 'Drop your reference image';
     slots.get('front').input.setAttribute('aria-label', isMulti() ? 'Front reference image' : 'Reference image');
@@ -147,7 +148,14 @@ export function createMultiviewInputs({ changed, invalid }) {
     if (usesPixal() && textureSize > 2048) messages.push('Choose 1K or 2K textures in Advanced for Pixal3D.');
     if (hiddenViews) messages.push('Additional references are available in Multi-view.');
     notice.textContent = messages.join(' ');
-    notice.hidden = !messages.length;
+    notice.hidden = fixedWorkflow || !messages.length;
+  }
+
+  function setWorkflow(workflow) {
+    const locked = !!workflow;
+    if (locked === fixedWorkflow) return;
+    fixedWorkflow = locked;
+    renderMode();
   }
 
   function applyMethod(value) {
@@ -234,8 +242,10 @@ export function createMultiviewInputs({ changed, invalid }) {
     const settings = job.settings;
     const single = settings.view_mode === 'single' || settings.pipeline_type === 'pixal3d_1024_monoview'
       || settings.engine === 'pixal3d_single';
-    const restoredMethod = single ? 'pixal3d_single' : settings.engine === 'pixal3d' ? 'pixal3d' : 'trellis2';
-    const references = restoredMethod === 'pixal3d' ? settings.views : [{role: 'front', file: 'input.png'}];
+    const restoredMethod = settings.workflow_id ? 'trellis2' : single ? 'pixal3d_single'
+      : settings.engine === 'pixal3d' ? 'pixal3d' : 'trellis2';
+    const sourceFile = settings.workflow_id && settings.workflow_input ? settings.workflow_input : 'input.png';
+    const references = restoredMethod === 'pixal3d' ? settings.views : [{role: 'front', file: sourceFile}];
     if (!Array.isArray(references) || !references.some(view => view.role === 'front')
         || (restoredMethod === 'pixal3d' && references.length < 2)) {
       throw Error('The saved reference list is incomplete.');
@@ -245,10 +255,13 @@ export function createMultiviewInputs({ changed, invalid }) {
       const response = await fetch(`/api/jobs/${job.id}/files/${encodeURIComponent(file)}`);
       if (!response.ok) throw Error(`Saved ${role} reference is unavailable.`);
       const blob = await response.blob();
-      return [role, new File([blob], `${settings.name}-${role}.png`, {type: 'image/png'})];
+      const extension = file.split('.').at(-1);
+      const type = {jpg: 'image/jpeg', webp: 'image/webp'}[extension] || 'image/png';
+      return [role, new File([blob], `${settings.name}-${role}.${extension}`, {type})];
     }));
     const files = new Map(restored);
     for (const role of roles) setFile(role, files.get(role));
+    fixedWorkflow = !!settings.workflow_id;
     method = restoredMethod;
     reprojectFace.checked = usesPixal() && settings.reproject_face === true;
     $('sideAngle').value = String(settings.side_angle ?? 40);
@@ -258,7 +271,7 @@ export function createMultiviewInputs({ changed, invalid }) {
   renderMode();
   setCapabilities();
   return {
-    accept, restore, referenceRequest, appendRequest, setCapabilities, sync, applyMethod,
+    accept, restore, referenceRequest, appendRequest, setCapabilities, setWorkflow, sync, applyMethod,
     get active() { return isMulti(); },
     get usesPixal() { return usesPixal(); },
     get method() { return method; },

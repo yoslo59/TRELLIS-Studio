@@ -39,6 +39,10 @@ jobs:
           python -S -B tests/hi3d_weights.py
           python -S -B tests/kimodo_installer.py
           python -S -B tests/server_store.py
+          python -S -B tests/comfy_profiles.py
+          python -S -B tests/native_game_profile.py
+          python -S -B tests/native_game_geometry.py
+          python -S -B tests/native_high_detail.py
 
       - name: Set up Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
@@ -52,4 +56,6 @@ jobs:
       - name: Check JavaScript syntax and viewer behavior
         run: |
           npm run check
-          node --test tests/hologram_viewer.mjs tests/texture-projection-geometry.mjs tests/texture-projection-auto-align.mjs
+          node --check web/workflow-graph.js
+          node --check web/standard-workflow-graph.js
+          node --test tests/hologram_viewer.mjs tests/texture-projection-geometry.mjs tests/texture-projection-auto-align.mjs tests/workflow_topology.mjs

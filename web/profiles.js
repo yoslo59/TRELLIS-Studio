@@ -1,13 +1,15 @@
 // Recipes are persisted by the local server, independently from object history.
 import {detailRefinements} from './hd-master-finishing.js?v=detail-refinement-native';
-import {optionHelp} from './advanced-controls.js?v=figure-master-ultratex';
+import {createWorkflowFields, optionHelp} from './advanced-controls.js?v=standard-profiles';
+import {createStandardWorkflowGraph} from './standard-workflow-graph.js?v=1';
 import {textureMethodChoices,textureMethodHelp,textureMethodOf,textureMethodRestriction} from './texture-methods.js?v=figure-master-ultratex';
 
 const $=id=>document.getElementById(id);
 const steps={game_d:20,high_detail:20,humanoid_experimental:20,dense_master:20,fast:8,balanced:12,detail:20};
 const figureSteps={structure_steps:30,shape_steps:35,texture_steps:12};
 const startupKey='trellis.studio.startup-profile.v2';
-const profileNames={game_d:'Game Asset',dense_master:'HD Master'};
+const profileNames={game_d:'Game Asset (Standard)',dense_master:'HD Master'};
+const restoredWorkflows={game_asset_comfy:'game_asset_native',high_detail_comfy:'high_detail_native'};
 const finishingNames={
   none:'None',
   studio_768:'Balanced Reconstruction',
@@ -31,13 +33,25 @@ const inlineFinishingLimit=3000000;
 const detailRefinementLimit=1000000;
 const detailSourceResolutions=[512,1024,1536];
 const retextureHelp='Generates new PBR materials from the reference on the refined geometry. Uses the texture settings below and adds processing time.';
-export async function createProfileControls(advanced,{changed=()=>{},usePixal=()=>false,isMultiview=()=>false,describeMethod=()=>'',useNativeMethod=()=>{}}={}){
+export async function createProfileControls(advanced,{changed=()=>{},usePixal=()=>false,isMultiview=()=>false,describeMethod=()=>'',useNativeMethod=()=>{},setWorkflow=()=>{}}={}){
   let profiles=[],selected=null,saving=false,edit=false,sourceRequired=false,previousKeep=false;
   let deletingProfile=null,deleting=false,serverStartup='';
   let repairSupported=false, hdSupported=false, masterSupport={};
   let detailTexturing={};
   let textureSupport={},preferredTextureMethod='trellis',ultraAtlas=null;
   let startupProfile='', refinementInputs=null, standardFinishing='', pixalFallback=false, pixalAtlas=null;
+  let workflowFields, standardGraph, standardGraphKey;
+  const workflowBox=$('workflowAdvancedControls');
+  function removeStandardGraph() {
+    standardGraph?.remove();
+    standardGraph = standardGraphKey = undefined;
+  }
+  function showWorkflowFields(profile, values={}) {
+    removeStandardGraph();
+    workflowFields?.closeGraph();
+    workflowFields=createWorkflowFields(workflowBox,profile.workflow.advanced,values,
+      {workspace:$('workspace'),profileName:profile.name});
+  }
   const retexture=$('retextureAfterRefinement');
   const retextureField=$('detailTexturingField');
   const retextureStatus=$('detailTexturingStatus');
@@ -68,7 +82,24 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
       remove_bg:$('removeBg').checked,advanced:options,
     };
   }
-  function budget(recipe=read()){
+  function budget(recipe){
+    const workflow=selected?.workflow;
+    if(!recipe&&workflow){
+      const values=workflowFields?.read();
+      if(selected.id==='high_detail_native'&&values)return {
+        resolution:parseInt(values['17'].pipeline_type,10)||workflow.resolution,
+        texture_size:values['25'].texture_method==='ultratex' ? values['25'].ultratex_size :
+          values['25'].bake_on_vertices ? 0 : (values['25'].texture_size||workflow.texture_size),
+        triangles:values['22'].target_face_num||workflow.target_faces,
+      };
+      if(selected.id==='game_asset_native'&&values)return {
+        resolution:Number(values['94'].target_resolution)||workflow.resolution,
+        texture_size:values['377'].texture_size||workflow.texture_size,
+        triangles:values['335'].target_tris||workflow.target_faces,
+      };
+      return {resolution:workflow.resolution,texture_size:workflow.texture_size,triangles:workflow.target_faces};
+    }
+    recipe??=read();
     const finishing=readFinishing();
     const result={resolution:usePixal()?1024:recipe.resolution,texture_size:recipe.texture_size};
     if(finishing!=='none'){
@@ -113,11 +144,55 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     return copy;
   }
   const equal=(a,b)=>{const x=resolved(a),y=resolved(b);return Object.keys(x).every(k=>k==='advanced'?Object.keys(x[k]).every(f=>x[k][f]===y[k][f]):x[k]===y[k]);};
+  function syncProfileActions(dirty){
+    const workflow=selected.workflow;
+    $('saveProfileAs').hidden=!!workflow;
+    $('updateProfile').hidden=selected.builtin||!!workflow;
+    $('deleteProfile').hidden=selected.builtin||!selected.id;
+    const startup=$('useProfileAtStartup');
+    const isStartup=selected.id===startupProfile;
+    startup.disabled=!selected.id||dirty||isStartup||Boolean(workflow&&workflow.available!==true);
+    startup.setAttribute('aria-pressed',String(isStartup));
+    startup.textContent=isStartup?'Startup profile':'Use at startup';
+  }
+  function syncFixedWorkflow(workflow){
+    setWorkflow(workflow);
+    for(const id of ['textureMethodChoice','generationSizeFields','generationMeshFields','keepFinishingSourceField']){
+      $(id).hidden=!!workflow;
+    }
+    workflowBox.hidden=!workflow;
+    $('resetAdvanced').textContent=workflow?'Reset workflow settings':'Reset profile settings';
+    $('seed').disabled=!!workflow;
+    if(!workflow)return;
+    const method=workflowFields?.read()['25']?.texture_method || selected.settings.texture_method;
+    const texture=method==='ultratex'?'UltraTex':'TRELLIS.2 PBR';
+    const status=$('generationProfileStatus');
+    const message=workflow.available===true ? selected.description : workflow.reason;
+    status.classList.toggle('generation-method-notice',workflow.available!==true);
+    if(status.textContent!==message)status.textContent=message;
+    status.hidden=false;
+    $('denseMasterRepairField').hidden=true;
+    $('advancedMasterField').hidden=true;
+    $('finishingSourceHelp').hidden=true;
+    $('keepFinishingSource').disabled=true;
+    $('textureSize').disabled=true;
+    $('triangles').disabled=true;
+    $('profileId').value=selected.id;
+    $('profileState').hidden=true;
+    const {resolution,texture_size,triangles}=budget();
+    const meshSummary=triangles>0?`${number.format(triangles)} target triangles`:'Dense mesh';
+    $('profileSummary').textContent=`${resolution}³ · ${meshSummary} · ${texture_size ? `${texture} ${texture_size/1024}K` : 'Vertex colours'}`;
+    $('generationSummary').textContent=`${selected.name} · ${$('profileSummary').textContent}`;
+    syncProfileActions(false);
+  }
   function sync(){
     if(!selected)return;
+    syncFixedWorkflow(selected.workflow);
+    if(selected.workflow){changed();return;}
     const activePreset=$('preset').value;
     const experimental=activePreset==='humanoid_experimental', dense=activePreset==='dense_master';
     const figureUnsupported=activePreset==='figure_master'&&usePixal();
+    $('generationProfileStatus').classList.add('generation-method-notice');
     $('generationProfileStatus').textContent=figureUnsupported?'Figure Master uses TRELLIS.2 · Single image. Choose that engine or another profile.':'';
     $('generationProfileStatus').hidden=!figureUnsupported;
     const finishing=$('denseMasterFinishing');
@@ -259,13 +334,7 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
       : dense?'0 uses the profile ceiling.':'0 uses the profile target.';
     const caption=selected.variant?'Model settings':profileNames[selected.id]||selected.name;
     $('generationSummary').textContent=[caption,describeMethod(),detail?`${actual.resolution}³ source`:'',finishingName(selectedFinish),textureMethod.selectedOptions[0]?.textContent].filter(Boolean).join(' · ');
-    $('updateProfile').hidden=selected.builtin;
-    $('deleteProfile').hidden=selected.builtin||!selected.id;
-    const startup=$('useProfileAtStartup');
-    const isStartup=selected.id===startupProfile;
-    startup.disabled=!selected.id||dirty||isStartup;
-    startup.setAttribute('aria-pressed',String(isStartup));
-    startup.textContent=isStartup?'Startup profile':'Use at startup';
+    syncProfileActions(dirty);
     const profileBase=$('profileBase');
     for(const option of profileBase.querySelectorAll('[data-historical]'))if(option.value!==recipe.preset)option.remove();
     if(![...profileBase.options].some(option=>option.value===recipe.preset)){
@@ -277,11 +346,33 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     }
     profileBase.value=recipe.preset;
     changed();
+    if(advanced.ready&&['figure_master','high_detail'].includes(activePreset)){
+      const title=selected.variant?'This model’s settings':selected.name;
+      const key=`${activePreset}:${title}`;
+      if(key!==standardGraphKey){
+        removeStandardGraph();
+        standardGraph=createStandardWorkflowGraph($('workspace'),title,activePreset,advanced.fields);
+        standardGraphKey=key;
+        $('assetHint').after(standardGraph.opener);
+      }
+      standardGraph.sync(usePixal()?'pixal3d':'trellis2',textureMethod.value);
+    }else removeStandardGraph();
   }
   function apply(id){
     selected=profiles.find(p=>p.id===id);if(!selected)return;
     $('profileChoice').querySelector('[data-variant]')?.remove();
     const s=selected.settings;
+    if(selected.workflow){
+      showWorkflowFields(selected);
+      $('preset').value=s.preset;
+      $('profileChoice').value=id;
+      $('profileNotice').textContent='';
+      sync();
+      return;
+    }
+    workflowFields?.closeGraph();
+    workflowFields=null;
+    workflowBox.replaceChildren();
     refinementInputs=null;
     pixalFallback=false;
     pixalAtlas=null;
@@ -298,20 +389,25 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     $('removeBg').checked=s.remove_bg;advanced.apply({...s.advanced,texture_seed:textureSeed});
     $('profileChoice').value=id;$('profileId').value=id;
     if(s.preset==='humanoid_experimental')$('assetType').value='humanoid';
-    if(detailRefinements[s.master_finishing]||s.preset==='figure_master')useNativeMethod();
+    if(!selected.workflow&&(detailRefinements[s.master_finishing]||s.preset==='figure_master')){setWorkflow(null);useNativeMethod();}
     $('profileNotice').textContent='';sync();
   }
   async function request(url,options){const r=await fetch(url,options),data=await r.json();if(!r.ok)throw Error(typeof data.detail==='string'?data.detail:'Profiles unavailable.');return data;}
-  const availableProfile=(...ids)=>ids.find(id=>profiles.some(profile=>profile.id===id));
+  const selectableProfiles=()=>profiles.filter(profile=>!profile.retired);
+  const availableProfile=(...ids)=>{
+    const selectable=selectableProfiles();
+    return ids.find(id=>selectable.some(profile=>
+      profile.id===id&&(!profile.workflow||profile.workflow.available===true)));
+  };
   function loadCatalogue(data){
     profiles=data.profiles;
-    serverStartup=availableProfile(data.startup_profile,data.default_profile,profiles[0]?.id);
+    serverStartup=availableProfile(data.startup_profile,data.default_profile,...selectableProfiles().map(profile=>profile.id));
   }
   function options(){
     $('profileChoice').replaceChildren();
     for(const builtin of [true,false]){
       const group=document.createElement('optgroup');group.label=builtin?'Built-in profiles':'My profiles';
-      for(const p of profiles.filter(x=>x.builtin===builtin)){const o=document.createElement('option');o.value=p.id;o.textContent=p.builtin?profileNames[p.id]||p.name:p.name;group.append(o);}
+      for(const p of selectableProfiles().filter(x=>x.builtin===builtin)){const o=document.createElement('option');o.value=p.id;o.textContent=p.builtin?profileNames[p.id]||p.name:p.name;group.append(o);}
       if(group.children.length)$('profileChoice').append(group);
     }
   }
@@ -350,7 +446,7 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     $('denseMasterFinishing').focus();
   });
   $('profileBase').addEventListener('change',()=>{$('preset').value=$('profileBase').value;sync();});
-  function show(update){if(!selected)return;edit=update;$('profileName').value=update?selected.name:'';$('profileDialogTitle').textContent=update?'Edit this profile':'Save a copy';$('profileDialogError').textContent='';$('profileDialog').showModal();$('profileName').focus();}
+  function show(update){if(!selected||selected.workflow)return;edit=update;$('profileName').value=update?selected.name:'';$('profileDialogTitle').textContent=update?'Edit this profile':'Save a copy';$('profileDialogError').textContent='';$('profileDialog').showModal();$('profileName').focus();}
   $('saveProfileAs').onclick=()=>show(false);$('updateProfile').onclick=()=>show(true);
   $('closeProfile').onclick=()=>$('profileDialog').close();
   const deleteDialog=$('deleteProfileDialog');
@@ -375,7 +471,7 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
       let notice='Profile deleted.';
       try{loadCatalogue(await request('/api/profiles'));}
       catch{notice='Profile deleted. Reload Studio to refresh the profile list.';}
-      startupProfile=availableProfile(startupProfile,serverStartup,profiles[0]?.id);
+      startupProfile=availableProfile(startupProfile,serverStartup);
       options();
       apply(startupProfile);
       deleteDialog.close();
@@ -389,7 +485,7 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     }
   };
   $('profileForm').onsubmit=async e=>{
-    e.preventDefault();if(saving||!selected)return;
+    e.preventDefault();if(saving||!selected||selected.workflow)return;
     const invalid=[...$('form').querySelectorAll('input[type=number]')].find(x=>!x.checkValidity());
     if(invalid){$('profileDialogError').textContent='Correct the numeric fields before saving the profile.';return;}
     saving=true;$('confirmProfile').disabled=true;
@@ -402,7 +498,7 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     }catch(e){$('profileDialogError').textContent=e.message;}
     finally{saving=false;$('confirmProfile').disabled=false;}
   };
-  return {sync,reset:()=>apply('game_d'),
+  return {sync,reset:()=>apply(selected?.id||startupProfile),
     setFinishingCapabilities(available, hdAvailable, methods, texturing, textureMethods){
       const supported=methods||{};
       const texturingSupport=texturing||{};
@@ -441,6 +537,25 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
       preferredTextureMethod=textureMethodOf(settings);
     },
     budget,
+    get workflow(){return selected?.workflow;},
+    appendWorkflow(form){
+      if(!workflowFields?.validate())return false;
+      form.set('workflow_options',JSON.stringify(workflowFields.read()));
+      workflowFields.closeGraph();
+      return true;
+    },
+    closeWorkflowGraph(){workflowFields?.closeGraph();standardGraph?.close();},
+    restoreWorkflow(settings){
+      const previous=settings.profile?.id||settings.workflow_id;
+      const id=restoredWorkflows[previous]||previous;
+      if(!profiles.some(profile=>profile.id===id&&profile.workflow))return false;
+      apply(id);
+      if(settings.workflow_options){
+        showWorkflowFields(selected,settings.workflow_options);
+        sync();
+      }
+      return true;
+    },
     get finishingReady(){
       if(usePixal()&&$('preset').value==='figure_master')return false;
       const value=readFinishing();

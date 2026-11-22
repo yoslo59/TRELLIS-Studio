@@ -17,6 +17,7 @@ from starlette.responses import Response
 from animation_edits import publish_operation, recover as recover_animation
 from collection_preview import CollectionPreviews, save_preview
 from generation_options import GENERATION_PRESETS
+from generation_profiles import COMFY_INPUT_FILES, STANDALONE_PROFILES
 from server_store import StoreError
 from studio_workspace import ID, finishing_source, read, write
 
@@ -26,6 +27,7 @@ MIB = 1024**2
 LOG = logging.getLogger('trellis.server')
 SAFE_SCRIPTS = {'worker.py', 'pixal3d_worker.py', 'import_worker.py', 'rig_worker.py', 'print_worker.py', 'asset_work.py', 'animation_worker.py', 'generated_animation_worker.py', 'model_finishing_worker.py'}
 REFERENCE_FILES = {'settings.json', 'metadata.json', 'status.json', 'generation.log', 'server-work.json',
+                   *COMFY_INPUT_FILES,
                    'input.png', 'left.png', 'right.png', 'back.png', 'conditioning.png', 'prepared.png',
                    'prepared-left.png', 'prepared-right.png', 'prepared-back.png'}
 TERMINAL = {'done', 'error', 'cancelled'}
@@ -69,6 +71,8 @@ def children(folder):
 
 
 def reserve_bytes(settings, script, folder):
+    if settings.get('workflow_id') in STANDALONE_PROFILES:
+        return (256 if settings['workflow_id'] == 'high_detail_native' else 64) * MIB
     if script == 'rig_worker.py' and (settings.get('creature_phase') or
                                       (settings.get('rig_options') or {}).get('profile') == 'advanced'):
         source_bytes = (folder / 'source.glb').stat().st_size
@@ -374,7 +378,8 @@ class ServerRuntime:
                         continue
                     folder = workspace.job_folder(job_id)
                     script, _, settings = workspace.job_spec(folder)
-                    generation = script in ('worker.py', 'pixal3d_worker.py') and settings.get('source_kind') != 'refinish' and settings.get('preset') in GENERATION_PRESETS
+                    generation = (script in ('worker.py', 'pixal3d_worker.py') and settings.get('source_kind') != 'refinish'
+                                  and (settings.get('preset') in GENERATION_PRESETS or settings.get('workflow_id') in STANDALONE_PROFILES))
                     generation = generation or (script=='generated_animation_worker.py' and settings.get('generated_animation_action')=='generate')
                     resume = job_id == resume_id and script == 'rig_worker.py' and settings.get('creature_phase') == 'final'
                     jobs.append(dict(job_id=job_id, generation=generation,

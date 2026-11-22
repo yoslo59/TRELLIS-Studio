@@ -1,5 +1,6 @@
 """Small read-only GLB helpers, shared by diagnostics, cards and exports."""
 from functools import lru_cache
+from math import isfinite
 from pathlib import Path
 import shutil
 import base64,io,json,struct
@@ -61,6 +62,64 @@ def accessor(data,binary,index):
     if a.get('normalized') and dtype.kind in ('i','u'):
         result=np.maximum(result.astype(float)/np.iinfo(dtype).max,-1)
     return result
+
+def static_placement(document, *, allow_identity=False):
+    """Return the uniform scale and translation of one static scene placement group."""
+    identities = {'matrix': np.eye(4).ravel().tolist(), 'translation': [0, 0, 0],
+                  'rotation': [0, 0, 0, 1], 'scale': [1, 1, 1]}
+    nodes = document.get('nodes', [])
+
+    def active_transforms(node):
+        return {key for key in identities if key in node and not (allow_identity and node[key] == identities[key])}
+
+    placed = [index for index, node in enumerate(nodes) if 'skin' in node or active_transforms(node)]
+    if not placed:
+        return None
+    unsupported = 'Apply object transforms or use a single scene root with positive uniform scale and translation.'
+    if len(placed) != 1:
+        raise ValueError(unsupported)
+    root = placed[0]
+    group = nodes[root]
+    scenes = document.get('scenes', [])
+    scene = document.get('scene', 0)
+    if (len(scenes) != 1 or type(scene) is not int or scene != 0 or scenes[0].get('nodes') != [root]
+            or 'mesh' in group or 'skin' in group or active_transforms(group) - {'scale', 'translation'}):
+        raise ValueError(unsupported)
+
+    seen = set()
+    pending = [root]
+    while pending:
+        index = pending.pop()
+        if type(index) is not int or not 0 <= index < len(nodes) or index in seen:
+            raise ValueError(unsupported)
+        seen.add(index)
+        children = nodes[index].get('children', [])
+        if not isinstance(children, list):
+            raise ValueError(unsupported)
+        pending.extend(children)
+    if not any('mesh' in nodes[index] for index in seen):
+        raise ValueError(unsupported)
+
+    scale = group.get('scale', identities['scale'])
+    translation = group.get('translation', identities['translation'])
+    for vector in (scale, translation):
+        if (not isinstance(vector, list) or len(vector) != 3
+                or any(type(value) not in (int, float) or not isfinite(value) for value in vector)):
+            raise ValueError(unsupported)
+    if scale[0] <= 0 or any(value != scale[0] for value in scale[1:]):
+        raise ValueError(unsupported)
+    return float(scale[0]), tuple(map(float, translation))
+
+
+def placed_vertices(vertices, placement):
+    if placement is None:
+        return vertices
+    scale, translation = placement
+    world = vertices.astype(np.float64) * scale + translation
+    if not np.isfinite(world).all() or np.abs(world).max() > 1e12:
+        raise ValueError('The placement exceeds the supported coordinate range.')
+    return world
+
 
 def animation_info(data,binary):
     result=[]

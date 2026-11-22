@@ -15,6 +15,8 @@ from generation_options import (DENSE_MASTER, DENSE_MASTER_TRIANGLES, GENERATION
                                 hi3d_refinement_options, options_for_job, validate_hd_reconstruction,
                                 validate_hi3d_overrides, validate_post_refinement_texturing,
                                 resolve_texture_method, validate_texture_method)
+from generation_profiles import STANDALONE_PROFILES, COMFY_INPUT_FILES
+from native_workflow_options import settings as workflow_settings, summary as workflow_summary
 from pixal3d_runtime import validate_views
 from reference_preparation import PREPARED_VIEWS
 from wtivo_runtime import validate_wtivo_recipe, wtivo_capability
@@ -23,7 +25,7 @@ from hi3d_runtime import HI3D_TRIANGLE_CAP, hi3d_source_status, hi3d_status
 RETRY_STATES = {'error', 'cancelled'}
 RETRY_FIELDS = {'resolution', 'texture_size', 'triangles', 'height_m', 'priority',
                 'mesh_mode', 'pre_simplify', 'repair_holes', 'bake_normals', 'repair_surface', 'hd_reconstruction',
-                'wtivo_reconstruction', 'multiview_texture_refinement', 'texture_method'}
+                'wtivo_reconstruction', 'multiview_texture_refinement', 'texture_method', 'workflow_options'}
 RETRY_FINISHING_FIELDS = ('mesh_mode', 'pre_simplify', 'repair_holes')
 PREPARED_REFERENCES = (*PREPARED_VIEWS.values(), 'conditioning.png')
 PRESENTATION_FILES = dict(thumbnail='thumbnail.png', capture='capture.png', turntable='turntable.webm')
@@ -487,6 +489,32 @@ class StudioServices:
             raise ValueError('Open the original model in Finishing board to queue a new multiview texture copy.')
         if not isinstance(changes, dict) or set(changes) - RETRY_FIELDS:
             raise ValueError('Choose only editable queue settings.')
+        if workflow_id := saved.get('workflow_id'):
+            if workflow_id not in STANDALONE_PROFILES:
+                raise HTTPException(409, 'Choose a current generation profile to run a new job.')
+            if set(changes) - {'height_m', 'priority', 'workflow_options'}:
+                raise ValueError('Use the workflow advanced settings to adjust this recipe.')
+            self.g['require_workflow'](workflow_id)
+            height = changes.get('height_m', saved['height_m'])
+            priority = changes.get('priority', priority)
+            if type(height) not in (int, float) or not .01 <= height <= 100:
+                raise ValueError('Choose a height between 0.01 and 100 metres.')
+            if type(priority) is not int or not -2 <= priority <= 2:
+                raise ValueError('Choose a valid queue priority.')
+            filename = saved.get('workflow_input')
+            if filename not in COMFY_INPUT_FILES:
+                raise HTTPException(409, 'Restore the original workflow image before retrying.')
+            sources = [folder / 'input.png', folder / filename]
+            if any(not source.is_file() or source.is_symlink() for source in sources):
+                raise HTTPException(409, 'Restore the original workflow image before retrying.')
+            options = workflow_settings(workflow_id, changes.get('workflow_options', saved.get('workflow_options')))
+            self.g['require_workflow_options'](workflow_id, options)
+            revised = dict(saved, created=time.time(), parent_id=folder.name, retry_of=folder.name,
+                           height_m=height, workflow_options=options)
+            revised.update(workflow_summary(workflow_id, options))
+            return revised, priority, sources
+        if 'workflow_options' in changes:
+            raise ValueError('Choose a profile that uses workflow settings.')
         if saved.get('master_finishing') and set(changes) - {
                 'resolution', 'texture_size', 'height_m', 'priority', 'multiview_texture_refinement', 'texture_method'}:
             raise ValueError('HD Master Finishing fixes the reconstruction and triangle ceiling.')
@@ -814,7 +842,7 @@ class StudioServices:
                            'texture_size', 'resolution', 'advanced_settings', 'asset_type', 'reference_prompt',
                            'parent_id', 'keep_finishing_source', 'repair_surface', 'hd_reconstruction',
                            'reference_edits', 'engine', 'master_finishing', 'reproject_face',
-                           'retexture_after_refinement', 'multiview_texture_refinement', 'texture_method'}
+                           'retexture_after_refinement', 'multiview_texture_refinement', 'texture_method', 'workflow_options'}
                 if any(not isinstance(s,dict) or set(s)-allowed for s in specs):raise ValueError('Unknown queue settings.')
                 for spec in specs:
                     for key,limit in [('name',80),('profile_id',80),('asset_type',80),('reference_prompt',6000),('parent_id',32)]:
@@ -837,6 +865,7 @@ class StudioServices:
                     if spec.get('master_finishing') not in (None, *CREATE_MASTER_FINISHING_METHODS):raise ValueError('Invalid master finishing method.')
                     if 'advanced_settings' in spec and not isinstance(spec['advanced_settings'],dict):raise ValueError('Invalid advanced settings.')
                     if 'reference_edits' in spec and not isinstance(spec['reference_edits'],dict):raise ValueError('Invalid reference corrections.')
+                    if 'workflow_options' in spec and not isinstance(spec['workflow_options'], dict):raise ValueError('Invalid workflow settings.')
                     if spec.get('parent_id') and not ID.fullmatch(spec['parent_id']):raise ValueError('Invalid parent model.')
             except (ValueError,TypeError) as e:raise HTTPException(400,str(e))
             created=[]
@@ -847,6 +876,10 @@ class StudioServices:
                     profile=profiles.get(spec.get('profile_id','game_d'))
                     if not profile:raise HTTPException(400,'Profile not found.')
                     s=profile['settings'];params=dict(name=spec.get('name',Path(file.filename or 'Model').stem),preset=s['preset'],height_m=spec.get('height_m',1),seed=spec.get('seed',42),remove_bg=spec.get('remove_bg',s['remove_bg']),triangles=spec.get('triangles',s['triangles']),asset_type=spec.get('asset_type','object'),texture_size=spec.get('texture_size',s['texture_size']),reference_prompt=spec.get('reference_prompt',''),resolution=spec.get('resolution',s['resolution']),advanced_settings=json.dumps(spec.get('advanced_settings',s['advanced'])),profile_id=profile['id'],parent_id=spec.get('parent_id',''),queue_only=True,queue_priority=spec.get('priority',0),queue_hold=True,keep_finishing_source=spec.get('keep_finishing_source',profile.get('keep_finishing_source',False)))
+                    if profile['id'] in STANDALONE_PROFILES:
+                        params['seed'] = spec.get('seed')
+                    if 'workflow_options' in spec:
+                        params['workflow_options'] = json.dumps(spec['workflow_options'], allow_nan=False)
                     params['repair_surface'] = spec.get('repair_surface', False)
                     params['hd_reconstruction'] = spec.get('hd_reconstruction', False)
                     params['engine'] = spec.get('engine', 'trellis2')

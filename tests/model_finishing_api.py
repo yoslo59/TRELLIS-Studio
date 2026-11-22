@@ -1,5 +1,6 @@
 """Exercise derived model admission, private queues and ownership without running inference."""
 from pathlib import Path
+from runpy import run_path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -22,6 +23,58 @@ def fixture_glb():
     payload = json.dumps({'asset': {'version': '2.0'}, 'meshes': [{'primitives': []}]}).encode()
     payload += b' ' * (-len(payload) % 4)
     return struct.pack('<4sIIII', b'glTF', 2, 20 + len(payload), len(payload), 0x4e4f534a) + payload
+
+
+def placed_atlas_fixture(path, size):
+    from glb_data import read as read_glb
+
+    fixtures = run_path(str(Path(__file__).with_name('texture_projection.py')))
+    fixtures['fixture'](path)
+    document, binary = read_glb(path)
+    document['nodes'].append(dict(children=[0], scale=[2.25] * 3, translation=[3, 2, 1]))
+    document['scenes'][0]['nodes'] = [1]
+    stream = io.BytesIO()
+    Image.new('RGB', (size, size), '#776644').save(stream, format='PNG')
+    png = stream.getvalue()
+    document['bufferViews'].append(dict(buffer=0, byteOffset=len(binary), byteLength=len(png)))
+    document['images'][0]['bufferView'] = len(document['bufferViews']) - 1
+    fixtures['write_glb'](path, document, binary + png)
+
+
+def check_native_worker(job, original):
+    from glb_data import read as read_glb, image
+    from model_finishing_worker import run as run_worker
+    from retexture_worker import append_textures
+
+    def mask(reference, output):
+        assert reference.name == 'workflow-input.webp'
+        output.write_bytes(b'worker mask fixture')
+        return output
+
+    def texture(surface, reference, mask_path, output, work, progress):
+        assert mask_path.read_bytes() == b'worker mask fixture'
+        progress('Preparing mr at 0 degrees')
+        document, binary = read_glb(surface)
+        assert all('scale' not in node and 'translation' not in node for node in document['nodes'])
+        atlas = Image.new('RGB', (2048, 2048), '#119977')
+        append_textures(output, document, binary, atlas, atlas)
+        return dict(atlas_size=2048, output_sha256=digest(output))
+
+    with (patch('gpu_runtime.select_gpu'), patch('native_pixal3d.prepare_texture_mask', mask),
+          patch('native_game_profile.texture_mesh', texture)):
+        run_worker(job)
+    assert read(job / 'status.json')['state'] == 'done'
+    result = read(job / 'result.json')
+    assert result['texture_size'] == 2048 and result['multiview_texture_refinement']['geometry_uv_equal']
+    source_doc, source_binary = read_glb(original)
+    model, binary = read_glb(job / 'model.glb')
+    assert model['nodes'] == source_doc['nodes'] and model['scenes'] == source_doc['scenes']
+    assert model['accessors'] == source_doc['accessors'] and binary.startswith(source_binary)
+    primitive = model['meshes'][0]['primitives'][0]
+    material = model['materials'][primitive['material']]
+    assert material['normalTexture'] == source_doc['materials'][0]['normalTexture']
+    color = material['pbrMetallicRoughness']['baseColorTexture']['index']
+    assert image(model, binary, model['textures'][color]['source']).size == (2048, 2048)
 
 
 def calibrate(source):
@@ -303,6 +356,36 @@ def run():
             write(linked / 'settings.json', {**lineage, 'parent_id': foreign.name})
             assert not call(base, 'GET', linked_url, client=alice).json()['supported']
             call(base, 'POST', linked_url, 400, alice)
+            with (patch('native_game_profile.texture_runtime_status', return_value=texture_runtime),
+                  patch('native_pixal3d.texture_mask_status', return_value=texture_runtime)):
+                for key, workflow, size in (('c', 'game_asset_native', 1024), ('e', 'high_detail_native', 4096)):
+                    native = source.parent / (key * 32)
+                    native.mkdir()
+                    native_model = native / 'model.glb'
+                    placed_atlas_fixture(native_model, size)
+                    original = digest(native_model)
+                    reference = native / 'workflow-input.webp'
+                    Image.new('RGB', (16, 16), '#776644').save(reference)
+                    write(native / 'settings.json', dict(name='Native', engine='studio_workflow', workflow_id=workflow,
+                        workflow_input=reference.name, texture_size=size, view_mode='single'))
+                    write(native / 'status.json', dict(state='done', progress=100))
+                    route = f'/api/v1/models/{native.name}/multiview-texture-refinement'
+                    methods = call(base, 'GET', route + '?include_methods=true', client=alice).json()['methods']
+                    assert not methods['multiview']['ready']
+                    assert methods['ultratex']['ready'] and methods['ultratex']['native']
+                    assert methods['ultratex']['atlas'] == [size, size]
+                    native_route = route + '?texture_method=ultratex'
+                    call(base, 'POST', native_route, 404, bob)
+                    accepted = call(base, 'POST', native_route, 202, alice).json()
+                    child = source.parent / accepted['id']
+                    recipe = read(child / 'finishing-request.json')['multiview_reference']
+                    assert recipe['native_ultratex'] and recipe['reference_file'] == reference.name
+                    assert recipe['source_sha256'] == original and recipe['reference_sha256'] == digest(reference)
+                    assert (child / reference.name).read_bytes() == reference.read_bytes()
+                    assert read(child / 'settings.json')['texture_size'] == 2048
+                    assert not (child / 'prepared.png').exists()
+                    check_native_worker(child, native_model)
+                    assert digest(native_model) == original
             assert state.store.get_user(users[0]['id'])['credits'] == 0
     print('PASS: local derived model requests, source preservation, parent links, queue, credits and isolation.')
 

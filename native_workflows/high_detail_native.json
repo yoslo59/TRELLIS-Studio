@@ -1,0 +1,1339 @@
+{
+  "profile": "high_detail_native",
+  "stages": [
+    {
+      "id": "12",
+      "title": "Reference preparation",
+      "fields": [
+        {
+          "name": "padding",
+          "label": "Padding",
+          "kind": "integer",
+          "default": 25,
+          "hint": "Adds a margin during this stage.",
+          "min": 0,
+          "max": 1024
+        },
+        {
+          "name": "remove_background",
+          "label": "Remove Background",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Segments the subject for the TRELLIS.2 passes. Pixal3D prepares its own first-pass reference."
+        },
+        {
+          "name": "max_size",
+          "label": "Max Size",
+          "kind": "integer",
+          "default": 2048,
+          "min": 512,
+          "max": 8192,
+          "step": 128
+        }
+      ]
+    },
+    {
+      "id": "44",
+      "title": "Model and sampling runtime",
+      "fields": [
+        {
+          "name": "geometry_backend",
+          "label": "Geometry generator",
+          "kind": "choice",
+          "default": "trellis2_gguf",
+          "choices": [
+            {
+              "label": "TRELLIS.2 GGUF",
+              "value": "trellis2_gguf"
+            },
+            {
+              "label": "PiXal3D",
+              "value": "pixal3d",
+              "requires_native_geometry": "pixal3d"
+            }
+          ],
+          "hint": "Selects the first mesh generator. QuadDC, TRELLIS.2 mesh refinement and material generation follow either choice."
+        },
+        {
+          "name": "modelname",
+          "label": "TRELLIS.2 model family",
+          "kind": "choice",
+          "default": "TRELLIS.2-4B",
+          "locked": true,
+          "choices": [
+            {
+              "label": "TRELLIS.2-4B",
+              "value": "TRELLIS.2-4B"
+            }
+          ],
+          "hint": "Uses the local TRELLIS.2 GGUF checkpoint for refinement and texturing, and for the first pass when TRELLIS.2 GGUF is selected."
+        },
+        {
+          "name": "model_format",
+          "label": "Weight format",
+          "kind": "choice",
+          "default": "GGUF Q4_K_M",
+          "locked": true,
+          "choices": [
+            {
+              "label": "GGUF Q4_K_M",
+              "value": "GGUF Q4_K_M"
+            }
+          ],
+          "hint": "Uses the installed Q4_K_M weights. Other formats require a compatible installed model."
+        },
+        {
+          "name": "device",
+          "label": "Compute device",
+          "kind": "choice",
+          "default": "cuda",
+          "locked": true,
+          "choices": [
+            {
+              "label": "CUDA",
+              "value": "cuda"
+            }
+          ],
+          "hint": "The reconstruction and texture stages use CUDA."
+        },
+        {
+          "name": "backend",
+          "label": "Attention backend",
+          "kind": "choice",
+          "default": "xformers",
+          "hint": "Controls the attention implementation. xFormers is the validated backend for both dense and sparse attention.",
+          "choices": [
+            {
+              "label": "flash_attn (local dependency unavailable)",
+              "value": "flash_attn",
+              "available": false
+            },
+            {
+              "label": "xformers",
+              "value": "xformers"
+            },
+            {
+              "label": "SDPA (dense) + xFormers (sparse)",
+              "value": "sdpa"
+            },
+            {
+              "label": "flash_attn_3 (local dependency unavailable)",
+              "value": "flash_attn_3",
+              "available": false
+            }
+          ]
+        },
+        {
+          "name": "low_vram",
+          "label": "Low VRAM",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Moves models between CPU and GPU to reduce peak graphics memory."
+        },
+        {
+          "name": "keep_models_loaded",
+          "label": "Keep weights loaded",
+          "kind": "boolean",
+          "default": false,
+          "hint": "Keeps the weights loaded between stages of the same job."
+        }
+      ]
+    },
+    {
+      "id": "17",
+      "title": "First pass · TRELLIS.2 GGUF",
+      "geometry_backend": "trellis2_gguf",
+      "fields": [
+        {
+          "name": "seed",
+          "label": "Seed",
+          "kind": "integer",
+          "default": 12345,
+          "hint": "Controls random sampling in this stage. Keep it fixed when comparing another setting.",
+          "min": 0,
+          "max": 2147483647
+        },
+        {
+          "name": "pipeline_type",
+          "label": "Pipeline Type",
+          "kind": "choice",
+          "default": "1024_cascade",
+          "choices": [
+            {
+              "label": "512",
+              "value": "512"
+            },
+            {
+              "label": "1024",
+              "value": "1024"
+            },
+            {
+              "label": "1024_cascade",
+              "value": "1024_cascade"
+            },
+            {
+              "label": "1536_cascade",
+              "value": "1536_cascade"
+            }
+          ]
+        },
+        {
+          "name": "sparse_structure_steps",
+          "label": "Sparse Structure Steps",
+          "kind": "integer",
+          "default": 50,
+          "hint": "Sets the number of sampling steps in this stage.",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "sparse_structure_guidance_strength",
+          "label": "Sparse Structure Guidance Strength",
+          "kind": "number",
+          "default": 6.5,
+          "hint": "Controls how strongly sampling follows the reference.",
+          "min": 0.0,
+          "max": 99.99,
+          "step": 0.01
+        },
+        {
+          "name": "sparse_structure_guidance_rescale",
+          "label": "Sparse Structure Guidance Rescale",
+          "kind": "number",
+          "default": 0.2,
+          "hint": "Adjusts guidance amplitude at a high guidance strength.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "sparse_structure_rescale_t",
+          "label": "Sparse Structure Rescale T",
+          "kind": "number",
+          "default": 4,
+          "hint": "Redistributes diffusion timesteps across the sampling pass.",
+          "min": 0.0,
+          "max": 9.99,
+          "step": 0.01
+        },
+        {
+          "name": "shape_steps",
+          "label": "Shape Steps",
+          "kind": "integer",
+          "default": 50,
+          "hint": "Sets the number of sampling steps in this stage.",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "shape_guidance_strength",
+          "label": "Shape Guidance Strength",
+          "kind": "number",
+          "default": 6.5,
+          "hint": "Controls how strongly sampling follows the reference.",
+          "min": 0.0,
+          "max": 99.99,
+          "step": 0.01
+        },
+        {
+          "name": "shape_guidance_rescale",
+          "label": "Shape Guidance Rescale",
+          "kind": "number",
+          "default": 0.2,
+          "hint": "Adjusts guidance amplitude at a high guidance strength.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "shape_rescale_t",
+          "label": "Shape Rescale T",
+          "kind": "number",
+          "default": 4,
+          "hint": "Redistributes diffusion timesteps across the sampling pass.",
+          "min": 0.0,
+          "max": 9.99,
+          "step": 0.01
+        },
+        {
+          "name": "texture_steps",
+          "label": "Texture Steps",
+          "kind": "integer",
+          "default": 12,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 1,
+          "max": 100,
+          "locked": true
+        },
+        {
+          "name": "texture_guidance_strength",
+          "label": "Texture Guidance Strength",
+          "kind": "number",
+          "default": 3,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 0.0,
+          "max": 99.99,
+          "step": 0.01,
+          "locked": true
+        },
+        {
+          "name": "texture_guidance_rescale",
+          "label": "Texture Guidance Rescale",
+          "kind": "number",
+          "default": 0.2,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01,
+          "locked": true
+        },
+        {
+          "name": "texture_rescale_t",
+          "label": "Texture Rescale T",
+          "kind": "number",
+          "default": 3,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 0.0,
+          "max": 9.99,
+          "step": 0.01,
+          "locked": true
+        },
+        {
+          "name": "max_num_tokens",
+          "label": "Max Num Tokens",
+          "kind": "integer",
+          "default": 999999,
+          "hint": "Sets the token budget for sampling the sparse representation.",
+          "min": 0,
+          "max": 999999
+        },
+        {
+          "name": "max_views",
+          "label": "Maximum reference views",
+          "kind": "integer",
+          "default": 4,
+          "hint": "This workflow accepts one reference image.",
+          "min": 1,
+          "max": 16,
+          "locked": true
+        },
+        {
+          "name": "sparse_structure_resolution",
+          "label": "Sparse Structure Resolution",
+          "kind": "integer",
+          "default": 32,
+          "min": 32,
+          "max": 128,
+          "step": 4
+        },
+        {
+          "name": "generate_texture_slat",
+          "label": "Generate material latent",
+          "kind": "boolean",
+          "default": false,
+          "locked": true,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings."
+        },
+        {
+          "name": "sparse_structure_guidance_interval_start",
+          "label": "Sparse Structure Guidance Interval Start",
+          "kind": "number",
+          "default": 0.1,
+          "hint": "Normalized start of the interval during which guidance is applied.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "sparse_structure_guidance_interval_end",
+          "label": "Sparse Structure Guidance Interval End",
+          "kind": "number",
+          "default": 1,
+          "hint": "Normalized end of the interval during which guidance is applied.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "shape_guidance_interval_start",
+          "label": "Shape Guidance Interval Start",
+          "kind": "number",
+          "default": 0.1,
+          "hint": "Normalized start of the interval during which guidance is applied.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "shape_guidance_interval_end",
+          "label": "Shape Guidance Interval End",
+          "kind": "number",
+          "default": 1,
+          "hint": "Normalized end of the interval during which guidance is applied.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "texture_guidance_interval_start",
+          "label": "Texture Guidance Interval Start",
+          "kind": "number",
+          "default": 0,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01,
+          "locked": true
+        },
+        {
+          "name": "texture_guidance_interval_end",
+          "label": "Texture Guidance Interval End",
+          "kind": "number",
+          "default": 0.9,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01,
+          "locked": true
+        },
+        {
+          "name": "use_tiled_decoder",
+          "label": "Tiled decoding",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "sampler",
+          "label": "Sampler",
+          "kind": "choice",
+          "default": "euler",
+          "choices": [
+            {
+              "label": "euler",
+              "value": "euler"
+            },
+            {
+              "label": "heun",
+              "value": "heun"
+            },
+            {
+              "label": "rk4",
+              "value": "rk4"
+            },
+            {
+              "label": "rk5",
+              "value": "rk5"
+            }
+          ]
+        },
+        {
+          "name": "sparse_structure_postprocessing",
+          "label": "Sparse structure postprocessing",
+          "kind": "boolean",
+          "default": false,
+          "hint": "Runs optional occupancy-grid repair before sampling the shape."
+        },
+        {
+          "name": "fill_holes",
+          "label": "Fill Holes",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Fills gaps in the first-pass occupancy grid when sparse structure postprocessing is enabled."
+        },
+        {
+          "name": "hole_iterations",
+          "label": "Hole Iterations",
+          "kind": "integer",
+          "default": 1,
+          "min": 1,
+          "max": 9,
+          "step": 1,
+          "hint": "Controls the number of closing or flood-fill passes in the sparse grid."
+        },
+        {
+          "name": "verbose",
+          "label": "Verbose",
+          "kind": "boolean",
+          "default": false,
+          "hint": "Adds sampling and mesh details to the generation log."
+        },
+        {
+          "name": "sparse_hole_size",
+          "label": "Sparse hole size",
+          "kind": "choice",
+          "default": 3,
+          "hint": "Sets the closing kernel or small-hole threshold in the occupancy grid.",
+          "choices": [
+            {
+              "label": "3",
+              "value": 3
+            },
+            {
+              "label": "5",
+              "value": 5
+            },
+            {
+              "label": "7",
+              "value": 7
+            }
+          ]
+        },
+        {
+          "name": "dino_lock",
+          "label": "DINO lock",
+          "kind": "number",
+          "default": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01,
+          "hint": "Blends toward the image-conditioned shape or material during denoising. Zero uses the selected base solver."
+        },
+        {
+          "name": "dino_substeps",
+          "label": "DINO substeps",
+          "kind": "integer",
+          "default": 4,
+          "min": 1,
+          "max": 99,
+          "step": 1,
+          "hint": "Subdivides each sampling interval when DINO lock is active."
+        },
+        {
+          "name": "hole_fill_algorithm",
+          "label": "Hole Fill Algorithm",
+          "kind": "choice",
+          "default": "flood_fill",
+          "choices": [
+            {
+              "label": "morphological_closing",
+              "value": "morphological_closing"
+            },
+            {
+              "label": "flood_fill",
+              "value": "flood_fill"
+            },
+            {
+              "label": "remove_small_holes",
+              "value": "remove_small_holes"
+            }
+          ],
+          "hint": "Selects the sparse-grid repair method used before shape sampling."
+        },
+        {
+          "name": "dino_foundation_cap",
+          "label": "DINO foundation cap",
+          "kind": "number",
+          "default": 1.0,
+          "min": 0.01,
+          "max": 1.0,
+          "step": 0.01,
+          "hint": "Controls how long the reference blend remains active during the DINO lock schedule."
+        },
+        {
+          "name": "keep_only_shell",
+          "label": "Keep Only Shell",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Removes deep interior occupancy when sparse structure postprocessing is enabled."
+        }
+      ]
+    },
+    {
+      "id": "41",
+      "title": "QuadDC · first pass",
+      "fields": [
+        {
+          "name": "remesh_band",
+          "label": "Remesh band",
+          "kind": "number",
+          "default": 1,
+          "hint": "Sets the width of the QuadDC reconstruction band in voxels.",
+          "min": 0.5,
+          "max": 4.0,
+          "step": 0.1
+        },
+        {
+          "name": "resolution",
+          "label": "Resolution",
+          "kind": "choice",
+          "default": 1024,
+          "choices": [
+            {
+              "label": "128",
+              "value": 128
+            },
+            {
+              "label": "256",
+              "value": 256
+            },
+            {
+              "label": "512",
+              "value": 512
+            },
+            {
+              "label": "1024",
+              "value": 1024
+            },
+            {
+              "label": "2048",
+              "value": 2048
+            }
+          ]
+        },
+        {
+          "name": "remove_floaters",
+          "label": "Remove Floaters",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Removes small disconnected components after reconstruction."
+        },
+        {
+          "name": "remove_inner_faces",
+          "label": "Remove Inner Faces",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Drops duplicate interior faces from the reconstructed surface."
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "title": "Simplification · first pass",
+      "fields": [
+        {
+          "name": "target_face_num",
+          "label": "Target triangles",
+          "kind": "integer",
+          "default": 2000000,
+          "min": 1,
+          "max": 30000000
+        },
+        {
+          "name": "method",
+          "label": "Method",
+          "kind": "choice",
+          "default": "Cumesh",
+          "choices": [
+            {
+              "label": "Cumesh",
+              "value": "Cumesh"
+            },
+            {
+              "label": "Meshlib",
+              "value": "Meshlib"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "title": "First mesh orientation",
+      "fields": [
+        {
+          "name": "reorient_vertices",
+          "label": "Reorient Vertices",
+          "kind": "choice",
+          "default": "90 degrees",
+          "choices": [
+            {
+              "label": "None",
+              "value": "None"
+            },
+            {
+              "label": "90 degrees",
+              "value": "90 degrees"
+            },
+            {
+              "label": "-90 degrees",
+              "value": "-90 degrees"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "20",
+      "title": "Geometry refinement",
+      "fields": [
+        {
+          "name": "seed",
+          "label": "Seed",
+          "kind": "integer",
+          "default": 12345,
+          "hint": "Controls random sampling in this stage. Keep it fixed when comparing another setting.",
+          "min": 0,
+          "max": 2147483647
+        },
+        {
+          "name": "resolution",
+          "label": "Resolution",
+          "kind": "choice",
+          "default": 1024,
+          "choices": [
+            {
+              "label": "512",
+              "value": 512
+            },
+            {
+              "label": "1024",
+              "value": 1024
+            },
+            {
+              "label": "1536",
+              "value": 1536
+            }
+          ]
+        },
+        {
+          "name": "shape_steps",
+          "label": "Shape Steps",
+          "kind": "integer",
+          "default": 25,
+          "hint": "Sets the number of sampling steps in this stage.",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "shape_guidance_strength",
+          "label": "Shape Guidance Strength",
+          "kind": "number",
+          "default": 6.5,
+          "hint": "Controls how strongly sampling follows the reference.",
+          "min": 0.0,
+          "max": 99.99,
+          "step": 0.01
+        },
+        {
+          "name": "shape_guidance_rescale",
+          "label": "Shape Guidance Rescale",
+          "kind": "number",
+          "default": 0.2,
+          "hint": "Adjusts guidance amplitude at a high guidance strength.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "shape_rescale_t",
+          "label": "Shape Rescale T",
+          "kind": "number",
+          "default": 4,
+          "hint": "Redistributes diffusion timesteps across the sampling pass.",
+          "min": 0.0,
+          "max": 9.99,
+          "step": 0.01
+        },
+        {
+          "name": "texture_steps",
+          "label": "Texture Steps",
+          "kind": "integer",
+          "default": 25,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 1,
+          "max": 100,
+          "locked": true
+        },
+        {
+          "name": "texture_guidance_strength",
+          "label": "Texture Guidance Strength",
+          "kind": "number",
+          "default": 3,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 0.0,
+          "max": 99.99,
+          "step": 0.01,
+          "locked": true
+        },
+        {
+          "name": "texture_guidance_rescale",
+          "label": "Texture Guidance Rescale",
+          "kind": "number",
+          "default": 0.2,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01,
+          "locked": true
+        },
+        {
+          "name": "texture_rescale_t",
+          "label": "Texture Rescale T",
+          "kind": "number",
+          "default": 3,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 0.0,
+          "max": 9.99,
+          "step": 0.01,
+          "locked": true
+        },
+        {
+          "name": "max_num_tokens",
+          "label": "Max Num Tokens",
+          "kind": "integer",
+          "default": 999999,
+          "hint": "Sets the token budget for sampling the sparse representation.",
+          "min": 0,
+          "max": 999999
+        },
+        {
+          "name": "generate_texture_slat",
+          "label": "Generate material latent",
+          "kind": "boolean",
+          "default": false,
+          "locked": true,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings."
+        },
+        {
+          "name": "downsampling",
+          "label": "Downsampling",
+          "kind": "choice",
+          "default": 16,
+          "choices": [
+            {
+              "label": "16",
+              "value": 16
+            },
+            {
+              "label": "32",
+              "value": 32
+            },
+            {
+              "label": "64",
+              "value": 64
+            }
+          ]
+        },
+        {
+          "name": "shape_guidance_interval_start",
+          "label": "Shape Guidance Interval Start",
+          "kind": "number",
+          "default": 0.1,
+          "hint": "Normalized start of the interval during which guidance is applied.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "shape_guidance_interval_end",
+          "label": "Shape Guidance Interval End",
+          "kind": "number",
+          "default": 1,
+          "hint": "Normalized end of the interval during which guidance is applied.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "texture_guidance_interval_start",
+          "label": "Texture Guidance Interval Start",
+          "kind": "number",
+          "default": 0,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01,
+          "locked": true
+        },
+        {
+          "name": "texture_guidance_interval_end",
+          "label": "Texture Guidance Interval End",
+          "kind": "number",
+          "default": 0.9,
+          "hint": "This latent is discarded before mesh export. The final texture pass has its own settings.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01,
+          "locked": true
+        },
+        {
+          "name": "use_tiled_decoder",
+          "label": "Tiled decoding",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "max_views",
+          "label": "Maximum reference views",
+          "kind": "integer",
+          "default": 4,
+          "hint": "This workflow accepts one reference image.",
+          "min": 1,
+          "max": 16,
+          "locked": true
+        },
+        {
+          "name": "sampler",
+          "label": "Sampler",
+          "kind": "choice",
+          "default": "euler",
+          "choices": [
+            {
+              "label": "euler",
+              "value": "euler"
+            },
+            {
+              "label": "heun",
+              "value": "heun"
+            },
+            {
+              "label": "rk4",
+              "value": "rk4"
+            },
+            {
+              "label": "rk5",
+              "value": "rk5"
+            }
+          ]
+        },
+        {
+          "name": "verbose",
+          "label": "Verbose",
+          "kind": "boolean",
+          "default": false,
+          "hint": "Adds sampling and mesh details to the generation log."
+        },
+        {
+          "name": "dino_lock",
+          "label": "DINO lock",
+          "kind": "number",
+          "default": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01,
+          "hint": "Blends toward the image-conditioned shape or material during denoising. Zero uses the selected base solver."
+        },
+        {
+          "name": "dino_substeps",
+          "label": "DINO substeps",
+          "kind": "integer",
+          "default": 4,
+          "min": 1,
+          "max": 99,
+          "step": 1,
+          "hint": "Subdivides each sampling interval when DINO lock is active."
+        },
+        {
+          "name": "dino_foundation_cap",
+          "label": "DINO foundation cap",
+          "kind": "number",
+          "default": 1.0,
+          "min": 0.01,
+          "max": 1.0,
+          "step": 0.01,
+          "hint": "Controls how long the reference blend remains active during the DINO lock schedule."
+        }
+      ]
+    },
+    {
+      "id": "42",
+      "title": "QuadDC · second pass",
+      "fields": [
+        {
+          "name": "remesh_band",
+          "label": "Remesh band",
+          "kind": "number",
+          "default": 1,
+          "hint": "Sets the width of the QuadDC reconstruction band in voxels.",
+          "min": 0.5,
+          "max": 4.0,
+          "step": 0.1
+        },
+        {
+          "name": "resolution",
+          "label": "Resolution",
+          "kind": "choice",
+          "default": 1024,
+          "choices": [
+            {
+              "label": "128",
+              "value": 128
+            },
+            {
+              "label": "256",
+              "value": 256
+            },
+            {
+              "label": "512",
+              "value": 512
+            },
+            {
+              "label": "1024",
+              "value": 1024
+            },
+            {
+              "label": "2048",
+              "value": 2048
+            }
+          ]
+        },
+        {
+          "name": "remove_floaters",
+          "label": "Remove Floaters",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Removes small disconnected components after reconstruction."
+        },
+        {
+          "name": "remove_inner_faces",
+          "label": "Remove Inner Faces",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Drops duplicate interior faces from the reconstructed surface."
+        }
+      ]
+    },
+    {
+      "id": "22",
+      "title": "Simplification · second pass",
+      "fields": [
+        {
+          "name": "target_face_num",
+          "label": "Target triangles",
+          "kind": "integer",
+          "default": 2000000,
+          "min": 1,
+          "max": 30000000
+        },
+        {
+          "name": "method",
+          "label": "Method",
+          "kind": "choice",
+          "default": "Cumesh",
+          "choices": [
+            {
+              "label": "Cumesh",
+              "value": "Cumesh"
+            },
+            {
+              "label": "Meshlib",
+              "value": "Meshlib"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "23",
+      "title": "Refined mesh orientation",
+      "fields": [
+        {
+          "name": "reorient_vertices",
+          "label": "Reorient Vertices",
+          "kind": "choice",
+          "default": "90 degrees",
+          "choices": [
+            {
+              "label": "None",
+              "value": "None"
+            },
+            {
+              "label": "90 degrees",
+              "value": "90 degrees"
+            },
+            {
+              "label": "-90 degrees",
+              "value": "-90 degrees"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "25",
+      "title": "Texture generation",
+      "fields": [
+        {
+          "name": "texture_method",
+          "label": "Texture method",
+          "kind": "choice",
+          "default": "trellis",
+          "hint": "UltraTex uses the Game Asset multiview pass on the finished mesh and UVs. TRELLIS.2 PBR is also available.",
+          "choices": [
+            {
+              "label": "TRELLIS.2 PBR",
+              "value": "trellis"
+            },
+            {
+              "label": "UltraTex multiview",
+              "value": "ultratex",
+              "requires_native_ultratex": true
+            }
+          ]
+        },
+        {
+          "name": "ultratex_size",
+          "label": "UltraTex atlas size",
+          "kind": "choice",
+          "default": 2048,
+          "hint": "The final atlas size when UltraTex is selected. The reference comparison uses 2K.",
+          "choices": [
+            {
+              "label": "1K",
+              "value": 1024
+            },
+            {
+              "label": "2K",
+              "value": 2048
+            },
+            {
+              "label": "4K",
+              "value": 4096
+            }
+          ]
+        },
+        {
+          "name": "seed",
+          "label": "Seed",
+          "kind": "integer",
+          "default": 12345,
+          "hint": "Controls random sampling in this stage. Keep it fixed when comparing another setting.",
+          "min": 0,
+          "max": 2147483647
+        },
+        {
+          "name": "texture_steps",
+          "label": "Texture Steps",
+          "kind": "integer",
+          "default": 25,
+          "hint": "Sets the number of sampling steps in this stage.",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "texture_guidance_strength",
+          "label": "Texture Guidance Strength",
+          "kind": "number",
+          "default": 3,
+          "hint": "Controls how strongly sampling follows the reference.",
+          "min": 0.0,
+          "max": 99.99,
+          "step": 0.01
+        },
+        {
+          "name": "texture_guidance_rescale",
+          "label": "Texture Guidance Rescale",
+          "kind": "number",
+          "default": 0.2,
+          "hint": "Adjusts guidance amplitude at a high guidance strength.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "texture_rescale_t",
+          "label": "Texture Rescale T",
+          "kind": "number",
+          "default": 3,
+          "hint": "Redistributes diffusion timesteps across the sampling pass.",
+          "min": 0.0,
+          "max": 9.99,
+          "step": 0.01
+        },
+        {
+          "name": "resolution",
+          "label": "Resolution",
+          "kind": "choice",
+          "default": 1024,
+          "choices": [
+            {
+              "label": "512",
+              "value": 512
+            },
+            {
+              "label": "1024",
+              "value": 1024
+            },
+            {
+              "label": "1536",
+              "value": 1536
+            },
+            {
+              "label": "2048",
+              "value": 2048
+            }
+          ]
+        },
+        {
+          "name": "texture_size",
+          "label": "Texture Size",
+          "kind": "integer",
+          "default": 4096,
+          "min": 512,
+          "max": 16384,
+          "hint": "Applies when baking to a UV atlas. Vertex colour mode bypasses this setting."
+        },
+        {
+          "name": "texture_alpha_mode",
+          "label": "Texture Alpha Mode",
+          "kind": "choice",
+          "default": "OPAQUE",
+          "choices": [
+            {
+              "label": "OPAQUE",
+              "value": "OPAQUE"
+            },
+            {
+              "label": "MASK",
+              "value": "MASK"
+            },
+            {
+              "label": "BLEND",
+              "value": "BLEND"
+            }
+          ]
+        },
+        {
+          "name": "double_side_material",
+          "label": "Material faces",
+          "kind": "choice",
+          "default": false,
+          "hint": "The reference exports both sides. Front faces only enables back-face culling.",
+          "choices": [
+            {
+              "value": false,
+              "label": "Reference default"
+            },
+            {
+              "value": true,
+              "label": "Double-sided"
+            },
+            {
+              "value": "single",
+              "label": "Front faces only"
+            }
+          ]
+        },
+        {
+          "name": "texture_guidance_interval_start",
+          "label": "Texture Guidance Interval Start",
+          "kind": "number",
+          "default": 0,
+          "hint": "Normalized start of the interval during which guidance is applied.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "texture_guidance_interval_end",
+          "label": "Texture Guidance Interval End",
+          "kind": "number",
+          "default": 0.9,
+          "hint": "Normalized end of the interval during which guidance is applied.",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "max_views",
+          "label": "Maximum reference views",
+          "kind": "integer",
+          "default": 4,
+          "hint": "This workflow accepts one reference image.",
+          "min": 1,
+          "max": 16,
+          "locked": true
+        },
+        {
+          "name": "bake_on_vertices",
+          "label": "Bake On Vertices",
+          "kind": "boolean",
+          "default": false
+        },
+        {
+          "name": "use_custom_normals",
+          "label": "Use Custom Normals",
+          "kind": "boolean",
+          "default": false,
+          "hint": "Exports normals from the texture worker. The default applies final smoothing."
+        },
+        {
+          "name": "mesh_cluster_threshold_cone_half_angle_rad",
+          "label": "Mesh Cluster Threshold Cone Half Angle Rad",
+          "kind": "number",
+          "default": 40,
+          "min": 0.0,
+          "max": 359.9
+        },
+        {
+          "name": "sampler",
+          "label": "Sampler",
+          "kind": "choice",
+          "default": "euler",
+          "choices": [
+            {
+              "label": "euler",
+              "value": "euler"
+            },
+            {
+              "label": "heun",
+              "value": "heun"
+            },
+            {
+              "label": "rk4",
+              "value": "rk4"
+            },
+            {
+              "label": "rk5",
+              "value": "rk5"
+            }
+          ]
+        },
+        {
+          "name": "inpainting",
+          "label": "Texture hole filling",
+          "kind": "choice",
+          "default": "telea",
+          "hint": "Applies when baking to a UV atlas. Vertex colour mode bypasses this setting.",
+          "choices": [
+            {
+              "label": "telea",
+              "value": "telea"
+            },
+            {
+              "label": "ns",
+              "value": "ns"
+            }
+          ]
+        },
+        {
+          "name": "verbose",
+          "label": "Verbose",
+          "kind": "boolean",
+          "default": false,
+          "hint": "Adds sampling and mesh details to the generation log."
+        },
+        {
+          "name": "dino_lock",
+          "label": "DINO lock",
+          "kind": "number",
+          "default": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01,
+          "hint": "Blends toward the image-conditioned shape or material during denoising. Zero uses the selected base solver."
+        },
+        {
+          "name": "dino_substeps",
+          "label": "DINO substeps",
+          "kind": "integer",
+          "default": 4,
+          "min": 1,
+          "max": 99,
+          "step": 1,
+          "hint": "Subdivides each sampling interval when DINO lock is active."
+        },
+        {
+          "name": "dino_foundation_cap",
+          "label": "DINO foundation cap",
+          "kind": "number",
+          "default": 1.0,
+          "min": 0.01,
+          "max": 1.0,
+          "step": 0.01,
+          "hint": "Controls how long the reference blend remains active during the DINO lock schedule."
+        }
+      ]
+    }
+  ]
+}

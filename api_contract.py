@@ -304,6 +304,7 @@ class QueueEdit(Contract):
 
 
 class JobRetry(Contract):
+    workflow_options: dict | None = Field(default=None, description='Advanced options keyed by stage for a standalone profile.')
     resolution: Literal[512, 1024, 1536] | None = None
     texture_size: Literal[1024, 2048, 4096] | None = None
     triangles: int | None = Field(default=None, ge=TRIANGLE_MIN, le=TRIANGLE_MAX)

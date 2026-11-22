@@ -155,8 +155,8 @@ async def upload_source(file_path:str)->dict[str,Any]:
 
 @tool()
 async def queue_generation(recipe:Generation)->dict[str,Any]:
-    """Queue an uploaded image with TRELLIS.2 or engine='pixal3d_single' (MoGe camera estimation). Choose texture_method='trellis', 'multiview' or 'ultratex'; UltraTex requires 2K textures and its installed component. Figure Master is a TRELLIS.2 profile with one 1024 reconstruction and defaults to multiview textures. Select master_finishing='none' for the decoded geometry or an available reconstruction. Check studio_status and poll get_model."""
-    return await api('POST','/generations',recipe.model_dump())
+    """Queue an uploaded image with TRELLIS.2, engine='pixal3d_single' or an available standalone profile. Standard profiles accept trellis, multiview or ultratex for texture_method. UltraTex requires its component and 2K. Use master_finishing='none' for decoded geometry. Standalone profiles accept stage settings under overrides.workflow_options. Check profiles and poll get_model."""
+    return await api('POST','/generations',recipe.model_dump(exclude_unset=True))
 
 @tool()
 async def queue_multiview_generation(recipe:MultiViewGeneration)->dict[str,Any]:

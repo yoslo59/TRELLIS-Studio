@@ -80,9 +80,13 @@ with isolated_workspace('humanoid_profiles'):
          patch.object(app,'pixal3d_runtime_status',return_value={'ready':True,'face_projection':{'ready':False}}), \
          patch.object(app,'launch_worker') as launch, connection() as client:
         # No lifespan worker: each route writes only to the isolated queue.
-        profiles=client.get('/api/profiles').json()
+        with patch.object(app, 'workflow_capability', return_value={'available': False, 'reason': 'Optional runtime missing.'}):
+            profiles=client.get('/api/profiles').json()
         assert profiles['default_profile']=='game_d' and profiles['profiles'][0]==before
         assert profiles['startup_profile']=='high_detail'
+        assert {p['id'] for p in profiles['profiles'] if not p.get('retired')} == {
+            'high_detail', 'figure_master', 'game_asset_native', 'high_detail_native'}
+        assert {p['id'] for p in profiles['profiles'] if p.get('retired')} == {'game_d', 'dense_master', 'detail_study'}
         high = next(p for p in profiles['profiles'] if p['id'] == 'high_detail')
         assert high['keep_finishing_source'] is True
         assert high['settings']['triangles'] == 300_000 and high['settings']['texture_size'] == 2048
@@ -319,8 +323,55 @@ with isolated_workspace('humanoid_profiles'):
             'upload_id': front, 'left_upload_id': side, 'profile_id': DENSE_MASTER, 'hd_reconstruction': 'true'})
         send(client,'/api/generate-multiview',expected=400,files=files,data={'profile_id':'unknown'})
         send(client,'/api/v1/generations/multiview',expected=422,json={'upload_id':front,'left_upload_id':side,'profile_id':'unknown'})
+        with patch.object(app, 'workflow_capability', return_value={'available': True, 'reason': ''}), \
+             patch('native_high_detail.ultratex_status', return_value={'available': True}) as ultratex:
+            catalogue = client.get('/api/v1/profiles').json()
+            assert catalogue['startup_profile'] == 'high_detail_native'
+            workflows = {p['id']: p for p in catalogue['profiles'] if 'workflow' in p}
+            assert set(workflows) == {'game_asset_native', 'high_detail_native'}
+            high = workflows['high_detail_native']
+            assert high['settings']['texture_method'] == 'ultratex' and high['workflow']['texture_size'] == 2048
+            materials = next(stage for stage in high['workflow']['advanced'] if stage['id'] == '25')
+            assert next(field for field in materials['fields'] if field['name'] == 'texture_method')['default'] == 'ultratex'
+            for profile_id, seed, stage in [('game_asset_native', 56, '3'), ('high_detail_native', 12345, '17')]:
+                assert workflows[profile_id]['workflow']['available']
+                assert 'Comfy' not in workflows[profile_id]['name']
+                accepted = send(client, '/api/v1/generations', json={'upload_id': front, 'profile_id': profile_id,
+                    'overrides': {'workflow_options': {stage: {'seed': seed + 1}}}})
+                identifier = accepted['id']
+                assert settings(identifier)['seed'] == seed + 1
+                assert settings(identifier)['workflow_id'] == profile_id
+                assert settings(identifier)['texture_method'] == 'ultratex' and settings(identifier)['texture_size'] == 2048
+                source_name = settings(identifier)['workflow_input']
+                assert (app.OUTPUT / identifier / source_name).read_bytes() == png
+                get_source = client.get(f'/api/jobs/{identifier}/files/{source_name}')
+                assert get_source.status_code == 200 and get_source.content == png
+                send(client, '/api/jobs/' + identifier + '/cancel', expected=200)
+                send(client, '/api/queue/' + identifier + '/retry', expected=400, json={'texture_size': 1024})
+                retry = send(client, '/api/queue/' + identifier + '/retry', json={'height_m': 1.5})
+                assert settings(retry['id'])['seed'] == seed + 1 and settings(retry['id'])['height_m'] == 1.5
+                assert (app.OUTPUT / retry['id'] / settings(identifier)['workflow_input']).read_bytes() == png
+                send(client, '/api/v1/generations', expected=400, json={
+                    'upload_id': front, 'profile_id': profile_id, 'seed': 42})
+            high_request = {'upload_id': front, 'profile_id': 'high_detail_native'}
+            explicit = send(client, '/api/v1/generations', json={**high_request,
+                'overrides': {'workflow_options': {'25': {'texture_method': 'trellis'}}}})
+            send(client, '/api/jobs/' + explicit['id'] + '/cancel', expected=200)
+            replay = send(client, '/api/queue/' + explicit['id'] + '/retry', json={'height_m': 2})
+            assert settings(replay['id'])['texture_method'] == 'trellis' and settings(replay['id'])['texture_size'] == 4096
+            ultratex.return_value = {'available': False, 'reason': 'UltraTex is unavailable.'}
+            fallback = send(client, '/api/v1/generations', json=high_request)
+            assert settings(fallback['id'])['texture_method'] == 'trellis' and settings(fallback['id'])['texture_size'] == 4096
+            high = next(p for p in client.get('/api/v1/profiles').json()['profiles'] if p['id'] == 'high_detail_native')
+            assert high['workflow']['texture_size'] == high['settings']['texture_size'] == 4096
+            assert high['settings']['texture_method'] == 'trellis'
+            send(client, '/api/generate', expected=409, files={'image': image()},
+                 data={'profile_id': 'game_asset_comfy', 'queue_only': 'true'})
+        with patch.object(app, 'workflow_capability', return_value={'available': False, 'reason': 'Component unavailable.'}):
+            send(client, '/api/v1/generations', expected=503, json={
+                'upload_id': front, 'profile_id': 'game_asset_native'})
         assert builtin_profiles()[0]==before
         assert app.PIXAL_CHARACTER_OPTIONS==standard_options and app.PIXAL_CHARACTER_PROFILE==standard_profile
         launch.assert_not_called()
     assert 'torch' not in sys.modules
-    print('PASS: legacy profiles, Dense Master mono/multiview, forced cache and opt-in reconstruction.')
+    print('PASS: legacy recipes, Dense Master and standalone workflow settings across submissions and retries.')

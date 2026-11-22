@@ -1,3 +1,5 @@
+import {createWorkflowGraph, groupWorkflowStages} from './workflow-graph.js?v=standard-profiles';
+
 const element=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;};
 const commonHelp={
   "assetType": "Classifies the model by intended use. Generation creates a static mesh; rigging, moving parts and game behaviours are separate steps.",
@@ -142,6 +144,153 @@ function attachCommonHelp() {
       if (label) label.title = hint;
     }
   }
+}
+
+let workflowEditorId = 0;
+function addWorkflowField(grid, field, name, control) {
+  const label = element('label', field.kind === 'boolean' ? 'check option-boolean' : 'field');
+  const text = element('span', '', name);
+  if (field.kind === 'boolean') label.append(control, text);
+  else label.append(text, control);
+  grid.append(label);
+  if (field.hint) optionHelp(label, name, field.hint);
+}
+
+function mirrorWorkflowField(control, peer) {
+  const property = control.type === 'checkbox' ? 'checked' : 'value';
+  peer[property] = control[property];
+  for (const type of ['input', 'change']) {
+    control.addEventListener(type, () => { peer[property] = control[property]; });
+    peer.addEventListener(type, () => {
+      control[property] = peer[property];
+      control.dispatchEvent(new Event(type, {bubbles: true}));
+    });
+  }
+}
+
+export function createWorkflowFields(container, stages, values = {}, {workspace, profileName} = {}) {
+  const id = ++workflowEditorId;
+  const controls = new Map();
+  const sections = new Map();
+  const groups = groupWorkflowStages(stages);
+  const groupsByStage = new Map();
+  let geometry;
+  let material;
+  container.replaceChildren();
+  for (const group of groups) {
+    const section = element('details', 'workflow-option-section');
+    section.open = group.title === 'Geometry';
+    section.append(element('summary', '', group.title));
+    group.stages.forEach(stage => groupsByStage.set(stage.id, section));
+    container.append(section);
+  }
+  for (const [index, stage] of stages.entries()) {
+    const details = element('details', 'option-group');
+    details.open = index === 0 || stage.id === '316' || stage.id === '44';
+    details.append(element('summary', '', stage.title));
+    const grid = element('div', 'option-grid');
+    const entries = new Map();
+    for (const field of stage.fields) {
+      const value = values[stage.id]?.[field.name] ?? field.default;
+      const control = element(field.kind === 'choice' ? 'select' : field.name === 'text' ? 'textarea' : 'input');
+      control.id = `workflow-${id}-${stage.id}-${field.name}`;
+      control.disabled = field.locked === true || field.kind === 'choice' && field.choices.length === 1;
+      const fixed = control.disabled;
+      if (field.kind === 'choice') {
+        control.replaceChildren(...field.choices.map((choice, number) => {
+          const option = new Option(choice.label, String(number));
+          option.disabled = choice.available === false;
+          if (choice.reason) option.title = choice.reason;
+          return option;
+        }));
+        control.selectedIndex = field.choices.findIndex(choice => Object.is(choice.value, value));
+      } else if (field.kind === 'boolean') {
+        control.type = 'checkbox';
+        control.checked = value;
+      } else if (field.kind === 'text' || field.kind === 'large_integer') {
+        if (control.tagName === 'TEXTAREA') control.rows = 3;
+        else control.type = 'text';
+        control.value = value;
+        control.maxLength = field.kind === 'text' ? 6000 : 20;
+        if (field.kind === 'large_integer') {
+          control.required = true;
+          control.pattern = '[0-9]+';
+          control.inputMode = 'numeric';
+        }
+      } else {
+        control.type = 'number';
+        control.step = field.kind === 'integer' ? String(field.enforce_step ? field.step : 1) : 'any';
+        control.required = true;
+        if (field.min !== undefined) control.min = field.min;
+        if (field.max !== undefined) control.max = field.max;
+        control.value = value;
+      }
+      const name = field.name === 'geometry_backend' || stage.id === '316' && field.name === 'value'
+        ? 'Geometry engine' : field.label;
+      addWorkflowField(grid, field, name, control);
+      entries.set(field, {control, fixed, name});
+      if (name === 'Geometry engine') geometry = {field, control};
+      if (field.name === 'texture_method') material = {field, control};
+    }
+    controls.set(stage.id, entries);
+    sections.set(stage.id, details);
+    details.append(grid);
+  }
+  for (const group of groups) for (const stage of group.stages) groupsByStage.get(stage.id).append(sections.get(stage.id));
+  const graph = workspace && createWorkflowGraph(workspace, groups, profileName, stage => {
+    const grid = element('div', 'option-grid workflow-graph-fields');
+    for (const [field, entry] of controls.get(stage.id)) {
+      const peer = entry.control.cloneNode(true);
+      peer.id += '-graph';
+      mirrorWorkflowField(entry.control, peer);
+      addWorkflowField(grid, field, entry.name, peer);
+      entry.peer = peer;
+    }
+    return grid;
+  });
+  if (graph) container.prepend(graph.opener);
+  const synchronize = () => {
+    const choice = geometry?.field.choices[geometry.control.selectedIndex]?.value;
+    const backend = typeof choice === 'boolean' ? (choice ? 'trellis2' : 'pixal3d') : choice;
+    for (const stage of stages) {
+      const hidden = stage.geometry_backend !== undefined && stage.geometry_backend !== backend;
+      sections.get(stage.id).hidden = hidden;
+      for (const {control, fixed, peer} of controls.get(stage.id).values()) {
+        control.disabled = hidden || fixed;
+        if (peer) peer.disabled = control.disabled;
+      }
+    }
+    graph?.sync(backend, material?.field.choices[material.control.selectedIndex]?.value);
+  };
+  geometry?.control.addEventListener('change', synchronize);
+  material?.control.addEventListener('change', synchronize);
+  synchronize();
+  return {
+    closeGraph() { graph?.close(false); },
+    read() {
+      return Object.fromEntries([...controls].map(([id, entries]) => [id, Object.fromEntries([...entries].map(([field, {control}]) => {
+        if (sections.get(id).hidden) return [field.name, field.default];
+        let value = control.value;
+        if (field.kind === 'choice') value = field.choices[control.selectedIndex]?.value;
+        if (field.kind === 'boolean') value = control.checked;
+        if (field.kind === 'number' || field.kind === 'integer') value = control.valueAsNumber;
+        return [field.name, value];
+      }))]));
+    },
+    validate() {
+      for (const entries of controls.values()) {
+        for (const {control} of entries.values()) {
+          if (control.checkValidity()) continue;
+          control.closest('details').open = true;
+          const section = control.closest('.workflow-option-section');
+          if (section) section.open = true;
+          control.reportValidity();
+          return false;
+        }
+      }
+      return true;
+    },
+  };
 }
 
 export async function createAdvancedControls(container,{groupId,title,idPrefix='option_'}={}){

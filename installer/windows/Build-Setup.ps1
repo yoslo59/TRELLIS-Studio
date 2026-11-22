@@ -23,15 +23,15 @@ $taskPackage=Get-Content -LiteralPath (Join-Path $taskRoot 'package.json') -Raw 
 if ($taskPackage.version -notmatch '^\d+\.\d+\.\d+$') { throw 'Expected a numeric major.minor.patch version.' }
 
 # Use the public source allowlist, then include only runtime/documentation trees.
-$taskRoots=@('web','installer','runtime','licenses','animations','unity','UniRig','integrations')
+$taskRoots=@('web','installer','runtime','licenses','animations','unity','UniRig','integrations','native_workflows','native_ultratex')
 $taskRootFiles=@('LICENSE','README.md','INSTALLATION.md','SECURITY.md','THIRD_PARTY_NOTICES.md','package.json','package-lock.json')
 $taskDocFiles=@('docs/API.md','docs/MCP.md','docs/DEPENDENCIES.json','docs/WINDOWS_SETUP.md','docs/SERVER.md',
-    'docs/MOTION_GENERATION.md','docs/WTIVO.md','docs/HI3D.md','docs/ULTRATEX.md',('docs/RELEASE_'+$taskPackage.version+'.md'))
+    'docs/MOTION_GENERATION.md','docs/WTIVO.md','docs/HI3D.md','docs/ULTRATEX.md','docs/NATIVE_PROFILES.md',('docs/RELEASE_'+$taskPackage.version+'.md'))
 $taskFiles=@(git -C $taskRoot -c core.quotePath=false ls-files --cached --others --exclude-standard)
 if ($LASTEXITCODE -ne 0) { throw 'Could not read the TRELLIS Studio public source allowlist.' }
 $taskFiles=@($taskFiles | Sort-Object -Unique | Where-Object {
     $parts=$_ -split '/'
-    ($parts.Count -eq 1 -and ($_ -match '\.(py|cmd|ps1)$' -or $taskRootFiles -contains $_ -or $_ -match '^requirements-(windows|mcp-lock|mcp)\.txt$')) -or
+    ($parts.Count -eq 1 -and $_ -cne 'comfy_profiles.py' -and ($_ -match '\.(py|cmd|ps1)$' -or $taskRootFiles -contains $_ -or $_ -match '^requirements-(windows|mcp-lock|mcp)\.txt$')) -or
     ($parts.Count -gt 1 -and ($taskRoots -ccontains $parts[0] -or $_ -in $taskDocFiles -or
         $_ -cmatch '^third_party/assetfurnace/image_to_3dlab/(__init__|photo_paint|view_align)\.py$'))
 })
@@ -58,6 +58,14 @@ $taskRequired+=@('multiview_texture_runtime.py','multiview_texture_views.py','mu
     'installer/install_multiview_texture.py','installer/multiview-texture-manifest.json',
     'installer/requirements-multiview-texture.txt','licenses/Stable-Diffusion-2.1-OpenRAIL++-M.txt')
 $taskRequired+=@('studio_release.py','web/release-notification.css','web/release-notification.js')
+$taskRequired+=@('native_high_detail.py','native_high_detail_quant.py','native_high_detail_portable.py',
+    'native_workflow_options.py','native_workflows/high_detail_native.json','native_workflows/game_asset_native.json',
+    'native_workflows/CITY96-APACHE-2.0.txt','docs/NATIVE_PROFILES.md')
+$taskRequired+=@('native_pixal3d.py','native_pixal_layers.py','native_pixal_prepare.py','native_game_asset.py',
+    'native_game_conditioning.py','native_game_sampling.py','native_game_finish.py','native_game_geometry.py','native_game_profile.py')
+$taskRequired+=@('native_ultratex/options.py','native_ultratex/existing_mesh.py','native_ultratex/native_ultratex_models.py',
+    'native_ultratex/native_ultratex_recipe.py','native_ultratex/prepare_character05.py','native_ultratex/run_character05_texture.py',
+    'web/workflow-graph.js','web/workflow-topology.js','web/standard-workflow-graph.js')
 $taskRequired+=@('rig_profiles_blender.py','creature_rig.py','creature_motion.py','creature_verification.py',
     'UniRig/apply-creature.py','web/creature-rig-editor.js','web/creature-rig-viewer.js',
     'creature_motion_edit.py','web/creature-motions.js')

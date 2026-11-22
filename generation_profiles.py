@@ -7,11 +7,31 @@ from generation_options import (DENSE_MASTER, DENSE_MASTER_NAME, FIGURE_MASTER, 
                                 PROFILE_ADVANCED, TRIANGLE_MIN, TRIANGLE_MAX, normalize_options,
                                 resolve_texture_method, validate_create_master_finishing,
                                 validate_post_refinement_texturing, validate_texture_method)
+from native_workflow_options import schema as workflow_schema
 
 DENSE_MASTER_DESCRIPTION = ('Keeps the complete decoded geometry and materials before finishing. '
                             'Adapts the working copy to the surface, with a default ceiling of 1.2 million triangles.')
 DETAIL_STUDY = 'detail_study'
-STARTUP_PROFILE = 'high_detail'
+PROPS_PROFILE = 'high_detail'
+STARTUP_PROFILE = 'high_detail_native'
+COMFY_INPUT_FILES = tuple('workflow-input' + extension for extension in ('.png', '.jpg', '.webp'))
+COMFY_PROFILES = {
+    'game_asset_comfy': dict(name='Game Asset · ComfyUI', label='PixelArtistry Character 05',
+        description='Pixal3D 1536, a 12,000 triangle target, and UltraTex 2K with baked normals.',
+        resolution=1536, target_faces=12_000, texture_size=2048, seed=56, texture_method='ultratex'),
+    'high_detail_comfy': dict(name='High Detail · ComfyUI', label='High Quality GGUF',
+        description='TRELLIS.2 1024 cascade with two geometry passes, QuadDC and MeshLib, and TRELLIS.2 textures at 4K.',
+        resolution=1024, target_faces=2_000_000, texture_size=4096, seed=12345, texture_method='trellis'),
+}
+STANDALONE_PROFILES = {
+    'game_asset_native': dict(name='Game Asset', label='Character workflow',
+        description='A 12,000 triangle target with baked normals and multiview UltraTex materials.',
+        resolution=1536, target_faces=12_000, texture_size=2048, seed=56, texture_method='ultratex'),
+    'high_detail_native': dict(name='High Detail', label='High Quality GGUF',
+        description='Two geometry passes with QuadDC and MeshLib. Uses UltraTex materials when available.',
+        resolution=1024, target_faces=2_000_000, texture_size=4096, seed=12345, texture_method='trellis'),
+}
+WORKFLOW_PROFILES = {**COMFY_PROFILES, **STANDALONE_PROFILES}
 
 
 def profile_options(overrides, steps):
@@ -21,24 +41,24 @@ def profile_options(overrides, steps):
 
 
 def builtin_profiles():
-    # Historical presets stay readable by old jobs, but are no longer offered.
+    # Retired recipes remain available to saved jobs and API callers.
     recipes = [
-        ('game_d', 'Game - Default', {}),
-        (STARTUP_PROFILE, 'High Detail', dict(keep_finishing_source=True)),
+        ('game_d', 'Game - Default', dict(retired=True)),
+        (PROPS_PROFILE, 'High Detail (Props)', dict(keep_finishing_source=True)),
         (FIGURE_MASTER, 'Figure Master', dict(keep_finishing_source=True,
             description='1024 cascade with 30 structure and 35 shape steps, one 1024 surface reconstruction and an 800,000 triangle ceiling.')),
-        (HUMANOID_EXPERIMENTAL, 'Humanoid · Experimental', dict(
+        (HUMANOID_EXPERIMENTAL, 'Humanoid · Experimental', dict(retired=True,
             experimental=True, asset_type='humanoid', keep_finishing_source=True,
             description='Dense comparison master. Keeps the finishing source; review anatomy before reducing. No automatic local reconstruction or rig.')),
-        (DENSE_MASTER, DENSE_MASTER_NAME, dict(keep_finishing_source=True, description=DENSE_MASTER_DESCRIPTION)),
+        (DENSE_MASTER, DENSE_MASTER_NAME, dict(retired=True, keep_finishing_source=True, description=DENSE_MASTER_DESCRIPTION)),
     ]
     profiles = []
     for key, name, flags in recipes:
         steps, triangles, texture_size = GENERATION_PRESETS[key]
         settings = dict(preset=key, resolution=1024, triangles=triangles, texture_size=texture_size,
-                        remove_bg=True, multiview_texture_refinement=key == STARTUP_PROFILE,
+                        remove_bg=True, multiview_texture_refinement=key == PROPS_PROFILE,
                         advanced=profile_options(PROFILE_ADVANCED[key], steps))
-        if key == STARTUP_PROFILE:
+        if key == PROPS_PROFILE:
             settings['triangles'] = 300_000
             settings['advanced'].update(structure_steps=12, shape_steps=25, texture_steps=12,
                                         mesh_mode='remesh', remesh_resolution=1024)
@@ -46,7 +66,7 @@ def builtin_profiles():
             settings['texture_method'] = 'multiview'
             settings['multiview_texture_refinement'] = True
         profiles.append(dict(id=key, name=name, builtin=True, settings=settings, **flags))
-    profiles.append(dict(id=DETAIL_STUDY, name='Detail Study', builtin=True, experimental=True,
+    profiles.append(dict(id=DETAIL_STUDY, name='Detail Study', builtin=True, experimental=True, retired=True,
                          keep_finishing_source=True,
                          description='TRELLIS.2 12 / 24 / 12, Hi3D 1024 and a 4K texture pass after refinement.',
                          settings=dict(preset=DENSE_MASTER, resolution=1024, triangles=1_000_000, texture_size=4096,
@@ -55,6 +75,14 @@ def builtin_profiles():
                                        advanced=profile_options({**PROFILE_ADVANCED[DENSE_MASTER],
                                            'structure_steps': 12, 'shape_steps': 24, 'texture_steps': 12,
                                            'texture_guidance': 1}, 12))))
+    for key, recipe in STANDALONE_PROFILES.items():
+        settings = dict(preset=key, resolution=recipe['resolution'], triangles=recipe['target_faces'],
+                        texture_size=recipe['texture_size'], remove_bg=True, advanced={},
+                        texture_method=recipe['texture_method'], multiview_texture_refinement=False)
+        workflow = {field: recipe[field] for field in ('label', 'resolution', 'texture_size', 'target_faces')}
+        workflow['advanced'] = workflow_schema(key)['stages']
+        profiles.append(dict(id=key, name=recipe['name'], builtin=True, settings=settings,
+                             description=recipe['description'], workflow=workflow))
     return profiles
 
 

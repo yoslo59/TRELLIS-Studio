@@ -20,7 +20,7 @@ import numpy as np
 from PIL import Image, ImageOps
 from scipy.ndimage import distance_transform_edt, map_coordinates
 
-from glb_data import accessor, image, read
+from glb_data import accessor, image, placed_vertices, read, static_placement
 
 
 class TextureProjectionError(ValueError):
@@ -281,8 +281,6 @@ def _load_mesh(path):
                 or any(node.get('mesh', 0) != 0 for node in nodes if 'mesh' in node)
                 or document.get('animations') or document.get('skins')):
             raise TextureProjectionError('Use a single static mesh. Rigged or animated models are not supported yet.')
-        if any(any(k in node for k in ('matrix', 'translation', 'rotation', 'scale', 'skin')) for node in nodes):
-            raise TextureProjectionError('Apply object transforms before exporting the static GLB for projection.')
         if len(document.get('buffers', [])) != 1 or document['buffers'][0].get('uri'):
             raise TextureProjectionError('Export a self-contained GLB with one embedded binary buffer.')
         if any('bufferView' not in entry for entry in document.get('images', [])):
@@ -309,6 +307,10 @@ def _load_mesh(path):
             raise TextureProjectionError('Repair invalid geometry, normals, or UV coordinates before projecting.')
         if uv.min() < -1e-6 or uv.max() > 1 + 1e-6:
             raise TextureProjectionError('Use a non-repeating UV atlas inside the 0 to 1 range.')
+        try:
+            vertices = placed_vertices(vertices, static_placement(document))
+        except ValueError as error:
+            raise TextureProjectionError(str(error)) from error
         material_index = primitive.get('material')
         material = document['materials'][material_index]
         if material.get('alphaMode', 'OPAQUE') != 'OPAQUE':

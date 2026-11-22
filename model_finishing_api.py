@@ -15,6 +15,7 @@ from api_contract import (
 from generation_view_projection import (
     digest, generation_reference, generation_reference_name, inspect_generation_reference, inspect_generation_views,
 )
+from generation_profiles import COMFY_INPUT_FILES, STANDALONE_PROFILES
 from studio_workspace import ID, finishing_source, write
 
 
@@ -69,6 +70,20 @@ def readable_cutout(path, max_pixels):
         return False
 
 
+def readable_workflow_image(path, max_pixels):
+    if path is None or path.is_symlink():
+        return False
+    try:
+        with Image.open(path) as image:
+            if (image.format not in ('PNG', 'JPEG', 'WEBP') or min(image.size) < 2
+                    or image.width * image.height > max_pixels):
+                return False
+            image.verify()
+            return True
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return False
+
+
 def install(router, app, upload):
     services = app['STUDIO']
 
@@ -86,7 +101,7 @@ def install(router, app, upload):
         ]
 
     async def prepare_copy(folder, record, source, operation, *, options=None, projections=(), generation_views=None,
-                           generation_cutout=None, multiview_reference=None, texture_method='multiview'):
+                           generation_cutout=None, multiview_reference=None, texture_method='multiview', native_ultratex=False):
         target = app['OUTPUT'] / uuid.uuid4().hex
         label = 'UltraTex 2K' if operation == MULTIVIEW_OPERATION and texture_method == 'ultratex' else OPERATION_LABELS[operation]
         settings = {
@@ -105,6 +120,8 @@ def install(router, app, upload):
             settings.update(triangles=options['triangles'], texture_size=options['texture_size'])
         elif operation == MULTIVIEW_OPERATION:
             settings.update(texture_method=texture_method, multiview_texture_refinement=texture_method == 'multiview')
+            if texture_method == 'ultratex':
+                settings['texture_size'] = 2048
             source_id = finishing_source(folder, record['settings'])
             if source_id:
                 settings['finish_source_id'] = source_id
@@ -147,10 +164,12 @@ def install(router, app, upload):
             for name, reference in staged_references.items():
                 shutil.copy2(reference, target / name)
             if multiview_reference is not None:
-                prepared = target / 'prepared.png'
+                prepared = target / (multiview_reference.name if native_ultratex else 'prepared.png')
                 shutil.copy2(multiview_reference, prepared)
                 request['multiview_reference'] = dict(reference_file=prepared.name,
                     source_sha256=digest(target / 'source.glb'), reference_sha256=digest(prepared))
+                if native_ultratex:
+                    request['multiview_reference']['native_ultratex'] = True
             if retained is not None:
                 request['retained_generation_views'] = retained
                 for view in retained['views']:
@@ -244,7 +263,7 @@ def install(router, app, upload):
             return await prepare_copy(folder, record, source, 'texture_projection',
                                       projections=list(zip(paths, options, strict=True)))
 
-    async def multiview_cutout(folder, record, max_pixels):
+    def reference_lineage(folder, record):
         output = app['OUTPUT'].resolve()
         visited = set()
         for _ in range(REFERENCE_LINEAGE_LIMIT):
@@ -252,13 +271,7 @@ def install(router, app, upload):
                 break
             visited.add(folder.name)
             settings = record['settings']
-            views = settings.get('views')
-            if (settings.get('view_mode') not in (None, 'single')
-                    or settings.get('engine') == 'pixal3d' and isinstance(views, list) and len(views) > 1):
-                return None, 'Choose a model from a single reference for multiview texture refinement.'
-            path = existing_file(folder, 'prepared.png')
-            if await asyncio.to_thread(readable_cutout, path, max_pixels):
-                return path, ''
+            yield folder, settings
             if settings.get('source_kind') not in REFERENCE_LINEAGE:
                 break
             parent = settings.get('parent_id')
@@ -270,35 +283,86 @@ def install(router, app, upload):
                 if error.status_code not in (403, 404, 409):
                     raise
                 break
+
+    def single_reference(settings):
+        views = settings.get('views')
+        return (settings.get('view_mode') in (None, 'single')
+                and not (settings.get('engine') == 'pixal3d' and isinstance(views, list) and len(views) > 1))
+
+    async def multiview_cutout(folder, record, max_pixels):
+        for folder, settings in reference_lineage(folder, record):
+            if not single_reference(settings):
+                return None, 'Choose a model from a single reference for multiview texture refinement.'
+            path = existing_file(folder, 'prepared.png')
+            if await asyncio.to_thread(readable_cutout, path, max_pixels):
+                return path, ''
         return None, 'This model has no saved cutout with a transparent background in its source lineage.'
 
-    async def texture_options(folder, record, source, methods):
-        from multiview_texture_runtime import availability as multiview_available
-        from texture_projection import MAX_REFERENCE_PIXELS, inspect_texture_projection
-        support = await asyncio.to_thread(inspect_texture_projection, source)
-        if not support['supported']:
-            return {method: {**support, 'ready': False} for method in methods}, None
-        support = {key: support[key] for key in ('supported', 'reason', 'atlas', 'triangles')}
-        reference, reason = await multiview_cutout(folder, record, MAX_REFERENCE_PIXELS)
-        if reference is None:
-            return {method: {**support, 'supported': False, 'ready': False, 'reason': reason}
-                    for method in methods}, None
-        choices = {}
-        for method in methods:
-            if method == 'ultratex':
-                from ultratex_runtime import availability
-                sizes = (2048,)
-                advisor = 'UltraTex uses the existing 2K UV atlas. Choose a model with a square 2K texture.'
-            else:
-                availability = multiview_available
-                sizes = (1024, 2048, 4096)
-                advisor = 'Use a square 1K, 2K or 4K color atlas for multiview texture refinement.'
-            if not any(support['atlas'] == [size, size] for size in sizes):
-                choices[method] = {**support, 'supported': False, 'ready': False, 'reason': advisor}
+    async def native_workflow_reference(folder, record, max_pixels):
+        native = False
+        for folder, settings in reference_lineage(folder, record):
+            if not single_reference(settings):
+                break
+            if settings.get('workflow_id') not in STANDALONE_PROFILES:
                 continue
-            runtime = await asyncio.to_thread(availability, app['ROOT'])
-            choices[method] = {**support, 'ready': runtime['available'], 'reason': runtime['reason']}
-        return choices, reference
+            native = True
+            filename = settings.get('workflow_input')
+            if filename in COMFY_INPUT_FILES:
+                path = existing_file(folder, filename)
+                if await asyncio.to_thread(readable_workflow_image, path, max_pixels):
+                    return path, True
+        return None, native
+
+    async def texture_options(folder, record, source, methods):
+        from texture_projection import MAX_REFERENCE_PIXELS, inspect_texture_projection
+        workflow_image, native = (await native_workflow_reference(folder, record, MAX_REFERENCE_PIXELS)
+                                  if 'ultratex' in methods else (None, False))
+        cutout, cutout_reason, legacy_support = None, '', None
+        choices, references = {}, {}
+        for method in methods:
+            native_method = method == 'ultratex' and native
+            if native_method:
+                from native_ultratex.existing_mesh import inspect
+                from native_game_profile import texture_runtime_status
+                from native_pixal3d import texture_mask_status
+                support = await asyncio.to_thread(inspect, source)
+                reference, reason = workflow_image, 'This native model has no readable saved workflow reference.'
+                sizes = (1024, 2048, 4096)
+                advisor = 'Native UltraTex needs a square 1K, 2K or 4K source color atlas with UV0.'
+            else:
+                if legacy_support is None:
+                    legacy_support = await asyncio.to_thread(inspect_texture_projection, source)
+                    if legacy_support['supported']:
+                        legacy_support = {key: legacy_support[key] for key in ('supported', 'reason', 'atlas', 'triangles')}
+                        cutout, cutout_reason = await multiview_cutout(folder, record, MAX_REFERENCE_PIXELS)
+                support = legacy_support
+                reference, reason = cutout, cutout_reason
+                if method == 'ultratex':
+                    from ultratex_runtime import availability
+                    sizes = (2048,)
+                    advisor = 'UltraTex uses the existing 2K UV atlas. Choose a model with a square 2K texture.'
+                else:
+                    from multiview_texture_runtime import availability
+                    sizes = (1024, 2048, 4096)
+                    advisor = 'Use a square 1K, 2K or 4K color atlas for multiview texture refinement.'
+            if not support['supported']:
+                choices[method] = {**support, 'ready': False}
+            elif reference is None:
+                choices[method] = {**support, 'supported': False, 'ready': False, 'reason': reason}
+            elif not any(support['atlas'] == [size, size] for size in sizes):
+                choices[method] = {**support, 'supported': False, 'ready': False, 'reason': advisor}
+            else:
+                if native_method:
+                    runtime = await asyncio.to_thread(texture_runtime_status)
+                    if runtime['available']:
+                        runtime = await asyncio.to_thread(texture_mask_status)
+                else:
+                    runtime = await asyncio.to_thread(availability, app['ROOT'])
+                choices[method] = {**support, 'ready': runtime['available'], 'reason': runtime['reason']}
+                references[method] = reference
+            if native_method:
+                choices[method]['native'] = True
+        return choices, references
 
     @router.get('/models/{identifier}/multiview-texture-refinement', tags=['Models'],
                 summary='Check multiview texture support for a completed model')
@@ -314,14 +378,15 @@ def install(router, app, upload):
             if app.get('SHUTTING_DOWN'):
                 raise HTTPException(503, 'Studio is stopping.')
             folder, record, source = model(identifier)
-            choices, reference = await texture_options(folder, record, source, (texture_method,))
+            choices, references = await texture_options(folder, record, source, (texture_method,))
             support = choices[texture_method]
             if not support['supported']:
                 raise HTTPException(400, support['reason'])
             if not support['ready']:
                 raise HTTPException(503, support['reason'])
             return await prepare_copy(folder, record, source, MULTIVIEW_OPERATION,
-                                      multiview_reference=reference, texture_method=texture_method)
+                                      multiview_reference=references[texture_method], texture_method=texture_method,
+                                      native_ultratex=support.get('native') is True)
 
     @router.get('/models/{identifier}/baked-game-copy', tags=['Models'],
                 summary='Check support for a reduced and baked copy of the selected master')

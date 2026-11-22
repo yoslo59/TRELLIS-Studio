@@ -43,16 +43,20 @@ def refine_multiview_texture(folder, source, target, recipe, progress, method='m
     source_sha = recipe['source_sha256']
     reference_sha = recipe['reference_sha256']
     if digest(source) != source_sha or digest(reference) != reference_sha:
-        raise ValueError('The model or saved cutout changed before texture refinement.')
+        raise ValueError('The model or saved reference changed before texture refinement.')
     select_gpu(ROOT)
     milestones = {94: .08, 95: .10, 96: .16, 97: .48, 99: .78}
-    # The original baked maps stay in source.glb. The optional runtime may modify this work copy.
-    copyfile(source, target)
     def notify(stage, percent):
         progress(stage, milestones.get(percent, percent / 100))
-    if method == 'ultratex':
+    if method == 'ultratex' and recipe.get('native_ultratex') is True:
+        from native_ultratex.existing_mesh import bake_copy
+
+        report = bake_copy(source, reference, target, target.parent, progress)
+        verified = 'geometry_uv_equal'
+    elif method == 'ultratex':
         from ultratex_runtime import refine
 
+        copyfile(source, target)
         settings = read(folder / 'settings.json')
         seed = settings.get('generation_options', {}).get('texture_seed', -1)
         if type(seed) is not int or seed < 0:
@@ -64,6 +68,7 @@ def refine_multiview_texture(folder, source, target, recipe, progress, method='m
     elif method == 'multiview':
         from multiview_texture_runtime import refine
 
+        copyfile(source, target)
         report = refine(ROOT, target, reference, notify)
         verified = 'geometry_uv_and_other_pbr_equal'
     else:
@@ -142,6 +147,8 @@ def run(folder):
             result.update(triangles=report['triangles'], vertices=report['vertices'],
                           texture_size=request['options']['texture_size'])
         elif operation == 'multiview_texture_refinement':
+            if report.get('texture_method') == 'ultratex':
+                result['texture_size'] = 2048
             if isinstance(result.get('finishing'), dict):
                 result['finishing'] = {**result['finishing'], 'model_sha256': report['model_sha256']}
         if 'retained_generation_views' in request:

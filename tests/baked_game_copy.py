@@ -15,10 +15,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import baked_game_copy as game
 
 
-def fixture(path, change=None):
+def fixture(path, change=None, *, automatic_normal=False, color=None):
     positions = np.array([[-1, 0, 0], [1, 0, 0], [1, 2, 0], [-1, 2, 0]], '<f4')
     arrays = [positions, np.tile([0, 0, 1], (4, 1)).astype('<f4'),
               np.array([[0, 0], [1, 0], [1, 1], [0, 1]], '<f4'), np.array([0, 1, 2, 0, 2, 3], '<u4')]
+    if automatic_normal:
+        arrays[1][0] = 0
     binary = bytearray()
     views, accessors = [], []
     for array, kind in zip(arrays, ['VEC3', 'VEC3', 'VEC2', 'SCALAR']):
@@ -36,6 +38,13 @@ def fixture(path, change=None):
                 materials=[dict(pbrMetallicRoughness=dict(baseColorTexture=dict(index=0)))],
                 meshes=[dict(primitives=[dict(attributes=dict(POSITION=0, NORMAL=1, TEXCOORD_0=2), indices=3, material=0)])],
                 nodes=[dict(mesh=0)], scenes=[dict(nodes=[0])], scene=0)
+    if color is not None:
+        colors = np.repeat(np.asarray([color], dtype='<f4'), len(positions), axis=0).tobytes()
+        views.append(dict(buffer=0, byteOffset=len(binary), byteLength=len(colors)))
+        accessors.append(dict(bufferView=len(views)-1, componentType=5126, count=len(positions), type='VEC4'))
+        data['meshes'][0]['primitives'][0]['attributes']['COLOR_0'] = len(accessors)-1
+        binary += colors
+        data['buffers'][0]['byteLength'] = len(binary)
     if change:
         change(data)
     descriptor = json.dumps(data).encode()
@@ -93,6 +102,35 @@ class GameCopyTests(TestCase):
             for change in changes:
                 fixture(path, change)
                 self.assertFalse(game.inspect_baked_game_copy(path)['supported'])
+
+    def test_native_root_preserves_local_protection_and_bakes_in_world_space(self):
+        def placed(data):
+            data['nodes'].extend([{'children': [0]}, {'children': [1], 'scale': [2, 2, 2],
+                                                      'translation': [3, .5, -1]}])
+            data['scenes'][0]['nodes'] = [2]
+
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / 'source.glb'
+            fixture(path, placed, automatic_normal=True)
+            original = path.read_bytes()
+            report = game.inspect_baked_game_copy(path)
+            self.assertTrue(report['supported'], report)
+            _, local, faces, placement = game._source(path)
+            np.testing.assert_allclose(local.min(0), [-1, 0, 0])
+            np.testing.assert_allclose(local.max(0), [1, 2, 0])
+            world = game.placed_vertices(local, placement)
+            np.testing.assert_allclose(world.min(0), [1, .5, -1])
+            np.testing.assert_allclose(world.max(0), [5, 4.5, -1])
+            self.assertEqual(len(faces), 2)
+            self.assertEqual(path.read_bytes(), original)
+
+    def test_only_neutral_vertex_colors_can_pass_through(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / 'source.glb'
+            fixture(path, color=[1, 1, 1, 1])
+            self.assertTrue(game.inspect_baked_game_copy(path)['supported'])
+            fixture(path, color=[0, 1, 1, 1])
+            self.assertIn('neutral white vertex colour', game.inspect_baked_game_copy(path)['reason'])
 
     def test_region_weights_scale_and_translation(self):
         rng = np.random.default_rng(42)

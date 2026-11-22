@@ -38,6 +38,8 @@ export async function openReductionRegionPreview(container, {
 
     try {
         if (!mesh || !Number.isFinite(span) || span <= 0) throw new Error('The model has no visible surface.');
+        mesh.geometry.computeBoundingBox();
+        const localSpan = mesh.geometry.boundingBox.getSize(new THREE.Vector3()).length();
         renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -132,7 +134,7 @@ export async function openReductionRegionPreview(container, {
         fit();
         observer = new ResizeObserver(resize);
         observer.observe(container);
-        return { span, fit, zoom, setMode, setZones, dispose };
+        return { localSpan, fit, zoom, setMode, setZones, dispose };
     } catch (error) {
         dispose();
         throw error;

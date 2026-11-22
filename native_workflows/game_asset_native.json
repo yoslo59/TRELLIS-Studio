@@ -1,0 +1,3298 @@
+{
+  "profile": "game_asset_native",
+  "stages": [
+    {
+      "id": "316",
+      "title": "Geometry engine",
+      "fields": [
+        {
+          "name": "value",
+          "label": "Geometry model",
+          "hint": "Selects the model that constructs the geometry. Pixal3D uses estimated camera intrinsics.",
+          "kind": "choice",
+          "default": false,
+          "choices": [
+            {
+              "label": "PiXal3D",
+              "value": false
+            },
+            {
+              "label": "TRELLIS.2",
+              "value": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "312",
+      "title": "Reference crop",
+      "fields": [
+        {
+          "name": "width",
+          "label": "Width",
+          "kind": "integer",
+          "default": 1024,
+          "hint": "Output width in pixels.",
+          "min": 64,
+          "max": 4096,
+          "step": 8
+        },
+        {
+          "name": "height",
+          "label": "Height",
+          "kind": "integer",
+          "default": 1024,
+          "hint": "Output height in pixels.",
+          "min": 64,
+          "max": 4096,
+          "step": 8
+        },
+        {
+          "name": "pad_factor",
+          "label": "Crop margin",
+          "kind": "number",
+          "default": 1.1,
+          "hint": "Scales the square crop around the subject before image conditioning.",
+          "min": 1.0,
+          "max": 2.0,
+          "step": 0.01
+        },
+        {
+          "name": "grow_mask",
+          "label": "Grow Mask",
+          "kind": "integer",
+          "default": 0,
+          "hint": "Grow or shrink the mask by this many pixels before cropping.",
+          "min": -32,
+          "max": 32,
+          "step": 1
+        },
+        {
+          "name": "background",
+          "label": "Background",
+          "kind": "text",
+          "default": "#000000",
+          "hint": "Background colour outside the segmented subject."
+        }
+      ]
+    },
+    {
+      "id": "193",
+      "title": "Background model (geometry)",
+      "fields": [
+        {
+          "name": "bg_removal_name",
+          "label": "Bg Removal Name",
+          "kind": "choice",
+          "default": "birefnet.safetensors",
+          "hint": "The model used to remove backgrounds from images",
+          "choices": [
+            {
+              "label": "birefnet.safetensors",
+              "value": "birefnet.safetensors"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "title": "Image encoder",
+      "fields": [
+        {
+          "name": "clip_name",
+          "label": "Clip Name",
+          "kind": "choice",
+          "default": "dino_v3_L_naf_fp32.safetensors",
+          "choices": [
+            {
+              "label": "dino_v3_L_naf_fp32.safetensors",
+              "value": "dino_v3_L_naf_fp32.safetensors"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "55",
+      "title": "Camera model",
+      "fields": [
+        {
+          "name": "model_name",
+          "label": "Model Name",
+          "kind": "choice",
+          "default": "moge_2_vitl_normal_fp16.safetensors",
+          "choices": [
+            {
+              "label": "moge_2_vitl_normal_fp16.safetensors",
+              "value": "moge_2_vitl_normal_fp16.safetensors"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "56",
+      "title": "Camera estimation",
+      "fields": [
+        {
+          "name": "resolution_level",
+          "label": "Resolution Level",
+          "kind": "integer",
+          "default": 9,
+          "hint": "0 = fastest, 9 = most detail.",
+          "min": 0,
+          "max": 9
+        },
+        {
+          "name": "fov_x_degrees",
+          "label": "FOV X Degrees",
+          "kind": "number",
+          "default": 0,
+          "hint": "Horizontal field of view of the source camera. Sets the focal length used to unproject the depth map into 3D. 0 = auto-recover from the predicted points.",
+          "min": 0.0,
+          "max": 170.0,
+          "step": 0.1
+        },
+        {
+          "name": "batch_size",
+          "label": "Batch Size",
+          "kind": "integer",
+          "default": 4,
+          "hint": "Images per inference call. Lower if you OOM on a long video / image set.",
+          "min": 1,
+          "max": 64
+        },
+        {
+          "name": "force_projection",
+          "label": "Force projection",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Uses the estimated camera to project the reconstructed reference points."
+        },
+        {
+          "name": "apply_mask",
+          "label": "Apply Mask",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Set masked-out (sky / invalid) pixels to inf in points and depth so meshing culls them. Disable to keep the raw predicted geometry everywhere; the mask is still returned separately."
+        },
+        {
+          "name": "refine_steps",
+          "label": "Refine Steps",
+          "kind": "integer",
+          "default": 3,
+          "hint": "MoGe-3 only: sparse volumetric refinement passes over the predicted depth. More passes sharpen fine detail and edges at a roughly linear cost. 0 disables refinement. Ignored by MoGe-1 / MoGe-2.",
+          "min": 0,
+          "max": 8
+        }
+      ]
+    },
+    {
+      "id": "242",
+      "title": "Field of view",
+      "fields": [
+        {
+          "name": "axis",
+          "label": "Axis",
+          "kind": "choice",
+          "default": "horizontal",
+          "hint": "'vertical' (fov_y), 'horizontal' (fov_x), or 'diagonal'.",
+          "choices": [
+            {
+              "label": "vertical",
+              "value": "vertical"
+            },
+            {
+              "label": "horizontal",
+              "value": "horizontal"
+            },
+            {
+              "label": "diagonal",
+              "value": "diagonal"
+            }
+          ]
+        },
+        {
+          "name": "unit",
+          "label": "Unit",
+          "kind": "choice",
+          "default": "degrees",
+          "hint": "Output unit for the FOV.",
+          "choices": [
+            {
+              "label": "degrees",
+              "value": "degrees"
+            },
+            {
+              "label": "radians",
+              "value": "radians"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Sparse structure sampling",
+      "fields": [
+        {
+          "name": "seed",
+          "label": "Seed",
+          "kind": "large_integer",
+          "default": "56",
+          "hint": "The random seed used for creating the noise.",
+          "min": "0",
+          "max": "18446744073709551615"
+        },
+        {
+          "name": "steps",
+          "label": "Steps",
+          "kind": "integer",
+          "default": 12,
+          "hint": "The number of steps used in the denoising process.",
+          "min": 1,
+          "max": 10000
+        },
+        {
+          "name": "cfg",
+          "label": "Guidance (CFG)",
+          "kind": "number",
+          "default": 7.5,
+          "hint": "The Classifier-Free Guidance scale balances creativity and adherence to the prompt. Higher values result in images more closely matching the prompt however too high values will negatively impact quality.",
+          "min": 0.0,
+          "max": 100.0,
+          "step": 0.1
+        },
+        {
+          "name": "sampler_name",
+          "label": "Sampler Name",
+          "kind": "choice",
+          "default": "euler",
+          "hint": "The algorithm used when sampling, this can affect the quality, speed, and style of the generated output.",
+          "choices": [
+            {
+              "label": "euler",
+              "value": "euler"
+            },
+            {
+              "label": "euler_cfg_pp",
+              "value": "euler_cfg_pp"
+            },
+            {
+              "label": "euler_ancestral",
+              "value": "euler_ancestral"
+            },
+            {
+              "label": "euler_ancestral_cfg_pp",
+              "value": "euler_ancestral_cfg_pp"
+            },
+            {
+              "label": "heun",
+              "value": "heun"
+            },
+            {
+              "label": "heunpp2",
+              "value": "heunpp2"
+            },
+            {
+              "label": "exp_heun_2_x0",
+              "value": "exp_heun_2_x0"
+            },
+            {
+              "label": "exp_heun_2_x0_sde",
+              "value": "exp_heun_2_x0_sde"
+            },
+            {
+              "label": "dpm_2",
+              "value": "dpm_2"
+            },
+            {
+              "label": "dpm_2_ancestral",
+              "value": "dpm_2_ancestral"
+            },
+            {
+              "label": "lms",
+              "value": "lms"
+            },
+            {
+              "label": "dpm_fast",
+              "value": "dpm_fast"
+            },
+            {
+              "label": "dpm_adaptive",
+              "value": "dpm_adaptive"
+            },
+            {
+              "label": "dpmpp_2s_ancestral",
+              "value": "dpmpp_2s_ancestral"
+            },
+            {
+              "label": "dpmpp_2s_ancestral_cfg_pp",
+              "value": "dpmpp_2s_ancestral_cfg_pp"
+            },
+            {
+              "label": "dpmpp_sde",
+              "value": "dpmpp_sde"
+            },
+            {
+              "label": "dpmpp_sde_gpu",
+              "value": "dpmpp_sde_gpu"
+            },
+            {
+              "label": "dpmpp_2m",
+              "value": "dpmpp_2m"
+            },
+            {
+              "label": "dpmpp_2m_cfg_pp",
+              "value": "dpmpp_2m_cfg_pp"
+            },
+            {
+              "label": "dpmpp_2m_sde",
+              "value": "dpmpp_2m_sde"
+            },
+            {
+              "label": "dpmpp_2m_sde_gpu",
+              "value": "dpmpp_2m_sde_gpu"
+            },
+            {
+              "label": "dpmpp_2m_sde_heun",
+              "value": "dpmpp_2m_sde_heun"
+            },
+            {
+              "label": "dpmpp_2m_sde_heun_gpu",
+              "value": "dpmpp_2m_sde_heun_gpu"
+            },
+            {
+              "label": "dpmpp_3m_sde",
+              "value": "dpmpp_3m_sde"
+            },
+            {
+              "label": "dpmpp_3m_sde_gpu",
+              "value": "dpmpp_3m_sde_gpu"
+            },
+            {
+              "label": "ddpm",
+              "value": "ddpm"
+            },
+            {
+              "label": "lcm",
+              "value": "lcm"
+            },
+            {
+              "label": "ipndm",
+              "value": "ipndm"
+            },
+            {
+              "label": "ipndm_v",
+              "value": "ipndm_v"
+            },
+            {
+              "label": "deis",
+              "value": "deis"
+            },
+            {
+              "label": "cfgpp_ud10_ab",
+              "value": "cfgpp_ud10_ab"
+            },
+            {
+              "label": "res_multistep",
+              "value": "res_multistep"
+            },
+            {
+              "label": "res_multistep_cfg_pp",
+              "value": "res_multistep_cfg_pp"
+            },
+            {
+              "label": "res_multistep_ancestral",
+              "value": "res_multistep_ancestral"
+            },
+            {
+              "label": "res_multistep_ancestral_cfg_pp",
+              "value": "res_multistep_ancestral_cfg_pp"
+            },
+            {
+              "label": "gradient_estimation",
+              "value": "gradient_estimation"
+            },
+            {
+              "label": "gradient_estimation_cfg_pp",
+              "value": "gradient_estimation_cfg_pp"
+            },
+            {
+              "label": "er_sde",
+              "value": "er_sde"
+            },
+            {
+              "label": "seeds_2",
+              "value": "seeds_2"
+            },
+            {
+              "label": "seeds_3",
+              "value": "seeds_3"
+            },
+            {
+              "label": "sa_solver",
+              "value": "sa_solver"
+            },
+            {
+              "label": "sa_solver_pece",
+              "value": "sa_solver_pece"
+            },
+            {
+              "label": "ddim",
+              "value": "ddim"
+            },
+            {
+              "label": "uni_pc",
+              "value": "uni_pc"
+            },
+            {
+              "label": "uni_pc_bh2",
+              "value": "uni_pc_bh2"
+            }
+          ]
+        },
+        {
+          "name": "scheduler",
+          "label": "Scheduler",
+          "kind": "choice",
+          "default": "normal",
+          "hint": "The scheduler controls how noise is gradually removed to form the image.",
+          "choices": [
+            {
+              "label": "simple",
+              "value": "simple"
+            },
+            {
+              "label": "sgm_uniform",
+              "value": "sgm_uniform"
+            },
+            {
+              "label": "karras",
+              "value": "karras"
+            },
+            {
+              "label": "exponential",
+              "value": "exponential"
+            },
+            {
+              "label": "ddim_uniform",
+              "value": "ddim_uniform"
+            },
+            {
+              "label": "beta",
+              "value": "beta"
+            },
+            {
+              "label": "normal",
+              "value": "normal"
+            },
+            {
+              "label": "linear_quadratic",
+              "value": "linear_quadratic"
+            },
+            {
+              "label": "kl_optimal",
+              "value": "kl_optimal"
+            }
+          ]
+        },
+        {
+          "name": "denoise",
+          "label": "Denoise",
+          "kind": "number",
+          "default": 1,
+          "hint": "Samples the tail of the noise schedule. Full denoise uses all steps from the reference recipe.",
+          "min": 0.01,
+          "max": 1.0,
+          "step": 0.01
+        }
+      ]
+    },
+    {
+      "id": "108",
+      "title": "Structure timestep shift",
+      "fields": [
+        {
+          "name": "shift",
+          "label": "Timestep shift",
+          "kind": "number",
+          "default": 5,
+          "min": 0.01,
+          "max": 100.0,
+          "step": 0.01
+        }
+      ]
+    },
+    {
+      "id": "125",
+      "title": "Structure guidance rescale",
+      "fields": [
+        {
+          "name": "multiplier",
+          "label": "Multiplier",
+          "kind": "number",
+          "default": 0.7,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        }
+      ]
+    },
+    {
+      "id": "87",
+      "title": "Initial structure",
+      "fields": [
+        {
+          "name": "batch_size",
+          "label": "Batch Size",
+          "kind": "integer",
+          "default": 1,
+          "hint": "The number of latent images in the batch.",
+          "min": 1,
+          "max": 4096
+        }
+      ]
+    },
+    {
+      "id": "119",
+      "title": "Structure decoding",
+      "fields": [
+        {
+          "name": "resolution",
+          "label": "Resolution",
+          "kind": "choice",
+          "default": "32",
+          "choices": [
+            {
+              "label": "32",
+              "value": "32"
+            },
+            {
+              "label": "64",
+              "value": "64"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "18",
+      "title": "Shape sampling · first pass",
+      "fields": [
+        {
+          "name": "seed",
+          "label": "Seed",
+          "kind": "large_integer",
+          "default": "42",
+          "hint": "The random seed used for creating the noise.",
+          "min": "0",
+          "max": "18446744073709551615"
+        },
+        {
+          "name": "steps",
+          "label": "Steps",
+          "kind": "integer",
+          "default": 20,
+          "hint": "The number of steps used in the denoising process.",
+          "min": 1,
+          "max": 10000
+        },
+        {
+          "name": "cfg",
+          "label": "Guidance (CFG)",
+          "kind": "number",
+          "default": 7.5,
+          "hint": "The Classifier-Free Guidance scale balances creativity and adherence to the prompt. Higher values result in images more closely matching the prompt however too high values will negatively impact quality.",
+          "min": 0.0,
+          "max": 100.0,
+          "step": 0.1
+        },
+        {
+          "name": "sampler_name",
+          "label": "Sampler Name",
+          "kind": "choice",
+          "default": "euler",
+          "hint": "The algorithm used when sampling, this can affect the quality, speed, and style of the generated output.",
+          "choices": [
+            {
+              "label": "euler",
+              "value": "euler"
+            },
+            {
+              "label": "euler_cfg_pp",
+              "value": "euler_cfg_pp"
+            },
+            {
+              "label": "euler_ancestral",
+              "value": "euler_ancestral"
+            },
+            {
+              "label": "euler_ancestral_cfg_pp",
+              "value": "euler_ancestral_cfg_pp"
+            },
+            {
+              "label": "heun",
+              "value": "heun"
+            },
+            {
+              "label": "heunpp2",
+              "value": "heunpp2"
+            },
+            {
+              "label": "exp_heun_2_x0",
+              "value": "exp_heun_2_x0"
+            },
+            {
+              "label": "exp_heun_2_x0_sde",
+              "value": "exp_heun_2_x0_sde"
+            },
+            {
+              "label": "dpm_2",
+              "value": "dpm_2"
+            },
+            {
+              "label": "dpm_2_ancestral",
+              "value": "dpm_2_ancestral"
+            },
+            {
+              "label": "lms",
+              "value": "lms"
+            },
+            {
+              "label": "dpm_fast",
+              "value": "dpm_fast"
+            },
+            {
+              "label": "dpm_adaptive",
+              "value": "dpm_adaptive"
+            },
+            {
+              "label": "dpmpp_2s_ancestral",
+              "value": "dpmpp_2s_ancestral"
+            },
+            {
+              "label": "dpmpp_2s_ancestral_cfg_pp",
+              "value": "dpmpp_2s_ancestral_cfg_pp"
+            },
+            {
+              "label": "dpmpp_sde",
+              "value": "dpmpp_sde"
+            },
+            {
+              "label": "dpmpp_sde_gpu",
+              "value": "dpmpp_sde_gpu"
+            },
+            {
+              "label": "dpmpp_2m",
+              "value": "dpmpp_2m"
+            },
+            {
+              "label": "dpmpp_2m_cfg_pp",
+              "value": "dpmpp_2m_cfg_pp"
+            },
+            {
+              "label": "dpmpp_2m_sde",
+              "value": "dpmpp_2m_sde"
+            },
+            {
+              "label": "dpmpp_2m_sde_gpu",
+              "value": "dpmpp_2m_sde_gpu"
+            },
+            {
+              "label": "dpmpp_2m_sde_heun",
+              "value": "dpmpp_2m_sde_heun"
+            },
+            {
+              "label": "dpmpp_2m_sde_heun_gpu",
+              "value": "dpmpp_2m_sde_heun_gpu"
+            },
+            {
+              "label": "dpmpp_3m_sde",
+              "value": "dpmpp_3m_sde"
+            },
+            {
+              "label": "dpmpp_3m_sde_gpu",
+              "value": "dpmpp_3m_sde_gpu"
+            },
+            {
+              "label": "ddpm",
+              "value": "ddpm"
+            },
+            {
+              "label": "lcm",
+              "value": "lcm"
+            },
+            {
+              "label": "ipndm",
+              "value": "ipndm"
+            },
+            {
+              "label": "ipndm_v",
+              "value": "ipndm_v"
+            },
+            {
+              "label": "deis",
+              "value": "deis"
+            },
+            {
+              "label": "cfgpp_ud10_ab",
+              "value": "cfgpp_ud10_ab"
+            },
+            {
+              "label": "res_multistep",
+              "value": "res_multistep"
+            },
+            {
+              "label": "res_multistep_cfg_pp",
+              "value": "res_multistep_cfg_pp"
+            },
+            {
+              "label": "res_multistep_ancestral",
+              "value": "res_multistep_ancestral"
+            },
+            {
+              "label": "res_multistep_ancestral_cfg_pp",
+              "value": "res_multistep_ancestral_cfg_pp"
+            },
+            {
+              "label": "gradient_estimation",
+              "value": "gradient_estimation"
+            },
+            {
+              "label": "gradient_estimation_cfg_pp",
+              "value": "gradient_estimation_cfg_pp"
+            },
+            {
+              "label": "er_sde",
+              "value": "er_sde"
+            },
+            {
+              "label": "seeds_2",
+              "value": "seeds_2"
+            },
+            {
+              "label": "seeds_3",
+              "value": "seeds_3"
+            },
+            {
+              "label": "sa_solver",
+              "value": "sa_solver"
+            },
+            {
+              "label": "sa_solver_pece",
+              "value": "sa_solver_pece"
+            },
+            {
+              "label": "ddim",
+              "value": "ddim"
+            },
+            {
+              "label": "uni_pc",
+              "value": "uni_pc"
+            },
+            {
+              "label": "uni_pc_bh2",
+              "value": "uni_pc_bh2"
+            }
+          ]
+        },
+        {
+          "name": "scheduler",
+          "label": "Scheduler",
+          "kind": "choice",
+          "default": "normal",
+          "hint": "The scheduler controls how noise is gradually removed to form the image.",
+          "choices": [
+            {
+              "label": "simple",
+              "value": "simple"
+            },
+            {
+              "label": "sgm_uniform",
+              "value": "sgm_uniform"
+            },
+            {
+              "label": "karras",
+              "value": "karras"
+            },
+            {
+              "label": "exponential",
+              "value": "exponential"
+            },
+            {
+              "label": "ddim_uniform",
+              "value": "ddim_uniform"
+            },
+            {
+              "label": "beta",
+              "value": "beta"
+            },
+            {
+              "label": "normal",
+              "value": "normal"
+            },
+            {
+              "label": "linear_quadratic",
+              "value": "linear_quadratic"
+            },
+            {
+              "label": "kl_optimal",
+              "value": "kl_optimal"
+            }
+          ]
+        },
+        {
+          "name": "denoise",
+          "label": "Denoise",
+          "kind": "number",
+          "default": 1,
+          "hint": "Samples the tail of the noise schedule. Full denoise uses all steps from the reference recipe.",
+          "min": 0.01,
+          "max": 1.0,
+          "step": 0.01
+        }
+      ]
+    },
+    {
+      "id": "126",
+      "title": "Shape guidance rescale",
+      "fields": [
+        {
+          "name": "multiplier",
+          "label": "Multiplier",
+          "kind": "number",
+          "default": 0.5,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        }
+      ]
+    },
+    {
+      "id": "199",
+      "title": "Guidance override · first pass",
+      "fields": [
+        {
+          "name": "cfg",
+          "label": "Guidance (CFG)",
+          "kind": "number",
+          "default": 1,
+          "min": 0.0,
+          "max": 100.0,
+          "step": 0.1
+        },
+        {
+          "name": "start_percent",
+          "label": "Start Percent",
+          "kind": "number",
+          "default": 0.667,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.001
+        },
+        {
+          "name": "end_percent",
+          "label": "End Percent",
+          "kind": "number",
+          "default": 1,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.001
+        }
+      ]
+    },
+    {
+      "id": "23",
+      "title": "Shape sampling · second pass",
+      "fields": [
+        {
+          "name": "seed",
+          "label": "Seed",
+          "kind": "large_integer",
+          "default": "42",
+          "hint": "The random seed used for creating the noise.",
+          "min": "0",
+          "max": "18446744073709551615"
+        },
+        {
+          "name": "steps",
+          "label": "Steps",
+          "kind": "integer",
+          "default": 12,
+          "hint": "The number of steps used in the denoising process.",
+          "min": 1,
+          "max": 10000
+        },
+        {
+          "name": "cfg",
+          "label": "Guidance (CFG)",
+          "kind": "number",
+          "default": 7.5,
+          "hint": "The Classifier-Free Guidance scale balances creativity and adherence to the prompt. Higher values result in images more closely matching the prompt however too high values will negatively impact quality.",
+          "min": 0.0,
+          "max": 100.0,
+          "step": 0.1
+        },
+        {
+          "name": "sampler_name",
+          "label": "Sampler Name",
+          "kind": "choice",
+          "default": "euler",
+          "hint": "The algorithm used when sampling, this can affect the quality, speed, and style of the generated output.",
+          "choices": [
+            {
+              "label": "euler",
+              "value": "euler"
+            },
+            {
+              "label": "euler_cfg_pp",
+              "value": "euler_cfg_pp"
+            },
+            {
+              "label": "euler_ancestral",
+              "value": "euler_ancestral"
+            },
+            {
+              "label": "euler_ancestral_cfg_pp",
+              "value": "euler_ancestral_cfg_pp"
+            },
+            {
+              "label": "heun",
+              "value": "heun"
+            },
+            {
+              "label": "heunpp2",
+              "value": "heunpp2"
+            },
+            {
+              "label": "exp_heun_2_x0",
+              "value": "exp_heun_2_x0"
+            },
+            {
+              "label": "exp_heun_2_x0_sde",
+              "value": "exp_heun_2_x0_sde"
+            },
+            {
+              "label": "dpm_2",
+              "value": "dpm_2"
+            },
+            {
+              "label": "dpm_2_ancestral",
+              "value": "dpm_2_ancestral"
+            },
+            {
+              "label": "lms",
+              "value": "lms"
+            },
+            {
+              "label": "dpm_fast",
+              "value": "dpm_fast"
+            },
+            {
+              "label": "dpm_adaptive",
+              "value": "dpm_adaptive"
+            },
+            {
+              "label": "dpmpp_2s_ancestral",
+              "value": "dpmpp_2s_ancestral"
+            },
+            {
+              "label": "dpmpp_2s_ancestral_cfg_pp",
+              "value": "dpmpp_2s_ancestral_cfg_pp"
+            },
+            {
+              "label": "dpmpp_sde",
+              "value": "dpmpp_sde"
+            },
+            {
+              "label": "dpmpp_sde_gpu",
+              "value": "dpmpp_sde_gpu"
+            },
+            {
+              "label": "dpmpp_2m",
+              "value": "dpmpp_2m"
+            },
+            {
+              "label": "dpmpp_2m_cfg_pp",
+              "value": "dpmpp_2m_cfg_pp"
+            },
+            {
+              "label": "dpmpp_2m_sde",
+              "value": "dpmpp_2m_sde"
+            },
+            {
+              "label": "dpmpp_2m_sde_gpu",
+              "value": "dpmpp_2m_sde_gpu"
+            },
+            {
+              "label": "dpmpp_2m_sde_heun",
+              "value": "dpmpp_2m_sde_heun"
+            },
+            {
+              "label": "dpmpp_2m_sde_heun_gpu",
+              "value": "dpmpp_2m_sde_heun_gpu"
+            },
+            {
+              "label": "dpmpp_3m_sde",
+              "value": "dpmpp_3m_sde"
+            },
+            {
+              "label": "dpmpp_3m_sde_gpu",
+              "value": "dpmpp_3m_sde_gpu"
+            },
+            {
+              "label": "ddpm",
+              "value": "ddpm"
+            },
+            {
+              "label": "lcm",
+              "value": "lcm"
+            },
+            {
+              "label": "ipndm",
+              "value": "ipndm"
+            },
+            {
+              "label": "ipndm_v",
+              "value": "ipndm_v"
+            },
+            {
+              "label": "deis",
+              "value": "deis"
+            },
+            {
+              "label": "cfgpp_ud10_ab",
+              "value": "cfgpp_ud10_ab"
+            },
+            {
+              "label": "res_multistep",
+              "value": "res_multistep"
+            },
+            {
+              "label": "res_multistep_cfg_pp",
+              "value": "res_multistep_cfg_pp"
+            },
+            {
+              "label": "res_multistep_ancestral",
+              "value": "res_multistep_ancestral"
+            },
+            {
+              "label": "res_multistep_ancestral_cfg_pp",
+              "value": "res_multistep_ancestral_cfg_pp"
+            },
+            {
+              "label": "gradient_estimation",
+              "value": "gradient_estimation"
+            },
+            {
+              "label": "gradient_estimation_cfg_pp",
+              "value": "gradient_estimation_cfg_pp"
+            },
+            {
+              "label": "er_sde",
+              "value": "er_sde"
+            },
+            {
+              "label": "seeds_2",
+              "value": "seeds_2"
+            },
+            {
+              "label": "seeds_3",
+              "value": "seeds_3"
+            },
+            {
+              "label": "sa_solver",
+              "value": "sa_solver"
+            },
+            {
+              "label": "sa_solver_pece",
+              "value": "sa_solver_pece"
+            },
+            {
+              "label": "ddim",
+              "value": "ddim"
+            },
+            {
+              "label": "uni_pc",
+              "value": "uni_pc"
+            },
+            {
+              "label": "uni_pc_bh2",
+              "value": "uni_pc_bh2"
+            }
+          ]
+        },
+        {
+          "name": "scheduler",
+          "label": "Scheduler",
+          "kind": "choice",
+          "default": "simple",
+          "hint": "The scheduler controls how noise is gradually removed to form the image.",
+          "choices": [
+            {
+              "label": "simple",
+              "value": "simple"
+            },
+            {
+              "label": "sgm_uniform",
+              "value": "sgm_uniform"
+            },
+            {
+              "label": "karras",
+              "value": "karras"
+            },
+            {
+              "label": "exponential",
+              "value": "exponential"
+            },
+            {
+              "label": "ddim_uniform",
+              "value": "ddim_uniform"
+            },
+            {
+              "label": "beta",
+              "value": "beta"
+            },
+            {
+              "label": "normal",
+              "value": "normal"
+            },
+            {
+              "label": "linear_quadratic",
+              "value": "linear_quadratic"
+            },
+            {
+              "label": "kl_optimal",
+              "value": "kl_optimal"
+            }
+          ]
+        },
+        {
+          "name": "denoise",
+          "label": "Denoise",
+          "kind": "number",
+          "default": 1,
+          "hint": "Samples the tail of the noise schedule. Full denoise uses all steps from the reference recipe.",
+          "min": 0.01,
+          "max": 1.0,
+          "step": 0.01
+        }
+      ]
+    },
+    {
+      "id": "94",
+      "title": "Shape upsampling",
+      "fields": [
+        {
+          "name": "target_resolution",
+          "label": "Target Resolution",
+          "kind": "integer",
+          "default": 1536,
+          "hint": "Voxel resolution of the upsampled shape. Higher = more detail, more VRAM.",
+          "min": 1024,
+          "max": 2048,
+          "step": 128,
+          "enforce_step": true
+        }
+      ]
+    },
+    {
+      "id": "279",
+      "title": "Guidance override · second pass",
+      "fields": [
+        {
+          "name": "cfg",
+          "label": "Guidance (CFG)",
+          "kind": "number",
+          "default": 1,
+          "min": 0.0,
+          "max": 100.0,
+          "step": 0.1
+        },
+        {
+          "name": "start_percent",
+          "label": "Start Percent",
+          "kind": "number",
+          "default": 0.769,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.001
+        },
+        {
+          "name": "end_percent",
+          "label": "End Percent",
+          "kind": "number",
+          "default": 1,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.001
+        }
+      ]
+    },
+    {
+      "id": "40",
+      "title": "TRELLIS.2 checkpoint",
+      "fields": [
+        {
+          "name": "unet_name",
+          "label": "Unet Name",
+          "kind": "choice",
+          "default": "trellis_2_int8_convrot.safetensors",
+          "choices": [
+            {
+              "label": "pixal3d_int8_convrot.safetensors",
+              "value": "pixal3d_int8_convrot.safetensors"
+            },
+            {
+              "label": "trellis_2_int8_convrot.safetensors",
+              "value": "trellis_2_int8_convrot.safetensors"
+            }
+          ]
+        },
+        {
+          "name": "weight_dtype",
+          "label": "Weight Dtype",
+          "kind": "choice",
+          "default": "default",
+          "choices": [
+            {
+              "label": "default",
+              "value": "default"
+            },
+            {
+              "label": "fp8_e4m3fn",
+              "value": "fp8_e4m3fn"
+            },
+            {
+              "label": "fp8_e4m3fn_fast",
+              "value": "fp8_e4m3fn_fast"
+            },
+            {
+              "label": "fp8_e5m2",
+              "value": "fp8_e5m2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "319",
+      "title": "Pixal3D checkpoint",
+      "fields": [
+        {
+          "name": "unet_name",
+          "label": "Unet Name",
+          "kind": "choice",
+          "default": "pixal3d_int8_convrot.safetensors",
+          "choices": [
+            {
+              "label": "pixal3d_int8_convrot.safetensors",
+              "value": "pixal3d_int8_convrot.safetensors"
+            },
+            {
+              "label": "trellis_2_int8_convrot.safetensors",
+              "value": "trellis_2_int8_convrot.safetensors"
+            }
+          ]
+        },
+        {
+          "name": "weight_dtype",
+          "label": "Weight Dtype",
+          "kind": "choice",
+          "default": "default",
+          "choices": [
+            {
+              "label": "default",
+              "value": "default"
+            },
+            {
+              "label": "fp8_e4m3fn",
+              "value": "fp8_e4m3fn"
+            },
+            {
+              "label": "fp8_e4m3fn_fast",
+              "value": "fp8_e4m3fn_fast"
+            },
+            {
+              "label": "fp8_e5m2",
+              "value": "fp8_e5m2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "117",
+      "title": "Geometry decoder",
+      "fields": [
+        {
+          "name": "vae_name",
+          "label": "Vae Name",
+          "kind": "choice",
+          "default": "trellis_2_shape_vae_bf16.safetensors",
+          "choices": [
+            {
+              "label": "flux2-vae.safetensors",
+              "value": "flux2-vae.safetensors"
+            },
+            {
+              "label": "trellis_2_shape_vae_bf16.safetensors",
+              "value": "trellis_2_shape_vae_bf16.safetensors"
+            },
+            {
+              "label": "pixel_space",
+              "value": "pixel_space"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "325",
+      "title": "QuadDC reconstruction",
+      "fields": [
+        {
+          "name": "remesh_band",
+          "label": "Remesh Band",
+          "kind": "number",
+          "default": 1,
+          "min": 0.1,
+          "max": 10.0,
+          "step": 0.1
+        },
+        {
+          "name": "resolution",
+          "label": "Resolution",
+          "kind": "choice",
+          "default": 1536,
+          "choices": [
+            {
+              "label": "512",
+              "value": 512
+            },
+            {
+              "label": "1024",
+              "value": 1024
+            },
+            {
+              "label": "1536",
+              "value": 1536
+            },
+            {
+              "label": "2048",
+              "value": 2048
+            },
+            {
+              "label": "2560",
+              "value": 2560
+            },
+            {
+              "label": "3072",
+              "value": 3072
+            },
+            {
+              "label": "3584",
+              "value": 3584
+            },
+            {
+              "label": "4096",
+              "value": 4096
+            },
+            {
+              "label": "4608",
+              "value": 4608
+            },
+            {
+              "label": "5120",
+              "value": 5120
+            },
+            {
+              "label": "5632",
+              "value": 5632
+            },
+            {
+              "label": "6144",
+              "value": 6144
+            },
+            {
+              "label": "6656",
+              "value": 6656
+            },
+            {
+              "label": "7168",
+              "value": 7168
+            },
+            {
+              "label": "7680",
+              "value": 7680
+            },
+            {
+              "label": "8192",
+              "value": 8192
+            }
+          ]
+        },
+        {
+          "name": "remove_floaters",
+          "label": "Remove Floaters",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Removes small disconnected components after reconstruction."
+        },
+        {
+          "name": "remove_inner_faces",
+          "label": "Remove Inner Faces",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Drops duplicate interior faces from the reconstructed surface."
+        }
+      ]
+    },
+    {
+      "id": "327",
+      "title": "WTiVo surface closure",
+      "fields": [
+        {
+          "name": "input_res",
+          "label": "Input resolution",
+          "kind": "integer",
+          "default": 1536,
+          "min": 256,
+          "max": 8192,
+          "step": 128
+        },
+        {
+          "name": "final_res",
+          "label": "Output resolution",
+          "kind": "integer",
+          "default": 1536,
+          "min": 256,
+          "max": 8192,
+          "step": 128
+        },
+        {
+          "name": "proxy_points",
+          "label": "Proxy Points",
+          "kind": "integer",
+          "default": 12000000,
+          "min": 4,
+          "max": 100000000,
+          "step": 1
+        },
+        {
+          "name": "proxy_eps_scale",
+          "label": "Proxy Eps Scale",
+          "kind": "number",
+          "default": 1,
+          "min": 0.25,
+          "max": 4.0,
+          "step": 0.05
+        },
+        {
+          "name": "proxy_feature_weight",
+          "label": "Proxy Feature Weight",
+          "kind": "number",
+          "default": 1.5,
+          "min": 0.0,
+          "max": 20.0,
+          "step": 0.05
+        },
+        {
+          "name": "lambda_fill",
+          "label": "Lambda Fill",
+          "kind": "number",
+          "default": 20,
+          "min": 0.0,
+          "max": 1000.0,
+          "step": 1.0
+        },
+        {
+          "name": "threads",
+          "label": "Threads",
+          "kind": "integer",
+          "default": 16,
+          "min": 1,
+          "max": 2147483647,
+          "step": 1
+        },
+        {
+          "name": "thin_iso_vox",
+          "label": "Thin Iso Vox",
+          "kind": "number",
+          "default": 0,
+          "min": -2.0,
+          "max": 2.0,
+          "step": 0.05
+        },
+        {
+          "name": "faithc_component_mode",
+          "label": "Faithc Component Mode",
+          "kind": "choice",
+          "default": "largest",
+          "choices": [
+            {
+              "label": "auto",
+              "value": "auto"
+            },
+            {
+              "label": "keep_all",
+              "value": "keep_all"
+            },
+            {
+              "label": "largest",
+              "value": "largest"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "328",
+      "title": "Dense donor reduction",
+      "fields": [
+        {
+          "name": "target_tris",
+          "label": "Target triangles",
+          "kind": "integer",
+          "default": 6000000,
+          "min": 1,
+          "max": 10000000,
+          "step": 1
+        },
+        {
+          "name": "passes",
+          "label": "Passes",
+          "kind": "integer",
+          "default": 100,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "tolerance",
+          "label": "Tolerance",
+          "kind": "number",
+          "default": 1.05,
+          "min": 1.0,
+          "max": 2.0,
+          "step": 0.001
+        },
+        {
+          "name": "intermediate_ratio",
+          "label": "Intermediate Ratio",
+          "kind": "number",
+          "default": 0.5,
+          "min": 0.001,
+          "max": 1.0,
+          "step": 0.001
+        },
+        {
+          "name": "last_ratio",
+          "label": "Last Ratio",
+          "kind": "number",
+          "default": 0.25,
+          "min": 0.001,
+          "max": 1.0,
+          "step": 0.001
+        },
+        {
+          "name": "final_ratio",
+          "label": "Final Ratio",
+          "kind": "number",
+          "default": 0.2,
+          "min": 0.001,
+          "max": 1.0,
+          "step": 0.001
+        },
+        {
+          "name": "triangulate",
+          "label": "Triangulate",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "symmetry",
+          "label": "Symmetry",
+          "kind": "boolean",
+          "default": false
+        },
+        {
+          "name": "voxel_rebuild",
+          "label": "Voxel Rebuild",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "relative_voxel_size",
+          "label": "Relative Voxel Size",
+          "kind": "number",
+          "default": 0.001,
+          "min": 1e-05,
+          "max": 0.1,
+          "step": 1e-05
+        },
+        {
+          "name": "minimum_voxel_size",
+          "label": "Minimum Voxel Size",
+          "kind": "number",
+          "default": 1e-06,
+          "min": 1e-06,
+          "max": 1.0,
+          "step": 1e-06
+        },
+        {
+          "name": "seal_distance",
+          "label": "Seal Distance",
+          "kind": "number",
+          "default": 0.0001,
+          "min": 1e-06,
+          "max": 0.1,
+          "step": 1e-06
+        },
+        {
+          "name": "seal_max_steps",
+          "label": "Seal Max Steps",
+          "kind": "integer",
+          "default": 100,
+          "hint": "Sets the number of sampling steps in this stage.",
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "seal_keep_trying",
+          "label": "Seal Keep Trying",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "timeout_seconds",
+          "label": "Timeout Seconds",
+          "kind": "integer",
+          "default": 1800,
+          "min": 0,
+          "max": 86400,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "335",
+      "title": "Game mesh reduction",
+      "fields": [
+        {
+          "name": "target_tris",
+          "label": "Target triangles",
+          "kind": "integer",
+          "default": 12000,
+          "min": 1,
+          "max": 10000000,
+          "step": 1
+        },
+        {
+          "name": "passes",
+          "label": "Passes",
+          "kind": "integer",
+          "default": 3,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "tolerance",
+          "label": "Tolerance",
+          "kind": "number",
+          "default": 1.05,
+          "min": 1.0,
+          "max": 2.0,
+          "step": 0.001
+        },
+        {
+          "name": "intermediate_ratio",
+          "label": "Intermediate Ratio",
+          "kind": "number",
+          "default": 0.5,
+          "min": 0.001,
+          "max": 1.0,
+          "step": 0.001
+        },
+        {
+          "name": "last_ratio",
+          "label": "Last Ratio",
+          "kind": "number",
+          "default": 0.25,
+          "min": 0.001,
+          "max": 1.0,
+          "step": 0.001
+        },
+        {
+          "name": "final_ratio",
+          "label": "Final Ratio",
+          "kind": "number",
+          "default": 0.2,
+          "min": 0.001,
+          "max": 1.0,
+          "step": 0.001
+        },
+        {
+          "name": "triangulate",
+          "label": "Triangulate",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "symmetry",
+          "label": "Symmetry",
+          "kind": "boolean",
+          "default": false
+        },
+        {
+          "name": "voxel_rebuild",
+          "label": "Voxel Rebuild",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "relative_voxel_size",
+          "label": "Relative Voxel Size",
+          "kind": "number",
+          "default": 0.0015,
+          "min": 1e-05,
+          "max": 0.1,
+          "step": 1e-05
+        },
+        {
+          "name": "minimum_voxel_size",
+          "label": "Minimum Voxel Size",
+          "kind": "number",
+          "default": 1e-06,
+          "min": 1e-06,
+          "max": 1.0,
+          "step": 1e-06
+        },
+        {
+          "name": "seal_distance",
+          "label": "Seal Distance",
+          "kind": "number",
+          "default": 0.0001,
+          "min": 1e-06,
+          "max": 0.1,
+          "step": 1e-06
+        },
+        {
+          "name": "seal_max_steps",
+          "label": "Seal Max Steps",
+          "kind": "integer",
+          "default": 100,
+          "hint": "Sets the number of sampling steps in this stage.",
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "seal_keep_trying",
+          "label": "Seal Keep Trying",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "timeout_seconds",
+          "label": "Timeout Seconds",
+          "kind": "integer",
+          "default": 1800,
+          "min": 0,
+          "max": 86400,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "337",
+      "title": "UV unwrapping",
+      "fields": [
+        {
+          "name": "segmenter",
+          "label": "Segmenter",
+          "kind": "choice",
+          "default": "pec",
+          "hint": "pec: fast parallel-edge-collapse charting on GPU. adaptive: CPU, slower.",
+          "choices": [
+            {
+              "label": "pec",
+              "value": "pec"
+            },
+            {
+              "label": "adaptive",
+              "value": "adaptive"
+            }
+          ]
+        },
+        {
+          "name": "resolution",
+          "label": "Resolution",
+          "kind": "integer",
+          "default": 1536,
+          "hint": "Target atlas resolution for texel-density auto-scale (0 = fit-to-content).",
+          "min": 0,
+          "max": 8192,
+          "step": 256
+        },
+        {
+          "name": "padding",
+          "label": "Island padding",
+          "kind": "integer",
+          "default": 2,
+          "hint": "Keeps space between adjacent UV islands.",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "name": "weld_distance",
+          "label": "Weld Distance",
+          "kind": "number",
+          "default": 0.0002,
+          "hint": "Coincident-vert merge radius as a fraction of mesh extent (0 = auto). Raise to ~0.001 if you get per-triangle charts (unwelded input).",
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.0001
+        }
+      ]
+    },
+    {
+      "id": "338",
+      "title": "Smooth normals",
+      "fields": [
+        {
+          "name": "crease_angle",
+          "label": "Crease Angle",
+          "kind": "number",
+          "default": 180,
+          "hint": "Edges whose dihedral angle exceeds this value (degrees) stay hard (vertices are split). 180 = fully smooth; lower preserves sharp edges (e.g. ~30-60 for hard-surface).",
+          "min": 0.0,
+          "max": 180.0,
+          "step": 1.0
+        }
+      ]
+    },
+    {
+      "id": "341",
+      "title": "Normal and material bake",
+      "fields": [
+        {
+          "name": "prefer_gpu_baking",
+          "label": "Prefer GPU Baking",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "hybrid_cpu_gpu_baking",
+          "label": "Hybrid CPU GPU Baking",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "bake_sample_count",
+          "label": "Bake Sample Count",
+          "kind": "integer",
+          "default": 1,
+          "min": 1,
+          "max": 4096
+        },
+        {
+          "name": "bake_normal_detail",
+          "label": "Bake Normal Detail",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "normal_map_resolution",
+          "label": "Normal Map Resolution",
+          "kind": "integer",
+          "default": 2048,
+          "min": 16,
+          "max": 32768
+        },
+        {
+          "name": "copy_base_color_texture",
+          "label": "Copy Base Color Texture",
+          "kind": "boolean",
+          "default": false
+        },
+        {
+          "name": "base_color_resolution",
+          "label": "Base Color Resolution",
+          "kind": "integer",
+          "default": 2048,
+          "min": 16,
+          "max": 32768
+        },
+        {
+          "name": "bake_roughness_texture",
+          "label": "Bake Roughness Texture",
+          "kind": "boolean",
+          "default": false
+        },
+        {
+          "name": "roughness_resolution",
+          "label": "Roughness Resolution",
+          "kind": "integer",
+          "default": 2048,
+          "min": 16,
+          "max": 32768
+        },
+        {
+          "name": "bake_metallic_texture",
+          "label": "Bake Metallic Texture",
+          "kind": "boolean",
+          "default": false
+        },
+        {
+          "name": "metallic_resolution",
+          "label": "Metallic Resolution",
+          "kind": "integer",
+          "default": 2048,
+          "min": 16,
+          "max": 32768
+        },
+        {
+          "name": "bake_emission_texture",
+          "label": "Bake Emission Texture",
+          "kind": "boolean",
+          "default": false
+        },
+        {
+          "name": "emission_resolution",
+          "label": "Emission Resolution",
+          "kind": "integer",
+          "default": 2048,
+          "min": 16,
+          "max": 32768
+        },
+        {
+          "name": "bake_ao_texture",
+          "label": "Bake AO Texture",
+          "kind": "boolean",
+          "default": false
+        },
+        {
+          "name": "ao_resolution",
+          "label": "AO Resolution",
+          "kind": "integer",
+          "default": 2048,
+          "min": 16,
+          "max": 32768
+        },
+        {
+          "name": "brighter",
+          "label": "Brighter",
+          "kind": "boolean",
+          "default": false,
+          "hint": "Applies a mild uniform brightness boost to the baked base color map"
+        },
+        {
+          "name": "auto_bake_margin",
+          "label": "Auto Bake Margin",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "bake_margin_pixels",
+          "label": "Bake Margin Pixels",
+          "kind": "integer",
+          "default": 16,
+          "min": 0,
+          "max": 1024
+        },
+        {
+          "name": "bake_margin_minimum_pixels",
+          "label": "Bake Margin Minimum Pixels",
+          "kind": "integer",
+          "default": 16,
+          "min": 0,
+          "max": 1024
+        },
+        {
+          "name": "bake_margin_resolution_divisor",
+          "label": "Bake Margin Resolution Divisor",
+          "kind": "integer",
+          "default": 256,
+          "min": 1,
+          "max": 4096
+        },
+        {
+          "name": "fallback_bake_mode",
+          "label": "Fallback Bake Mode",
+          "kind": "choice",
+          "default": "AUTO",
+          "choices": [
+            {
+              "label": "AUTO",
+              "value": "AUTO"
+            },
+            {
+              "label": "ALWAYS",
+              "value": "ALWAYS"
+            },
+            {
+              "label": "NEVER",
+              "value": "NEVER"
+            }
+          ]
+        },
+        {
+          "name": "coverage_probe_sample_count",
+          "label": "Coverage Probe Sample Count",
+          "kind": "integer",
+          "default": 4096,
+          "min": 64,
+          "max": 100000
+        },
+        {
+          "name": "extended_ray_sample_ratio",
+          "label": "Extended Ray Sample Ratio",
+          "kind": "number",
+          "default": 0.005,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.0001
+        },
+        {
+          "name": "fallback_minimum_recoverable_samples",
+          "label": "Fallback Minimum Recoverable Samples",
+          "kind": "integer",
+          "default": 8,
+          "min": 1,
+          "max": 10000
+        },
+        {
+          "name": "tight_cage_extrusion_factor",
+          "label": "Tight Cage Extrusion Factor",
+          "kind": "number",
+          "default": 0.0019,
+          "min": 0.0,
+          "step": 0.0001
+        },
+        {
+          "name": "tight_max_ray_distance_factor",
+          "label": "Tight Max Ray Distance Factor",
+          "kind": "number",
+          "default": 0.029,
+          "min": 0.0,
+          "step": 0.0001
+        },
+        {
+          "name": "far_cage_extrusion_factor",
+          "label": "Far Cage Extrusion Factor",
+          "kind": "number",
+          "default": 0.02,
+          "min": 0.0,
+          "step": 0.0001
+        },
+        {
+          "name": "far_max_ray_distance_factor",
+          "label": "Far Max Ray Distance Factor",
+          "kind": "number",
+          "default": 0.092,
+          "min": 0.0,
+          "step": 0.0001
+        },
+        {
+          "name": "coverage_alpha_threshold",
+          "label": "Coverage Alpha Threshold",
+          "kind": "number",
+          "default": 0.5,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "normal_length_tolerance",
+          "label": "Normal Length Tolerance",
+          "kind": "number",
+          "default": 0.35,
+          "min": 0.0,
+          "max": 0.95
+        },
+        {
+          "name": "neutral_normal_color",
+          "label": "Neutral Normal Color",
+          "kind": "text",
+          "default": "0.5,0.5,1.0,1.0"
+        },
+        {
+          "name": "material_base_color",
+          "label": "Material Base Color",
+          "kind": "text",
+          "default": "0.8,0.8,0.8,1.0"
+        },
+        {
+          "name": "material_roughness",
+          "label": "Material Roughness",
+          "kind": "number",
+          "default": 0.9,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "material_metallic",
+          "label": "Material Metallic",
+          "kind": "number",
+          "default": 0,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "material_specular_level",
+          "label": "Material Specular Level",
+          "kind": "number",
+          "default": 0.5,
+          "min": 0.0,
+          "max": 1.0
+        },
+        {
+          "name": "load_output_images",
+          "label": "Load Output Images",
+          "kind": "boolean",
+          "default": true
+        }
+      ]
+    },
+    {
+      "id": "342",
+      "title": "Texture-safe weld",
+      "fields": [
+        {
+          "name": "merge_distance",
+          "label": "Merge Distance",
+          "kind": "number",
+          "default": 0.0001,
+          "min": 1e-08,
+          "max": 10.0,
+          "step": 1e-05
+        },
+        {
+          "name": "centroid_merge",
+          "label": "Centroid Merge",
+          "kind": "boolean",
+          "default": false
+        },
+        {
+          "name": "remove_degenerate",
+          "label": "Remove Degenerate",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "topology_mode",
+          "label": "Topology Mode",
+          "kind": "choice",
+          "default": "TEXTURE_SAFE",
+          "choices": [
+            {
+              "label": "TEXTURE_SAFE",
+              "value": "TEXTURE_SAFE"
+            },
+            {
+              "label": "STRICT_BLENDER",
+              "value": "STRICT_BLENDER"
+            }
+          ]
+        },
+        {
+          "name": "adaptive_retry_step",
+          "label": "Adaptive Retry Step",
+          "kind": "boolean",
+          "default": true
+        },
+        {
+          "name": "max_attempts",
+          "label": "Max Attempts",
+          "kind": "integer",
+          "default": 100,
+          "min": 1,
+          "max": 10000,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "368",
+      "title": "Background model (texture)",
+      "fields": [
+        {
+          "name": "bg_removal_name",
+          "label": "Bg Removal Name",
+          "kind": "choice",
+          "default": "birefnet.safetensors",
+          "hint": "The model used to remove backgrounds from images",
+          "choices": [
+            {
+              "label": "birefnet.safetensors",
+              "value": "birefnet.safetensors"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "354",
+      "title": "UltraTex diffusion model",
+      "fields": [
+        {
+          "name": "unet_name",
+          "label": "Unet Name",
+          "kind": "choice",
+          "default": "flux-2-klein-base-9b-Q4_0.gguf",
+          "choices": [
+            {
+              "label": "flux-2-klein-base-9b-Q4_0.gguf",
+              "value": "flux-2-klein-base-9b-Q4_0.gguf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "355",
+      "title": "UltraTex VAE",
+      "fields": [
+        {
+          "name": "vae_name",
+          "label": "Vae Name",
+          "kind": "choice",
+          "default": "flux2-vae.safetensors",
+          "choices": [
+            {
+              "label": "flux2-vae.safetensors",
+              "value": "flux2-vae.safetensors"
+            },
+            {
+              "label": "trellis_2_shape_vae_bf16.safetensors",
+              "value": "trellis_2_shape_vae_bf16.safetensors"
+            },
+            {
+              "label": "pixel_space",
+              "value": "pixel_space"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "356",
+      "title": "UltraTex text encoder",
+      "fields": [
+        {
+          "name": "clip_name",
+          "label": "Clip Name",
+          "kind": "choice",
+          "default": "Qwen3-8B-Q4_K_M.gguf",
+          "choices": [
+            {
+              "label": "Qwen3-8B-Q4_K_M.gguf",
+              "value": "Qwen3-8B-Q4_K_M.gguf"
+            }
+          ]
+        },
+        {
+          "name": "type",
+          "label": "Encoder architecture",
+          "kind": "choice",
+          "default": "flux2",
+          "choices": [
+            {
+              "label": "stable_diffusion",
+              "value": "stable_diffusion"
+            },
+            {
+              "label": "stable_cascade",
+              "value": "stable_cascade"
+            },
+            {
+              "label": "sd3",
+              "value": "sd3"
+            },
+            {
+              "label": "stable_audio",
+              "value": "stable_audio"
+            },
+            {
+              "label": "mochi",
+              "value": "mochi"
+            },
+            {
+              "label": "ltxv",
+              "value": "ltxv"
+            },
+            {
+              "label": "pixart",
+              "value": "pixart"
+            },
+            {
+              "label": "cosmos",
+              "value": "cosmos"
+            },
+            {
+              "label": "lumina2",
+              "value": "lumina2"
+            },
+            {
+              "label": "wan",
+              "value": "wan"
+            },
+            {
+              "label": "hidream",
+              "value": "hidream"
+            },
+            {
+              "label": "chroma",
+              "value": "chroma"
+            },
+            {
+              "label": "ace",
+              "value": "ace"
+            },
+            {
+              "label": "omnigen2",
+              "value": "omnigen2"
+            },
+            {
+              "label": "qwen_image",
+              "value": "qwen_image"
+            },
+            {
+              "label": "hunyuan_image",
+              "value": "hunyuan_image"
+            },
+            {
+              "label": "flux2",
+              "value": "flux2"
+            },
+            {
+              "label": "ovis",
+              "value": "ovis"
+            },
+            {
+              "label": "longcat_image",
+              "value": "longcat_image"
+            },
+            {
+              "label": "cogvideox",
+              "value": "cogvideox"
+            },
+            {
+              "label": "lens",
+              "value": "lens"
+            },
+            {
+              "label": "pixeldit",
+              "value": "pixeldit"
+            },
+            {
+              "label": "ideogram4",
+              "value": "ideogram4"
+            },
+            {
+              "label": "boogu",
+              "value": "boogu"
+            },
+            {
+              "label": "krea2",
+              "value": "krea2"
+            },
+            {
+              "label": "joyimage",
+              "value": "joyimage"
+            },
+            {
+              "label": "mage",
+              "value": "mage"
+            },
+            {
+              "label": "minimax",
+              "value": "minimax"
+            },
+            {
+              "label": "yue2",
+              "value": "yue2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "357",
+      "title": "UltraTex positive prompt",
+      "fields": [
+        {
+          "name": "text",
+          "label": "Text",
+          "kind": "text",
+          "default": ""
+        }
+      ]
+    },
+    {
+      "id": "376",
+      "title": "UltraTex negative prompt",
+      "fields": [
+        {
+          "name": "text",
+          "label": "Text",
+          "kind": "text",
+          "default": ""
+        }
+      ]
+    },
+    {
+      "id": "374",
+      "title": "Texture UVs",
+      "fields": [
+        {
+          "name": "atlas_size",
+          "label": "Atlas Size",
+          "kind": "integer",
+          "default": 2048,
+          "min": 512,
+          "max": 8192,
+          "step": 16
+        },
+        {
+          "name": "uv_mode",
+          "label": "UV mode",
+          "kind": "choice",
+          "default": "keep_existing",
+          "choices": [
+            {
+              "label": "comfy_gpu",
+              "value": "comfy_gpu"
+            },
+            {
+              "label": "xatlas",
+              "value": "xatlas"
+            },
+            {
+              "label": "keep_existing",
+              "value": "keep_existing"
+            }
+          ]
+        },
+        {
+          "name": "padding",
+          "label": "Padding",
+          "kind": "integer",
+          "default": 16,
+          "hint": "Adds a margin during this stage.",
+          "min": 0,
+          "max": 64,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "375",
+      "title": "Texture reference alignment",
+      "fields": [
+        {
+          "name": "alignment",
+          "label": "Alignment",
+          "kind": "choice",
+          "default": "front",
+          "choices": [
+            {
+              "label": "front",
+              "value": "front"
+            },
+            {
+              "label": "center",
+              "value": "center"
+            }
+          ]
+        },
+        {
+          "name": "mask_polarity",
+          "label": "Mask Polarity",
+          "kind": "choice",
+          "default": "foreground",
+          "hint": "BiRefNet foreground mask: foreground. Load Image MASK: background.",
+          "choices": [
+            {
+              "label": "background",
+              "value": "background"
+            },
+            {
+              "label": "foreground",
+              "value": "foreground"
+            }
+          ]
+        },
+        {
+          "name": "normal_mode",
+          "label": "Normal Mode",
+          "kind": "choice",
+          "default": "auto_smooth",
+          "choices": [
+            {
+              "label": "auto_smooth",
+              "value": "auto_smooth"
+            },
+            {
+              "label": "preserve",
+              "value": "preserve"
+            },
+            {
+              "label": "smooth",
+              "value": "smooth"
+            }
+          ]
+        },
+        {
+          "name": "normal_view_resolution",
+          "label": "Normal View Resolution",
+          "kind": "choice",
+          "default": 1024,
+          "hint": "Actual mesh normal/depth render size. Images are disk-cached; only a 512 preview goes to UI.",
+          "choices": [
+            {
+              "label": "1024",
+              "value": 1024
+            },
+            {
+              "label": "2048",
+              "value": 2048
+            },
+            {
+              "label": "4096",
+              "value": 4096
+            }
+          ]
+        },
+        {
+          "name": "camera_fit",
+          "label": "Camera Fit",
+          "kind": "choice",
+          "default": "native_mesh_fit",
+          "hint": "native_mesh_fit = ORIGINAL v0.4.2 auto_fit_94 cameras (safe shared fit); custom adjusts camera margins; NO image crop.",
+          "choices": [
+            {
+              "label": "native_mesh_fit",
+              "value": "native_mesh_fit"
+            },
+            {
+              "label": "original",
+              "value": "original"
+            },
+            {
+              "label": "custom",
+              "value": "custom"
+            }
+          ]
+        },
+        {
+          "name": "image_margin_percent",
+          "label": "Image Margin Percent",
+          "kind": "number",
+          "default": 0,
+          "hint": "Custom camera fit only: percent border EACH image side; not UV padding.",
+          "min": 0.0,
+          "max": 20.0,
+          "step": 0.25
+        },
+        {
+          "name": "image_padding_pixels",
+          "label": "Image Padding Pixels",
+          "kind": "integer",
+          "default": 0,
+          "hint": "Custom camera fit only: extra pixel safety border EACH image side; not UV padding.",
+          "min": 0,
+          "max": 256,
+          "step": 1
+        },
+        {
+          "name": "reference_zoom",
+          "label": "Reference zoom",
+          "kind": "number",
+          "default": 1,
+          "hint": "Scales the reference inside the texture camera framing.",
+          "min": 0.5,
+          "max": 1.5,
+          "step": 0.05
+        }
+      ]
+    },
+    {
+      "id": "358",
+      "title": "UltraTex albedo views",
+      "fields": [
+        {
+          "name": "lora_name",
+          "label": "LoRA checkpoint",
+          "kind": "choice",
+          "default": "ultratex_flux2.safetensors",
+          "choices": [
+            {
+              "label": "ultratex_flux2.safetensors",
+              "value": "ultratex_flux2.safetensors"
+            },
+            {
+              "label": "ultratex_flux2_mr.safetensors",
+              "value": "ultratex_flux2_mr.safetensors"
+            }
+          ]
+        },
+        {
+          "name": "lora_strength",
+          "label": "LoRA strength",
+          "kind": "number",
+          "default": 1,
+          "min": 0.0,
+          "max": 2.0,
+          "step": 0.05
+        },
+        {
+          "name": "decoder_name",
+          "label": "Decoder Name",
+          "kind": "choice",
+          "default": "ultratex_flux2_decoder.pt",
+          "choices": [
+            {
+              "label": "ultratex_flux2_decoder.pt",
+              "value": "ultratex_flux2_decoder.pt"
+            }
+          ]
+        },
+        {
+          "name": "task",
+          "label": "Task",
+          "kind": "choice",
+          "default": "albedo",
+          "choices": [
+            {
+              "label": "albedo",
+              "value": "albedo"
+            },
+            {
+              "label": "mr",
+              "value": "mr"
+            }
+          ]
+        },
+        {
+          "name": "view_resolution",
+          "label": "View Resolution",
+          "kind": "integer",
+          "default": 1024,
+          "hint": "Must match the resolution chosen in Prepare.",
+          "min": 256,
+          "max": 4096,
+          "step": 16,
+          "enforce_step": true
+        },
+        {
+          "name": "view_count",
+          "label": "Number of views",
+          "kind": "choice",
+          "default": 12,
+          "hint": "Must match the view count chosen in Prepare.",
+          "choices": [
+            {
+              "label": "6",
+              "value": 6
+            },
+            {
+              "label": "10",
+              "value": 10
+            },
+            {
+              "label": "12",
+              "value": 12
+            }
+          ]
+        },
+        {
+          "name": "seed",
+          "label": "Seed",
+          "kind": "large_integer",
+          "default": "0",
+          "hint": "Controls random sampling in this stage. Keep it fixed when comparing another setting.",
+          "min": "0",
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "steps",
+          "label": "Steps",
+          "kind": "integer",
+          "default": 4,
+          "hint": "Sets the number of sampling steps in this stage.",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "guidance",
+          "label": "Guidance",
+          "kind": "number",
+          "default": 4,
+          "hint": "CFG scale: active only when a different negative CONDITIONING is connected. With no negative input, it does not change sampling.",
+          "min": 0.0,
+          "max": 20.0,
+          "step": 0.1
+        },
+        {
+          "name": "denoise",
+          "label": "Denoise",
+          "kind": "number",
+          "default": 1,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "sparse_retention",
+          "label": "Sparse Retention",
+          "kind": "number",
+          "default": 0.2,
+          "hint": "Lower is lighter/faster; higher keeps more tokens in sparse attention.",
+          "min": 0.01,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "extra_angle_mode",
+          "label": "Extra Angle Mode",
+          "kind": "choice",
+          "default": "guided",
+          "hint": "For 10 or 12 views, use the first pass to guide the 45-degree pass. 10 views omits redundant rotated top/bottom.",
+          "choices": [
+            {
+              "label": "guided",
+              "value": "guided"
+            },
+            {
+              "label": "independent",
+              "value": "independent"
+            }
+          ]
+        },
+        {
+          "name": "extra_denoise",
+          "label": "Extra Denoise",
+          "kind": "number",
+          "default": 0.55,
+          "hint": "How freely the guided 45-degree pass can change already observed details.",
+          "min": 0.1,
+          "max": 1.0,
+          "step": 0.05
+        },
+        {
+          "name": "extra_steps",
+          "label": "Extra Steps",
+          "kind": "integer",
+          "default": 4,
+          "hint": "Separate iteration budget for the 45-degree pass.",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "tiled_decode",
+          "label": "Tiled Decode",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Tiled VAE for limited VRAM. Disable only if the VAE can decode without OOM."
+        }
+      ]
+    },
+    {
+      "id": "364",
+      "title": "UltraTex metallic and roughness views",
+      "fields": [
+        {
+          "name": "lora_name",
+          "label": "LoRA checkpoint",
+          "kind": "choice",
+          "default": "ultratex_flux2_mr.safetensors",
+          "choices": [
+            {
+              "label": "ultratex_flux2.safetensors",
+              "value": "ultratex_flux2.safetensors"
+            },
+            {
+              "label": "ultratex_flux2_mr.safetensors",
+              "value": "ultratex_flux2_mr.safetensors"
+            }
+          ]
+        },
+        {
+          "name": "lora_strength",
+          "label": "LoRA strength",
+          "kind": "number",
+          "default": 1,
+          "min": 0.0,
+          "max": 2.0,
+          "step": 0.05
+        },
+        {
+          "name": "decoder_name",
+          "label": "Decoder Name",
+          "kind": "choice",
+          "default": "ultratex_flux2_decoder.pt",
+          "choices": [
+            {
+              "label": "ultratex_flux2_decoder.pt",
+              "value": "ultratex_flux2_decoder.pt"
+            }
+          ]
+        },
+        {
+          "name": "task",
+          "label": "Task",
+          "kind": "choice",
+          "default": "mr",
+          "choices": [
+            {
+              "label": "albedo",
+              "value": "albedo"
+            },
+            {
+              "label": "mr",
+              "value": "mr"
+            }
+          ]
+        },
+        {
+          "name": "view_resolution",
+          "label": "View Resolution",
+          "kind": "integer",
+          "default": 1024,
+          "hint": "Must match the resolution chosen in Prepare.",
+          "min": 256,
+          "max": 4096,
+          "step": 16,
+          "enforce_step": true
+        },
+        {
+          "name": "view_count",
+          "label": "Number of views",
+          "kind": "choice",
+          "default": 6,
+          "hint": "Must match the view count chosen in Prepare.",
+          "choices": [
+            {
+              "label": "6",
+              "value": 6
+            },
+            {
+              "label": "10",
+              "value": 10
+            },
+            {
+              "label": "12",
+              "value": 12
+            }
+          ]
+        },
+        {
+          "name": "seed",
+          "label": "Seed",
+          "kind": "large_integer",
+          "default": "0",
+          "hint": "Controls random sampling in this stage. Keep it fixed when comparing another setting.",
+          "min": "0",
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "steps",
+          "label": "Steps",
+          "kind": "integer",
+          "default": 4,
+          "hint": "Sets the number of sampling steps in this stage.",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "guidance",
+          "label": "Guidance",
+          "kind": "number",
+          "default": 4,
+          "hint": "CFG scale: active only when a different negative CONDITIONING is connected. With no negative input, it does not change sampling.",
+          "min": 0.0,
+          "max": 20.0,
+          "step": 0.1
+        },
+        {
+          "name": "denoise",
+          "label": "Denoise",
+          "kind": "number",
+          "default": 1,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "sparse_retention",
+          "label": "Sparse Retention",
+          "kind": "number",
+          "default": 0.2,
+          "hint": "Lower is lighter/faster; higher keeps more tokens in sparse attention.",
+          "min": 0.01,
+          "max": 1.0,
+          "step": 0.01
+        },
+        {
+          "name": "extra_angle_mode",
+          "label": "Extra Angle Mode",
+          "kind": "choice",
+          "default": "independent",
+          "hint": "For 10 or 12 views, use the first pass to guide the 45-degree pass. 10 views omits redundant rotated top/bottom.",
+          "choices": [
+            {
+              "label": "guided",
+              "value": "guided"
+            },
+            {
+              "label": "independent",
+              "value": "independent"
+            }
+          ]
+        },
+        {
+          "name": "extra_denoise",
+          "label": "Extra Denoise",
+          "kind": "number",
+          "default": 0.55,
+          "hint": "How freely the guided 45-degree pass can change already observed details.",
+          "min": 0.1,
+          "max": 1.0,
+          "step": 0.05
+        },
+        {
+          "name": "extra_steps",
+          "label": "Extra Steps",
+          "kind": "integer",
+          "default": 4,
+          "hint": "Separate iteration budget for the 45-degree pass.",
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "tiled_decode",
+          "label": "Tiled Decode",
+          "kind": "boolean",
+          "default": true,
+          "hint": "Tiled VAE for limited VRAM. Disable only if the VAE can decode without OOM."
+        }
+      ]
+    },
+    {
+      "id": "377",
+      "title": "Texture atlas bake",
+      "fields": [
+        {
+          "name": "texture_size",
+          "label": "Texture Size",
+          "kind": "choice",
+          "default": 2048,
+          "hint": "Final exported atlas size. UTX2.5 target changes source views only. 8192 requires a sharp mode and takes more bake time and RAM.",
+          "choices": [
+            {
+              "label": "1024",
+              "value": 1024
+            },
+            {
+              "label": "2048",
+              "value": 2048
+            },
+            {
+              "label": "4096",
+              "value": 4096
+            },
+            {
+              "label": "8192",
+              "value": 8192
+            }
+          ]
+        },
+        {
+          "name": "completion",
+          "label": "Completion",
+          "kind": "choice",
+          "default": "surface_fill",
+          "hint": "surface_fill: texels no camera saw are completed along the mesh surface (seamless across UV seams, never copied from unrelated UV islands). off: leave unseen Base Color black to inspect raw camera coverage (unseen MR becomes a neutral rough dielectric).",
+          "choices": [
+            {
+              "label": "surface_fill",
+              "value": "surface_fill"
+            },
+            {
+              "label": "off",
+              "value": "off"
+            }
+          ]
+        },
+        {
+          "name": "upscale_mode",
+          "label": "Atlas upscaling",
+          "kind": "choice",
+          "default": "sharp_anchor_v2",
+          "hint": "Controls how samples from the generated views are filtered into the texture atlas.",
+          "choices": [
+            {
+              "label": "fast_detail",
+              "value": "fast_detail"
+            },
+            {
+              "label": "off_direct",
+              "value": "off_direct"
+            },
+            {
+              "label": "detail_consistent",
+              "value": "detail_consistent"
+            },
+            {
+              "label": "sharp_source",
+              "value": "sharp_source"
+            },
+            {
+              "label": "sharp_coherent",
+              "value": "sharp_coherent"
+            },
+            {
+              "label": "sharp_anchor",
+              "value": "sharp_anchor"
+            },
+            {
+              "label": "sharp_anchor_v2",
+              "value": "sharp_anchor_v2"
+            }
+          ]
+        },
+        {
+          "name": "device",
+          "label": "Device",
+          "kind": "choice",
+          "default": "auto",
+          "choices": [
+            {
+              "label": "auto",
+              "value": "auto"
+            },
+            {
+              "label": "cpu",
+              "value": "cpu"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "384",
+      "title": "Material assembly",
+      "fields": [
+        {
+          "name": "normal_convention",
+          "label": "Normal Convention",
+          "kind": "choice",
+          "default": "OpenGL",
+          "choices": [
+            {
+              "label": "OpenGL",
+              "value": "OpenGL"
+            },
+            {
+              "label": "DirectX",
+              "value": "DirectX"
+            }
+          ]
+        },
+        {
+          "name": "alpha_mode",
+          "label": "Alpha Mode",
+          "kind": "choice",
+          "default": "inherit",
+          "choices": [
+            {
+              "label": "inherit",
+              "value": "inherit"
+            },
+            {
+              "label": "OPAQUE",
+              "value": "OPAQUE"
+            },
+            {
+              "label": "MASK",
+              "value": "MASK"
+            },
+            {
+              "label": "BLEND",
+              "value": "BLEND"
+            }
+          ]
+        },
+        {
+          "name": "alpha_cutoff",
+          "label": "Alpha Cutoff",
+          "kind": "number",
+          "default": 0.5,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.05
+        },
+        {
+          "name": "uv_convention",
+          "label": "UV convention",
+          "kind": "choice",
+          "default": "v_down",
+          "choices": [
+            {
+              "label": "v_down",
+              "value": "v_down"
+            },
+            {
+              "label": "v_up",
+              "value": "v_up"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "387",
+      "title": "Texture memory and tiling",
+      "fields": [
+        {
+          "name": "ram_cache_mb",
+          "label": "RAM Cache Mb",
+          "kind": "integer",
+          "default": 256,
+          "min": 0,
+          "max": 2048,
+          "step": 64
+        },
+        {
+          "name": "disk_budget_gb",
+          "label": "Disk Budget Gb",
+          "kind": "number",
+          "default": 16,
+          "min": 1.0,
+          "max": 1024.0
+        },
+        {
+          "name": "system_headroom_mb",
+          "label": "System Headroom Mb",
+          "kind": "integer",
+          "default": 2048,
+          "hint": "RAM-cache trimming target, not a required extra 2 GiB allocation.",
+          "min": 256,
+          "max": 16384,
+          "step": 256
+        },
+        {
+          "name": "gpu_headroom_mb",
+          "label": "GPU Headroom Mb",
+          "kind": "integer",
+          "default": 768,
+          "min": 128,
+          "max": 8192,
+          "step": 128
+        },
+        {
+          "name": "token_chunk",
+          "label": "Token Chunk",
+          "kind": "integer",
+          "default": 4096,
+          "hint": "0 disables chunking. Smaller chunks can repeat GGUF dequantization; benchmark before tuning.",
+          "min": 0,
+          "max": 32768,
+          "step": 256
+        },
+        {
+          "name": "activation_factor",
+          "label": "Activation Factor",
+          "kind": "number",
+          "default": 12,
+          "hint": "Conservative initial activation estimate. Calibrate against measured GPU peaks.",
+          "min": 4.0,
+          "max": 64.0,
+          "step": 0.5
+        },
+        {
+          "name": "atlas_tile",
+          "label": "Atlas Tile",
+          "kind": "choice",
+          "default": 512,
+          "choices": [
+            {
+              "label": "256",
+              "value": 256
+            },
+            {
+              "label": "512",
+              "value": 512
+            },
+            {
+              "label": "1024",
+              "value": 1024
+            }
+          ]
+        },
+        {
+          "name": "decode_tile",
+          "label": "Decode Tile",
+          "kind": "choice",
+          "default": 64,
+          "choices": [
+            {
+              "label": "32",
+              "value": 32
+            },
+            {
+              "label": "64",
+              "value": 64
+            },
+            {
+              "label": "128",
+              "value": 128
+            }
+          ]
+        },
+        {
+          "name": "performance_mode",
+          "label": "Performance Mode",
+          "kind": "choice",
+          "default": "adaptive",
+          "choices": [
+            {
+              "label": "adaptive",
+              "value": "adaptive"
+            },
+            {
+              "label": "conservative",
+              "value": "conservative"
+            },
+            {
+              "label": "original",
+              "value": "original"
+            }
+          ]
+        },
+        {
+          "name": "max_vram_mb",
+          "label": "Max Vram Mb",
+          "kind": "integer",
+          "default": 0,
+          "hint": "0: driver/physical budget. A lower limit also reduces packed-weight residency.",
+          "min": 0,
+          "max": 131072,
+          "step": 256
+        },
+        {
+          "name": "adaptive_diagnostics",
+          "label": "Adaptive Diagnostics",
+          "kind": "boolean",
+          "default": false
+        }
+      ]
+    }
+  ]
+}

@@ -21,7 +21,9 @@ from generation_options import (normalize_options, options_for_job, schema as ge
                                 validate_create_master_finishing, resolve_texture_method, validate_texture_method,
                                 validate_post_refinement_texturing)
 from asset_taxonomy import ASSET_TYPES, SYSTEM_TYPES, schema as taxonomy_schema
-from generation_profiles import DETAIL_STUDY, DENSE_MASTER_DESCRIPTION, STARTUP_PROFILE, ProfileStore, builtin_profiles
+from generation_profiles import (COMFY_INPUT_FILES, COMFY_PROFILES, STANDALONE_PROFILES, WORKFLOW_PROFILES,
+                                 DETAIL_STUDY, DENSE_MASTER_DESCRIPTION, PROPS_PROFILE, STARTUP_PROFILE, ProfileStore, builtin_profiles)
+from native_workflow_options import geometry_backend as workflow_geometry, settings as workflow_settings, summary as workflow_summary
 from gpu_runtime import guided_install
 from studio_import import FORMATS, MAX_BYTES, find_blender, validate_glb, copy_version
 from animation_edits import recover as recover_animation
@@ -184,7 +186,7 @@ def job_record(folder):
         if data['state'] == 'done' and data['media'].get('available'):
             data['collection_preview'] = preview_record(COLLECTION_CACHE, folder)
         data['can_refinish'] = data['state'] == 'done' and bool(finishing_source(folder, settings))
-        if settings.get('asset_type') not in ('terrain_unity','imported','rigged','print'):
+        if not settings.get('workflow_id') and settings.get('asset_type') not in ('terrain_unity','imported','rigged','print'):
             try:data['generation_options']=options_for_job(settings)
             except (ValueError,TypeError):data['generation_options']=None
         metadata_path = folder / 'metadata.json'
@@ -864,11 +866,91 @@ def generation_options_schema():
 def profiles_list():
     try:
         available = [profile for profile in PROFILES.list() if profile['id'] != HUMANOID_EXPERIMENTAL]
-        return {'default_profile': DEFAULT_PROFILE, 'startup_profile': STARTUP_PROFILE, 'profiles': available}
+        for profile in available:
+            if 'workflow' in profile:
+                profile['workflow'].update(workflow_capability(profile['id']))
+                profile['workflow']['advanced'] = workflow_advanced_capabilities(profile)
+                if profile['id'] == 'high_detail_native':
+                    material = next(stage for stage in profile['workflow']['advanced'] if stage['id'] == '25')
+                    defaults = {field['name']: field['default'] for field in material['fields']}
+                    size = defaults['ultratex_size'] if defaults['texture_method'] == 'ultratex' else defaults['texture_size']
+                    profile['settings'].update(texture_method=defaults['texture_method'], texture_size=size)
+                    profile['workflow']['texture_size'] = size
+        startup = next(profile for profile in available if profile['id'] == STARTUP_PROFILE)
+        startup_id = STARTUP_PROFILE if startup['workflow']['available'] else PROPS_PROFILE
+        return {'default_profile': DEFAULT_PROFILE, 'startup_profile': startup_id, 'profiles': available}
     except ValueError as error: raise HTTPException(422, str(error))
 
+def workflow_capability(profile_id):
+    if profile_id == 'high_detail_native':
+        from native_high_detail import runtime_status
+        return runtime_status()
+    if profile_id == 'game_asset_native':
+        from native_game_profile import runtime_status
+        return runtime_status()
+    return dict(available=False, reason='Choose a current standalone profile.')
+
+def workflow_advanced_capabilities(profile):
+    from copy import deepcopy
+
+    stages = deepcopy(profile['workflow']['advanced'])
+    for stage in stages:
+        for field in stage['fields']:
+            for choice in field.get('choices', ()):
+                if backend := choice.get('requires_native_geometry'):
+                    from native_high_detail import runtime_status
+                    choice.update(runtime_status(geometry_backend=backend))
+                if choice.get('requires_native_ultratex'):
+                    from native_high_detail import ultratex_status
+                    choice.update(ultratex_status())
+                    if choice['available']:
+                        field['default'] = choice['value']
+                if profile['id'] == 'game_asset_native' and stage['id'] == '316' and field['name'] == 'value':
+                    from native_game_profile import runtime_status
+                    choice.update(runtime_status('trellis2' if choice['value'] else 'pixal3d'))
+    return stages
+
+
+def require_workflow(profile_id):
+    capability = workflow_capability(profile_id)
+    if not capability['available']:
+        raise HTTPException(503, capability['reason'])
+
+
+def require_workflow_options(profile_id, options):
+    backend = workflow_geometry(profile_id, options)
+    if profile_id == 'high_detail_native' and options['25']['texture_method'] == 'ultratex':
+        from native_high_detail import ultratex_status
+        capability = ultratex_status()
+        if not capability['available']:
+            raise HTTPException(503, capability['reason'])
+    if profile_id == 'high_detail_native' and backend == 'pixal3d':
+        from native_high_detail import DEFAULTS, runtime_status
+        capability = runtime_status(geometry_backend=backend)
+        if not capability['available']:
+            raise HTTPException(503, capability['reason'])
+        if options['17'] != DEFAULTS['17']:
+            raise HTTPException(422, 'First TRELLIS.2 pass settings apply to TRELLIS.2 GGUF geometry only.')
+    if profile_id == 'game_asset_native' and backend == 'trellis2':
+        from native_game_profile import runtime_status
+        capability = runtime_status(backend)
+        if not capability['available']:
+            raise HTTPException(503, capability['reason'])
+
+def new_workflow_options(profile_id, overrides):
+    """Select the local default for new submissions. Saved jobs carry their own recipe."""
+    options = workflow_settings(profile_id, overrides)
+    if profile_id == 'high_detail_native':
+        material = options['25']
+        if 'texture_method' not in (overrides or {}).get('25', {}) and not material['bake_on_vertices']:
+            from native_high_detail import ultratex_status
+            if ultratex_status()['available']:
+                material['texture_method'] = 'ultratex'
+    return options
+
+
 async def save_profile(request, identifier=None):
-    if identifier in GENERATION_PRESETS or identifier == DETAIL_STUDY:
+    if identifier in GENERATION_PRESETS or identifier in WORKFLOW_PROFILES or identifier == DETAIL_STUDY:
         raise HTTPException(403, 'This built-in profile is protected. Save a custom copy instead.')
     async with LOCK:
         try:
@@ -888,7 +970,7 @@ async def update_profile(identifier: str, request: Request):
 
 @app.delete('/api/profiles/{identifier}')
 async def delete_profile(identifier: str):
-    if identifier in GENERATION_PRESETS or identifier == DETAIL_STUDY:
+    if identifier in GENERATION_PRESETS or identifier in WORKFLOW_PROFILES or identifier == DETAIL_STUDY:
         raise HTTPException(403, 'This built-in profile is protected.')
     async with LOCK:
         try:
@@ -1234,7 +1316,7 @@ def rig_preview_model(identifier: str):
         raise HTTPException(404)
     return FileResponse(path, media_type='model/gltf-binary')
 
-async def read_generation_image(upload, label='Image', restrict_formats=False):
+async def read_generation_image(upload, label='Image', restrict_formats=False, preserve_original=False):
     content = await upload.read(25 * 1024 * 1024 + 1)
     if len(content) > 25 * 1024 * 1024:
         raise HTTPException(413, f'{label} exceeds the 25 MB limit.')
@@ -1246,6 +1328,10 @@ async def read_generation_image(upload, label='Image', restrict_formats=False):
                 raise ValueError('Image too large (40 megapixels maximum).')
             source = ImageOps.exif_transpose(original).convert('RGBA')
             source.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
+            if preserve_original:
+                if getattr(original, 'n_frames', 1) != 1:
+                    raise ValueError('Choose a still image.')
+                return source, content, {'PNG': '.png', 'JPEG': '.jpg', 'WEBP': '.webp'}[original.format]
             return source
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as error:
         raise HTTPException(400, f'{label} could not be read: {error}') from error
@@ -1359,6 +1445,8 @@ async def generate_multiview(
             raise HTTPException(422, str(error)) from error
         if saved_profile is None:
             raise HTTPException(400, 'Unknown generation profile. Choose a profile advertised by Studio.')
+        if saved_profile['id'] in WORKFLOW_PROFILES:
+            raise HTTPException(400, 'This profile uses one reference image.')
         profile = dict(saved_profile['settings'], id=saved_profile['id'], name=saved_profile['name'],
                        keep_finishing_source=saved_profile.get('keep_finishing_source', False))
         profile.pop('master_finishing', None)
@@ -1469,11 +1557,59 @@ async def generate_multiview(
     return {'id': identifier, 'queued': True}
 
 
+async def generate_workflow(image, workflow_id, *, options, name, height_m, asset_type, reference_prompt,
+                            parent_id, queue_only, queue_priority, queue_hold):
+    if (not 0.01 <= height_m <= 100 or asset_type not in ASSET_TYPES or len(name) > 80
+            or len(reference_prompt) > 6000 or not -2 <= queue_priority <= 2):
+        raise HTTPException(400, 'Invalid generation settings.')
+    require_workflow(workflow_id)
+    require_workflow_options(workflow_id, options)
+    source, content, extension = await read_generation_image(image, restrict_formats=True, preserve_original=True)
+    if source.getchannel('A').getextrema()[1] == 0:
+        raise HTTPException(400, 'Image is fully transparent.')
+    recipe = STANDALONE_PROFILES[workflow_id]
+    safe_name = re.sub(r'[^A-Za-z0-9_-]+', '-', name.strip()).strip('-')[:50] or 'Object'
+    filename = 'workflow-input' + extension
+    settings = dict(name=safe_name, preset=workflow_id, workflow_id=workflow_id, workflow_input=filename,
+                    profile=dict(id=workflow_id, name=recipe['name']), engine='studio_workflow', view_mode='single',
+                    pipeline_type=workflow_id, height_m=height_m, asset_type=asset_type,
+                    workflow_options=options,
+                    settings_version=4, created=time.time(), **workflow_summary(workflow_id, options))
+    if parent_id:
+        settings['parent_id'] = parent_id
+    identifier = uuid.uuid4().hex
+    folder = OUTPUT / identifier
+    async with LOCK:
+        if parent_id:
+            job_path(parent_id)
+        if not queue_only and (TERRAIN_ACTIVE or (PROCESS is not None and PROCESS.poll() is None)):
+            raise HTTPException(409, 'A generation is already running; add the next image to the queue.')
+        with TemporaryDirectory(prefix='.workflow-generation-', dir=OUTPUT) as staging:
+            staged = Path(staging)
+            (staged / filename).write_bytes(content)
+            source.save(staged / 'input.png')
+            write_json(staged / 'settings.json', settings)
+            write_json(staged / 'metadata.json', dict(display_name=name.strip() or safe_name,
+                       reference_prompt=reference_prompt.strip(), review_state='review', favorite=False, tags=[]))
+            if queue_only:
+                write_json(staged / 'status.json', dict(state='queued', stage='Waiting in queue', progress=0))
+            staged.rename(folder)
+        if queue_only:
+            try:
+                STUDIO.workspace.enqueue(identifier, queue_priority, queue_hold)
+            except OSError as error:
+                write_json(folder / 'status.json', dict(state='error', stage='Unable to save queue', progress=0))
+                raise HTTPException(503, 'Unable to save the generation queue.') from error
+            return {'id': identifier, 'queued': True}
+        launch_worker(folder, 'worker.py')
+        return {'id': identifier}
+
+
 @app.post('/api/generate')
 async def generate(image: UploadFile = File(...), name: str = Form('Object'), preset: str = Form(DEFAULT_PROFILE),
-                   height_m: float = Form(1), seed: int = Form(42), remove_bg: bool = Form(True),
+                   height_m: float = Form(1), seed: int | None = Form(None), remove_bg: bool = Form(True),
                    triangles: int = Form(0), asset_type: str = Form('object'), texture_size: int = Form(0),
-                   reference_prompt: str = Form(''), resolution: int = Form(DEFAULT_GENERATION['resolution']), advanced_settings: str = Form(''),
+                   reference_prompt: str = Form(''), resolution: int | None = Form(None), advanced_settings: str = Form(''),
                    keep_finishing_source: Annotated[bool,Form()]=False,
                    repair_surface: Annotated[bool,Form()]=False,
                    hd_reconstruction: Annotated[bool,Form()]=False,
@@ -1484,9 +1620,36 @@ async def generate(image: UploadFile = File(...), name: str = Form('Object'), pr
                    reproject_face: Annotated[bool, Form()] = False,
                    retexture_after_refinement: Annotated[bool, Form()] = False,
                    multiview_texture_refinement: Annotated[bool | None, Form()] = None,
-                   texture_method: Annotated[str | None, Form()] = None):
+                   texture_method: Annotated[str | None, Form()] = None,
+                   workflow_options: Annotated[str, Form()] = ''):
     if WORKSPACE_CONFIG:
         queue_only = True
+    workflow_id = profile_id if profile_id in WORKFLOW_PROFILES else preset if preset in WORKFLOW_PROFILES else None
+    if workflow_id:
+        if workflow_id in COMFY_PROFILES:
+            raise HTTPException(409, 'Choose a current generation profile in Studio.')
+        recipe = STANDALONE_PROFILES[workflow_id]
+        if (preset not in (DEFAULT_PROFILE, workflow_id) or profile_id not in ('', workflow_id)
+                or engine != 'trellis2' or seed not in (None, recipe['seed']) or not remove_bg
+                or triangles not in (0, recipe['target_faces']) or texture_size not in (0, recipe['texture_size'])
+                or resolution not in (None, recipe['resolution']) or texture_method not in (None, recipe['texture_method'])
+                or advanced_settings not in ('', '{}') or reference_edits not in ('', '{}') or master_finishing
+                or any((reproject_face, retexture_after_refinement, multiview_texture_refinement,
+                        keep_finishing_source, repair_surface, hd_reconstruction))):
+            raise HTTPException(400, 'Use the advanced settings for the selected generation profile.')
+        try:
+            if len(workflow_options) > 24000:
+                raise ValueError('Workflow settings are too large.')
+            options = new_workflow_options(workflow_id, json.loads(workflow_options) if workflow_options else {})
+        except (TypeError, ValueError, OverflowError) as error:
+            raise HTTPException(400, str(error)) from error
+        return await generate_workflow(image, workflow_id, options=options, name=name, height_m=height_m, asset_type=asset_type,
+                                       reference_prompt=reference_prompt, parent_id=parent_id, queue_only=queue_only,
+                                       queue_priority=queue_priority, queue_hold=queue_hold)
+    if workflow_options:
+        raise HTTPException(400, 'Choose a profile that uses workflow settings.')
+    seed = 42 if seed is None else seed
+    resolution = DEFAULT_GENERATION['resolution'] if resolution is None else resolution
     if engine not in ('trellis2', 'pixal3d_single'):
         raise HTTPException(400, 'Choose a supported single-image method.')
     pixal = engine == 'pixal3d_single'
@@ -1664,7 +1827,13 @@ async def cancel(identifier: str):
             (folder/'generated-animation-request.json').unlink(missing_ok=True)
             result=json.loads((folder/'result.json').read_text(encoding='utf-8'))
             write_json(folder/'status.json',dict(state='done',stage='Model preserved',progress=100,result=result,operation_error='Animation update cancelled.'))
-        else:(folder / 'status.json').write_text(json.dumps({'state':'cancelled','stage':'Generation cancelled','progress':0}), encoding='utf-8')
+        else:
+            if record['settings'].get('workflow_id') in WORKFLOW_PROFILES:
+                for child in folder.iterdir():
+                    if (re.fullmatch(r'\.workflow-result-[a-z0-9_]{8}', child.name)
+                            and child.is_dir() and child.resolve() == child):
+                        await asyncio.to_thread(shutil.rmtree, child, ignore_errors=True)
+            write_json(folder / 'status.json', dict(state='cancelled', stage='Generation cancelled', progress=0))
     return {'ok':True}
 
 @app.post('/api/terrain')
@@ -1742,9 +1911,12 @@ async def files(identifier: str, filename: str):
         name=json.loads((folder/'settings.json').read_text(encoding='utf-8'))['name']
         return FileResponse(folder/'Blender.zip',filename='TRELLIS-'+name+'-Blender.zip',media_type='application/zip',
                             background=BackgroundTask(EXPORTING.discard,identifier))
-    if filename not in (*REFERENCE_FILES,*PREPARED_VIEWS.values(),'conditioning.png','model.glb','model.stl','print-report.json','Unity.zip','Blender.zip','settings.json','result.json','heightmap.png','heightmap.raw','original.glb','original.fbx','original.obj','original.stl','original.ply') or not (folder / filename).exists():
+    if filename not in (*REFERENCE_FILES,*PREPARED_VIEWS.values(),*COMFY_INPUT_FILES,'conditioning.png','model.glb','model.stl','print-report.json','Unity.zip','Blender.zip','settings.json','result.json','heightmap.png','heightmap.raw','original.glb','original.fbx','original.obj','original.stl','original.ply') or not (folder / filename).exists():
         raise HTTPException(404)
     settings = json.loads((folder/'settings.json').read_text(encoding='utf-8'))
+    if filename in COMFY_INPUT_FILES and (settings.get('workflow_id') not in WORKFLOW_PROFILES
+            or settings.get('workflow_input') != filename or (folder / filename).is_symlink()):
+        raise HTTPException(404)
     if settings.get('source_kind') in PREPARED_OUTPUT_KINDS and filename in ('model.glb', 'result.json'):
         status = read_workspace_json(folder / 'status.json', {})
         if not prepared_output_ready(settings, status):

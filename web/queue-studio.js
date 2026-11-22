@@ -1,5 +1,5 @@
 import {button, dialog, el, field, input, select, action} from './workbench-ui.js?v=3.4.0';
-import {optionHelp} from './advanced-controls.js?v=figure-master-ultratex';
+import {createWorkflowFields, optionHelp} from './advanced-controls.js?v=standard-profiles';
 import {textureMethodAvailability,textureMethodChoices,textureMethodHelp,textureMethodOf,textureMethodRestriction} from './texture-methods.js?v=figure-master-ultratex';
 
 const PRIORITIES = [['2', 'Highest'], ['1', 'High'], ['0', 'Normal'], ['-1', 'Low'], ['-2', 'Lowest']];
@@ -12,6 +12,9 @@ const json = (method, data) => ({
 });
 const resolutionChoices = values => values.map(value => [String(value), value + '³']);
 const textureChoices = values => values.map(value => [String(value), value / 1024 + 'K']);
+const workflowSummary = (workflow, textureMethod) => [workflow.label, `${workflow.resolution}³`,
+  workflow.target_faces > 0 ? `${Number(workflow.target_faces).toLocaleString('en-US')} target triangles` : 'Dense mesh',
+  `${textureMethod === 'ultratex' ? 'UltraTex' : 'TRELLIS.2 PBR'} ${workflow.texture_size / 1024}K`].join(' · ');
 const heightInput = value => input('number', value, {min: '.01', max: 100, step: 'any', required: ''});
 const triangleInput = (value, schema) => input('number', value, {
   min: schema.triangle_min, max: schema.triangle_max, step: 1, required: '',
@@ -37,13 +40,13 @@ export function createQueueStudio({api, refresh}) {
   const picker = input('file', '', {accept: 'image/png,image/jpeg,image/webp', multiple: ''});
   picker.hidden = true;
   const add = button('Choose reference images', 'image', 'primary', () => picker.click());
-  const globalProfile = select([], 'game_d');
+  const globalProfile = select([]);
   const globalHeight = heightInput(1);
   const defaults = el('div', 'queue-defaults');
   defaults.append(field('Default profile', globalProfile), field('Default height · m', globalHeight), add, picker);
   const rows = el('div', 'queue-drafts');
   compose.append(defaults, el('p', 'hint',
-    'Each image keeps its own name, profile, size, seed and priority. Open its settings to fine-tune the recipe.'), rows);
+    'Each image has its own name, profile, size and priority. Open Settings to review its recipe.'), rows);
 
   const submit = button('Add batch to queue', 'plus', 'primary');
   const pause = button('Pause queue', 'pause');
@@ -55,6 +58,27 @@ export function createQueueStudio({api, refresh}) {
     'Adjust the saved recipe and add a new attempt to the queue.', 'recipe-dialog');
   const renderedJobs = new Map();
   let drafts = [], profiles = [], snapshot = null, timer = null, pollNumber = 0;
+  const profileOf = id => profiles.find(profile => profile.id === id);
+  const workflowOf = id => profileOf(id)?.workflow;
+  const unavailableWorkflow = id => {
+    const workflow = workflowOf(id);
+    return !!workflow && workflow.available !== true;
+  };
+
+  function profileOptions(control, currentId) {
+    control.replaceChildren(...profiles.filter(profile => !profile.retired || profile.id === currentId).map(profile => {
+      const unavailable = unavailableWorkflow(profile.id);
+      const option = el('option', '', profile.name + (unavailable ? ' · Unavailable' : ''));
+      option.value = profile.id;
+      option.disabled = unavailable;
+      if (unavailable) option.title = profile.workflow.reason;
+      return option;
+    }));
+  }
+
+  function syncBatchSubmit() {
+    submit.disabled = !drafts.length || drafts.some(row => unavailableWorkflow(row.profile_id));
+  }
 
   function updateFooter() {
     if (compose.hidden) {
@@ -119,8 +143,22 @@ export function createQueueStudio({api, refresh}) {
   }
 
   async function editDraft(row) {
+    const workflow = workflowOf(row.profile_id);
+    if (workflow) {
+      const container = el('div');
+      const editor = createWorkflowFields(container, workflow.advanced, row.workflow_options);
+      const title = workflowSummary(workflow, profileOf(row.profile_id).settings.texture_method);
+      recipe.body.replaceChildren(el('strong', '', title), container);
+      recipe.foot.replaceChildren(button('Apply', 'check', 'primary', () => {
+        if(!editor.validate())return;
+        row.workflow_options=editor.read();
+        recipe.close();
+      }));
+      recipe.show();
+      return;
+    }
     const {runtime, schema} = await capabilities();
-    const profileSettings = profiles.find(profile => profile.id === row.profile_id)?.settings;
+    const profileSettings = profileOf(row.profile_id)?.settings;
     const preset = profileSettings?.preset;
     const removeBg = checkbox(row.remove_bg);
     const requiredSource = !!row.master_finishing || ['dense_master', 'humanoid_experimental'].includes(preset);
@@ -183,10 +221,13 @@ export function createQueueStudio({api, refresh}) {
   }
 
   function applyProfile(row, id) {
-    const profile = profiles.find(item => item.id === id);
+    const profile = profileOf(id);
     if (!profile) return;
+    if (row.profile_id !== id) delete row.workflow_options;
+    row.profile_id = id;
+    if (profile.workflow) return;
     const {remove_bg, triangles, texture_size, resolution, advanced, master_finishing, retexture_after_refinement} = profile.settings;
-    Object.assign(row, {profile_id: id, remove_bg, triangles, texture_size, resolution,
+    Object.assign(row, {remove_bg, triangles, texture_size, resolution,
       keep_finishing_source: profile.keep_finishing_source === true,
       advanced_settings: structuredClone(advanced)});
     if (master_finishing) row.master_finishing = master_finishing;
@@ -206,18 +247,30 @@ export function createQueueStudio({api, refresh}) {
       img.alt = 'Reference for ' + row.name;
       const details = el('div', 'queue-draft-main');
       const title = input('text', row.name, {maxlength: 80, 'aria-label': 'Queued model name'});
-      const profile = select(profiles.map(item => [item.id, item.name]), row.profile_id);
+      const profile = select([]);
+      profileOptions(profile, row.profile_id);
+      profile.value = row.profile_id;
       const height = heightInput(row.height_m);
       const seed = input('number', row.seed, {min: 0, max: 2147483647, step: 1, required: ''});
       const priority = prioritySelect(row.priority);
       title.oninput = () => row.name = title.value;
-      profile.onchange = () => applyProfile(row, profile.value);
       height.oninput = () => row.height_m = height.valueAsNumber;
       seed.oninput = () => row.seed = seed.valueAsNumber;
       priority.onchange = () => row.priority = Number(priority.value);
       const knobs = el('div', 'queue-knobs');
-      knobs.append(field('Profile', profile), field('Height · m', height), field('Seed', seed), field('Priority', priority));
-      details.append(title, knobs);
+      const seedField = field('Seed', seed);
+      const status = el('small', 'hint');
+      const syncProfile = () => {
+        const workflow = workflowOf(row.profile_id);
+        seedField.hidden = seed.disabled = !!workflow;
+        status.textContent = unavailableWorkflow(row.profile_id) ? workflow.reason : '';
+        status.hidden = !status.textContent;
+        syncBatchSubmit();
+      };
+      profile.onchange = () => { applyProfile(row, profile.value); syncProfile(); };
+      syncProfile();
+      knobs.append(field('Profile', profile), field('Height · m', height), seedField, field('Priority', priority));
+      details.append(title, knobs, status);
 
       const settings = button('Settings', 'sliders', 'quiet');
       settings.onclick = () => action(ui, settings, () => editDraft(row));
@@ -231,7 +284,7 @@ export function createQueueStudio({api, refresh}) {
       card.append(img, details, actions);
       rows.append(card);
     }
-    submit.disabled = !drafts.length;
+    syncBatchSubmit();
     updateFooter();
   }
 
@@ -263,6 +316,10 @@ export function createQueueStudio({api, refresh}) {
     }
     const form = new FormData();
     form.set('specifications', JSON.stringify(drafts.map(({file, url, ...spec}) => {
+      if (workflowOf(spec.profile_id)) {
+        const {name, profile_id, height_m, priority, workflow_options} = spec;
+        return {name, profile_id, height_m, priority, workflow_options};
+      }
       if (spec.master_finishing === 'none') delete spec.triangles;
       return spec;
     })));
@@ -274,15 +331,62 @@ export function createQueueStudio({api, refresh}) {
     tab(false);
     await poll();
     await refresh();
-  });
+  }).finally(syncBatchSubmit);
 
   pause.onclick = () => action(ui, pause, async () => {
     await api('/api/queue', json('PATCH', {paused: !snapshot?.paused}));
     await poll();
   });
 
+  function retryActions(item, changes, available = true) {
+    const log = el('pre', 'queue-log');
+    log.hidden = true;
+    const showLog = button('Show log', 'list', 'quiet');
+    showLog.onclick = () => action(retry, showLog, async () => {
+      const result = await api('/api/jobs/' + item.id + '/log');
+      log.textContent = result.text || 'No calculation log is available.';
+      log.hidden = false;
+      showLog.hidden = true;
+    });
+    retry.body.append(showLog, log);
+
+    const send = button('Add retry to queue', 'rotate', 'primary');
+    send.disabled = !available;
+    send.onclick = () => action(retry, send, async () => {
+      const payload = changes();
+      if (!payload) return;
+      const result = await api('/api/queue/' + item.id + '/retry', json('POST', payload));
+      retry.close();
+      ui.notice.textContent = result.paused ? 'New attempt queued. Resume the queue to start it.' : 'New attempt queued.';
+      await poll();
+      await refresh();
+    });
+    retry.foot.replaceChildren(button('Back', 'close', 'secondary', () => retry.close()), send);
+    retry.show();
+  }
+
   async function editRetry(item) {
     const saved = item.settings;
+    const profile = profileOf(saved.profile?.id || saved.workflow_id);
+    const workflow = profile?.workflow;
+    if (saved.workflow_id || workflow) {
+      const height = heightInput(saved.height_m);
+      const priority = prioritySelect(item.priority);
+      const unavailable = workflow?.available !== true;
+      const details = unavailable ? workflow?.reason || 'Choose a current profile to run a new generation.' : 'Reuses the saved reference image.';
+      const recorded = workflow && {...workflow, resolution: saved.resolution ?? workflow.resolution,
+        target_faces: saved.triangles ?? workflow.target_faces, texture_size: saved.texture_size ?? workflow.texture_size};
+      retry.body.replaceChildren(el('strong', '', item.name), el('p', 'queue-failure', item.error || item.stage),
+        el('p', 'hint', recorded ? workflowSummary(recorded, saved.texture_method ?? profile.settings.texture_method) : saved.profile?.name),
+        el('p', 'hint', details), field('Height · m', height), field('Priority', priority));
+      const container = el('div');
+      const editor = workflow && createWorkflowFields(container, workflow.advanced, saved.workflow_options);
+      if (editor) retry.body.append(container);
+      retryActions(item, () => height.reportValidity() && editor?.validate()
+        ? {height_m: height.valueAsNumber, priority: Number(priority.value), workflow_options: editor.read()} : null,
+      !unavailable);
+      return;
+    }
     const pixal = saved.engine === 'pixal3d';
     const refinish = saved.source_kind === 'refinish';
     const master = saved.master_finishing;
@@ -358,19 +462,7 @@ export function createQueueStudio({api, refresh}) {
     const textureMethod = !refinish && singleImage
       ? appendTextureMethod(retry.body,runtime,saved,texture,'retryTextureMethod') : null;
 
-    const log = el('pre', 'queue-log');
-    log.hidden = true;
-    const showLog = button('Show log', 'list', 'quiet');
-    showLog.onclick = () => action(retry, showLog, async () => {
-      const result = await api('/api/jobs/' + item.id + '/log');
-      log.textContent = result.text || 'No calculation log is available.';
-      log.hidden = false;
-      showLog.hidden = true;
-    });
-    retry.body.append(showLog, log);
-
-    const send = button('Add retry to queue', 'rotate', 'primary');
-    send.onclick = () => action(retry, send, async () => {
+    retryActions(item, () => {
       if (!triangles.reportValidity() || !height.reportValidity()) return;
       if (!texture.value || (!fixedResolution && !resolution.value)) {
         retry.notice.textContent = 'Choose a supported texture size and geometry resolution.';
@@ -392,14 +484,8 @@ export function createQueueStudio({api, refresh}) {
         if (preSimplify.checked !== finishing.pre_simplify) changes.pre_simplify = preSimplify.checked;
         if (repair.checked !== finishing.repair_holes) changes.repair_holes = repair.checked;
       }
-      const result = await api('/api/queue/' + item.id + '/retry', json('POST', changes));
-      retry.close();
-      ui.notice.textContent = result.paused ? 'New attempt queued. Resume the queue to start it.' : 'New attempt queued.';
-      await poll();
-      await refresh();
+      return changes;
     });
-    retry.foot.replaceChildren(button('Back', 'close', 'secondary', () => retry.close()), send);
-    retry.show();
   }
 
   function jobRow(item) {
@@ -414,6 +500,7 @@ export function createQueueStudio({api, refresh}) {
     const progress = item.progress || 0;
     const recipeSummary = [
       generatedMotion ? 'Motion generation' : motionTransfer ? 'Saved motion transfer' : animation ? 'Animation update' : null,
+      item.settings.workflow_id ? item.settings.profile?.name || 'ComfyUI' : null,
       generatedMotion && Number.isFinite(item.duration) ? item.duration + ' s' : null,
       generatedMotion && Number.isFinite(item.fps) ? item.fps + ' fps' : null,
       !animation && item.settings.resolution ? item.settings.resolution + '³' : null,
@@ -519,14 +606,16 @@ export function createQueueStudio({api, refresh}) {
   ui.element.addEventListener('close', () => clearInterval(timer));
   return {
     async open(prepare = false) {
-      profiles = (await api('/api/profiles')).profiles;
-      const preferred = globalProfile.value || 'game_d';
-      globalProfile.replaceChildren(...profiles.map(profile => {
-        const option = el('option', '', profile.name);
-        option.value = profile.id;
-        return option;
-      }));
-      globalProfile.value = profiles.some(profile => profile.id === preferred) ? preferred : profiles[0]?.id || '';
+      const catalogue = await api('/api/profiles');
+      profiles = catalogue.profiles;
+      const preferred = globalProfile.value || catalogue.startup_profile;
+      profileOptions(globalProfile);
+      const selectable = id => {
+        const profile = profileOf(id);
+        return profile && !profile.retired && !unavailableWorkflow(id);
+      };
+      globalProfile.value = [preferred, catalogue.startup_profile, ...profiles.map(profile => profile.id)]
+        .find(selectable) || '';
       renderDrafts();
       tab(prepare);
       ui.show();

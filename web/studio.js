@@ -1,4 +1,4 @@
-import {createStudioWorkbench} from './studio-workbench.js?v=figure-master-ultratex';
+import {createStudioWorkbench} from './studio-workbench.js?v=profile-catalogue';
 import {createViewerLighting,createViewerStage} from './viewer-lighting.js?v=visual-refresh-2';
 import {createHologramViewer} from './hologram-viewer.js?v=visual-refresh-2';
 import {createGenerationWait} from './generation-wait.js?v=studio-visual-refinement';
@@ -10,14 +10,14 @@ import {createRigSetupViewer} from './rig-setup-viewer.js?v=3.4.0';
 import {createCreatureRigViewer} from './creature-rig-viewer.js?v=rig-upgrades';
 import {isCreatureRig,isCreatureRigDraft} from './creature-rig-editor.js?v=rig-upgrades';
 import {createModelImport} from './import-model.js?v=3.4.0';
-import {createMultiviewInputs} from './multiview-inputs.js?v=detail-study';
+import {createMultiviewInputs} from './multiview-inputs.js?v=comfyui-profiles';
 import {createReferencePreview} from './reference-preview.js?v=studio-visual-refinement';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createAdvancedControls } from './advanced-controls.js?v=figure-master-ultratex';
-import { createProfileControls } from './profiles.js?v=figure-master-ultratex';
+import { createAdvancedControls } from './advanced-controls.js?v=standard-profiles';
+import { createProfileControls } from './profiles.js?v=profile-catalogue';
 import { textureMethodAvailability, textureMethodChoices } from './texture-methods.js?v=figure-master-ultratex';
 import {createCardMenu,updateCardStatus,icon} from './card-menu.js?v=texture-variant';
 import {createCardTurntables} from './card-turntable.js?v=figure-master-ultratex';
@@ -67,7 +67,12 @@ function applyDefaultGeneration(){const d=advancedControls.defaults;if(!d)return
 applyDefaultGeneration();
 const settingsDownload=document.createElement('a');settingsDownload.className='download-settings';settingsDownload.textContent='Download settings JSON ↓';settingsDownload.download='trellis-reglages.json';settingsDownload.hidden=true;$('assetDetails').after(settingsDownload);
 $('resetAdvanced').disabled=!advancedControls.ready;
-$('resetAdvanced').onclick=()=>{profileControls?.reset();explainCost();$('notice').textContent='Game Asset settings restored.';};
+$('resetAdvanced').onclick=()=>{
+  const workflow=profileControls?.workflow;
+  profileControls?.reset();
+  explainCost();
+  $('notice').textContent=workflow?'Workflow defaults restored.':'Profile settings restored.';
+};
 const resolutionOf=j=>Number(j.result?.resolution||j.settings?.resolution||512);
 let availableResolutions=[512],availableTextures=[1024,2048];
 function syncVersionNotice(status) {
@@ -94,7 +99,7 @@ function syncCapabilities(status){
     textureMethodAvailability(status));
   explainCost();
 }
-function explainCost(){const hint=$('qualityHint');if(!hint)return;const notes=[];if(Number($('resolution').value)===1536)notes.push('1536³ requires more processing time and memory.');if(Number($('textureSize').value)===4096)notes.push('4K uses larger textures; reserve it for close-up objects and large surfaces.');hint.textContent=notes.join(' ');hint.hidden=!notes.length;}
+function explainCost(){const hint=$('qualityHint');if(!hint)return;const notes=[];if(Number($('resolution').value)===1536)notes.push('1536³ requires more processing time and memory.');if(Number($('textureSize').value)===4096)notes.push('4K uses larger textures; reserve it for close-up objects and large surfaces.');hint.textContent=notes.join(' ');hint.hidden=!!profileControls?.workflow||!notes.length;}
 $('resolution').addEventListener('change',explainCost);$('textureSize').addEventListener('change',explainCost);
 profileControls=await createProfileControls(advancedControls,{
   changed:()=>{explainCost();updateButtons();},
@@ -102,6 +107,7 @@ profileControls=await createProfileControls(advancedControls,{
   isMultiview:()=>multiview.active,
   describeMethod:()=>multiview.methodLabel,
   useNativeMethod:()=>multiview.applyMethod('trellis2'),
+  setWorkflow:multiview.setWorkflow,
 });
 
 function node(tag,className,value){const el=document.createElement(tag);if(className)el.className=className;if(value!==undefined)el.textContent=value;return el;}
@@ -309,11 +315,11 @@ function renderRigJobNotice(job) {
   button.onclick = source ? () => selectJob(source.id) : null;
 }
 
-function renderSelected(){const j=jobOf(),draft=isCreatureRigDraft(j);generationWait.update(j,{hasModel:!!model&&loadedId===j?.id,referenceUrl:j?`/api/jobs/${j.id}/files/prepared.png`:''});studioTools?.update(draft?null:j,records,trashMode);workbench?.update(draft?null:j);detailControls.update(j);animationStudio?.update();$('animateModel').disabled=!j||(j.state!=='done'&&j.operation!=='animation'&&!draft);downloads(j);fillMetadata(j);renderRigJobNotice(j);settingsDownload.hidden=!j;if(j)settingsDownload.href=`/api/jobs/${j.id}/files/settings.json`;$('favorite').disabled=!j||!features;$('favorite').textContent=j?.metadata?.favorite?'★':'☆';$('favorite').setAttribute('aria-pressed',!!j?.metadata?.favorite);$('saveMetadata').disabled=!j||!features;$('viewTextures').disabled=!j||j.state!=='done'||!features||draft;
+function renderSelected(){const j=jobOf(),draft=isCreatureRigDraft(j),workflow=!!j?.settings.workflow_id,workflowEngine=j?.result?.engine||(j?.settings.engine==='comfyui'?'ComfyUI':'TRELLIS.2 GGUF');generationWait.update(j,{hasModel:!!model&&loadedId===j?.id,referenceUrl:j?`/api/jobs/${j.id}/files/${workflow?'input.png':'prepared.png'}`:''});studioTools?.update(draft?null:j,records,trashMode);workbench?.update(draft?null:j);detailControls.update(j);animationStudio?.update();$('animateModel').disabled=!j||(j.state!=='done'&&j.operation!=='animation'&&!draft);downloads(j);fillMetadata(j);renderRigJobNotice(j);settingsDownload.hidden=!j;if(j)settingsDownload.href=`/api/jobs/${j.id}/files/settings.json`;$('favorite').disabled=!j||!features;$('favorite').textContent=j?.metadata?.favorite?'★':'☆';$('favorite').setAttribute('aria-pressed',!!j?.metadata?.favorite);$('saveMetadata').disabled=!j||!features;$('viewTextures').disabled=!j||j.state!=='done'||!features||draft;
   if(!j){$('modelTitle').textContent='Your next model';$('stats').textContent='';$('sourceThumb').hidden=true;$('assetDetails').replaceChildren(node('dt','','Model'),node('dd','','No model selected'));$('textureSummary').textContent='Select a completed model.';$('textureGallery').replaceChildren();if(model||loadingId){++loadVersion;clearModel();}$('empty').hidden=false;return;}
   $('modelTitle').textContent=nameOf(j);const terrain=j.settings.asset_type==='terrain_unity',external=['imported','rigged','print'].includes(j.settings.asset_type),pixal=j.settings.engine==='pixal3d';
   const pixalSingle=pixal&&(j.settings.view_mode==='single'||j.settings.pipeline_type==='pixal3d_1024_monoview');
-  $('engineLabel').textContent=external?(j.settings.asset_type==='print'?'3D PRINT COPY':j.settings.asset_type==='rigged'?'RIG & ANIMATION':'IMPORTED MODEL'):terrain?'PROCEDURAL TERRAIN':pixalSingle?'PIXAL3D · SINGLE IMAGE':pixal?`PIXAL3D · ${j.settings.views?.length||0} VIEWS`:`TRELLIS.2 · ${resolutionOf(j)}³`;$('downloadGlb').title=j.settings.asset_type==='print'?'Download print preview GLB in metres':terrain?'Download terrain GLB':'Download PBR GLB with all animations';$('sourceThumb').hidden=terrain||external;if(!terrain&&!external&&$('sourcePreview').dataset.id!==j.id){$('sourcePreview').src=`/api/jobs/${j.id}/files/input.png`;$('sourcePreview').dataset.id=j.id;}
+  $('engineLabel').textContent=external?(j.settings.asset_type==='print'?'3D PRINT COPY':j.settings.asset_type==='rigged'?'RIG & ANIMATION':'IMPORTED MODEL'):terrain?'PROCEDURAL TERRAIN':workflow?`${workflowEngine} · ${resolutionOf(j)}³`:pixalSingle?'PIXAL3D · SINGLE IMAGE':pixal?`PIXAL3D · ${j.settings.views?.length||0} VIEWS`:`TRELLIS.2 · ${resolutionOf(j)}³`;$('downloadGlb').title=j.settings.asset_type==='print'?'Download print preview GLB in metres':terrain?'Download terrain GLB':'Download PBR GLB with all animations';$('sourceThumb').hidden=terrain||external;if(!terrain&&!external&&$('sourcePreview').dataset.id!==j.id){$('sourcePreview').src=`/api/jobs/${j.id}/files/input.png`;$('sourcePreview').dataset.id=j.id;}
   $('exportHint').textContent=j.settings.asset_type==='print'?'The STL uses millimetres. The Blender package includes the static source and the topology report.':terrain?'The Blender package contains the terrain mesh; the Unity export keeps a native Terrain.':'GLB includes UVs and materials. The Blender package also provides separate textures and UV layouts.';const r=j.result;$('stats').textContent=j.state==='done'||(j.operation==='animation'&&r)?(r?(terrain?`${r.dimensions_m?.[0]||j.settings.size_m} m square · elevation ${r.height_m} m · ${r.resolution}² map`:`${Number(r.triangles||0).toLocaleString('en-US')} triangles${r.bones?' · '+r.bones+' bones':''} · ${Number(r.height_m||0).toLocaleString('en-US',{maximumFractionDigits:2})} m`):'Completed model · ready to inspect'):'';
   const rigPreview = usesRigPreview(j);
   const previewLoaded = loadedId === j.id && previewRevision(loadedRevision);
@@ -332,7 +338,7 @@ function renderSelected(){const j=jobOf(),draft=isCreatureRigDraft(j);generation
     clearModel();
     $('empty').hidden = false;
   }
-  const entries=[['Asset type',assetTypeName(j.metadata?.asset_type||j.settings.asset_type)],['Engine',external?(j.settings.asset_type==='print'?'Blender voxel remesh':j.result?.rig_engine||'Local import'):terrain?'Procedural':pixal?`Pixal3D / ${resolutionOf(j)}³`:`TRELLIS.2 / ${resolutionOf(j)}³`],['Height',j.settings.height_m+' m'],['Texture',j.settings.texture_size+' px'],['Seed',j.settings.seed??'—'],['Status',labels[j.state]||j.state],['Created',new Date(j.settings.created*1000).toLocaleDateString('en-US')]];const o=j.generation_options;
+  const entries=[['Asset type',assetTypeName(j.metadata?.asset_type||j.settings.asset_type)],['Engine',external?(j.settings.asset_type==='print'?'Blender voxel remesh':j.result?.rig_engine||'Local import'):terrain?'Procedural':workflow?`${workflowEngine} / ${resolutionOf(j)}³`:pixal?`Pixal3D / ${resolutionOf(j)}³`:`TRELLIS.2 / ${resolutionOf(j)}³`],['Height',j.settings.height_m+' m'],['Texture',j.settings.texture_size+' px'],['Seed',j.settings.seed??'—'],['Status',labels[j.state]||j.state],['Created',new Date(j.settings.created*1000).toLocaleDateString('en-US')]];const o=j.generation_options;
   const textureMethod=r?.texture_method||j.settings.texture_method;
   const textureLabel=textureMethodChoices.find(([method])=>method===textureMethod)?.[1];
   const refinement=r?.finishing?.multiview_texture_refinement;
@@ -352,16 +358,17 @@ function renderSelected(){const j=jobOf(),draft=isCreatureRigDraft(j);generation
     if(projection?.state==='applied')entries.push(['Face reprojection','Applied']);
     else if(projection?.state==='skipped')entries.push(['Face reprojection',projection.reason?'Skipped. '+projection.reason:'Skipped']);
     else if(j.settings.reproject_face)entries.push(['Face reprojection',j.state==='done'?'No report':'Requested']);
-  }else if(o&&!terrain)entries.push(['Steps · structure / shape / texture',`${o.structure_steps} / ${o.shape_steps} / ${o.texture_steps}`],['Guidance · structure / shape / texture',`${o.structure_guidance} / ${o.shape_guidance} / ${o.texture_guidance}`],triangleBudget,['Finishing',o.mesh_mode==='direct'?'Direct simplification':'Remesh and simplify'],['Pre-simplify to 2M',o.pre_simplify?'Yes':'No'],['Seed texture',o.texture_seed<0?'Main random sequence':o.texture_seed],['Angle UV',o.uv_angle+'°']);
+  }else if(workflow)entries.push(['Profile',j.settings.profile?.name||workflowEngine],triangleBudget);
+  else if(o&&!terrain)entries.push(['Steps · structure / shape / texture',`${o.structure_steps} / ${o.shape_steps} / ${o.texture_steps}`],['Guidance · structure / shape / texture',`${o.structure_guidance} / ${o.shape_guidance} / ${o.texture_guidance}`],triangleBudget,['Finishing',o.mesh_mode==='direct'?'Direct simplification':'Remesh and simplify'],['Pre-simplify to 2M',o.pre_simplify?'Yes':'No'],['Seed texture',o.texture_seed<0?'Main random sequence':o.texture_seed],['Angle UV',o.uv_angle+'°']);
   if (r?.adaptive_finishing) {
     entries.push(['Surface tolerance', r.adaptive_finishing.target_met ? 'Met' : 'Exceeded at the triangle ceiling']);
   }
   $('assetDetails').replaceChildren(...entries.flatMap(([k,v])=>[node('dt','',k),node('dd','',String(v))]));if(textureOpen&&inspectId!==j.id)inspectTextures();
 }
 function renderNavigation(){const select=$('librarySelect'),signature=records.map(j=>j.id+nameOf(j)+j.state).join('|');if(select.dataset.signature!==signature){select.replaceChildren(node('option','','Choose from the library…'));select.firstChild.value='';for(const j of records){const o=node('option','',nameOf(j)+' · '+(labels[j.state]||j.state));o.value=j.id;select.append(o);}select.dataset.signature=signature;}select.value=selectedId||'';$('count').textContent=records.length;$('collectionCount').textContent=records.length;const recentKey=JSON.stringify([selectedId,records.slice(0,6).map(j=>[j.id,nameOf(j),j.state])]);if($('history').dataset.signature===recentKey)return;$('history').dataset.signature=recentKey;$('history').replaceChildren();for(const j of records.slice(0,6)){const b=node('button','history-card'+(j.id===selectedId?' selected':''));b.type='button';const image=node('img');image.src=`/api/jobs/${j.id}/files/${j.settings.asset_type==='terrain_unity'?'heightmap.png':'input.png'}?v=${j.result?.revision||j.state}`;image.alt='';image.loading='lazy';image.onerror=()=>image.style.visibility='hidden';const t=node('span');t.append(node('strong','',nameOf(j)),node('small','',labels[j.state]||j.state));b.append(image,t);b.onclick=()=>selectJob(j.id);$('history').append(b);}if(!records.length)$('history').append(node('p','history-empty','No models yet.'));}
-function setMode(terrain){animationStudio?.closeRig();animationMode=false;document.body.classList.remove('animation-mode');document.body.classList.remove('library-mode');$('rigPanel').hidden=true;$('rigTab').setAttribute('aria-pressed','false');showCollection(false);$('openLibrary').setAttribute('aria-pressed','false');$('form').hidden=terrain;$('terrainForm').hidden=!terrain;$('imageTab').setAttribute('aria-pressed',!terrain);$('terrainTab').setAttribute('aria-pressed',terrain);document.querySelector('h1').textContent=terrain?'Create terrain':'Image to 3D';$('workspaceIntro').textContent=terrain?'Textured procedural terrain, ready to adapt to your scene.':'';$('workspaceIntro').hidden=!terrain;}
+function setMode(terrain){profileControls?.closeWorkflowGraph();animationStudio?.closeRig();animationMode=false;document.body.classList.remove('animation-mode');document.body.classList.remove('library-mode');$('rigPanel').hidden=true;$('rigTab').setAttribute('aria-pressed','false');showCollection(false);$('openLibrary').setAttribute('aria-pressed','false');$('form').hidden=terrain;$('terrainForm').hidden=!terrain;$('imageTab').setAttribute('aria-pressed',!terrain);$('terrainTab').setAttribute('aria-pressed',terrain);document.querySelector('h1').textContent=terrain?'Create terrain':'Image to 3D';$('workspaceIntro').textContent=terrain?'Textured procedural terrain, ready to adapt to your scene.':'';$('workspaceIntro').hidden=!terrain;}
 function selectJob(id){const keepAnimation=animationMode;if(!records.some(j=>j.id===id))return;if(id!==selectedId){selectedId=id;metadataId=null;inspectId=null;++inspectVersion;$('textureGallery').replaceChildren();$('textureSummary').textContent='Inspecting textures…';}setMode(jobOf()?.settings.asset_type==='terrain_unity');if(keepAnimation||isCreatureRigDraft(jobOf()))openAnimationStudio();renderNavigation();renderSelected();renderLibrary();updateButtons();refreshLog();}
-$('librarySelect').onchange=()=>selectJob($('librarySelect').value);$('imageTab').onclick=()=>{$('parentId').value='';setMode(false);};$('terrainTab').onclick=()=>{$('terrainForm').dataset.parentId='';setMode(true);};$('openLibrary').onclick=()=>{animationStudio?.closeRig();document.body.classList.remove('collection-collapsed');document.body.classList.add('library-mode');showCollection(false);for(const id of['imageTab','terrainTab','rigTab'])$(id).setAttribute('aria-pressed','false');$('openLibrary').setAttribute('aria-pressed','true');renderLibrary();};
+$('librarySelect').onchange=()=>selectJob($('librarySelect').value);$('imageTab').onclick=()=>{$('parentId').value='';setMode(false);};$('terrainTab').onclick=()=>{$('terrainForm').dataset.parentId='';setMode(true);};$('openLibrary').onclick=()=>{profileControls?.closeWorkflowGraph();animationStudio?.closeRig();document.body.classList.remove('collection-collapsed');document.body.classList.add('library-mode');showCollection(false);for(const id of['imageTab','terrainTab','rigTab'])$(id).setAttribute('aria-pressed','false');$('openLibrary').setAttribute('aria-pressed','true');renderLibrary();};
 function renderLibrary() {
   studioTools?.selection.sync(records, trashMode);
   const grid = $('libraryGrid');
@@ -477,15 +484,19 @@ function openImage(url,alt){$('largeImage').src=url;$('largeImage').alt=alt;$('i
 function setView(textures){textureOpen=textures;viewport.hidden=textures;$('texturePanel').hidden=!textures;$('view3d').classList.toggle('active',!textures);$('viewTextures').classList.toggle('active',textures);if(textures)inspectTextures();}$('view3d').onclick=()=>setView(false);$('viewTextures').onclick=()=>setView(true);
 async function inspectTextures(){const j=jobOf();if(!j||j.state!=='done'||!features)return;const id=j.id;if(inspectId===id)return;inspectId=id;const version=++inspectVersion;$('textureSummary').textContent='Extracting texture maps and UV layouts…';$('textureGallery').replaceChildren();try{const d=await api(`/api/jobs/${id}/inspect`);if(version!==inspectVersion||selectedId!==id)return;$('textureSummary').textContent=`${d.meshes.length} mesh(es) · ${d.has_uv?'UVs present':'UVs missing'} · ${d.has_pbr?'roughness and metalness present':'PBR maps incomplete'} · ${d.normals_map_present?'normal map present':'no normal map in this GLB'}`;const items=[...d.textures.map(t=>({...t,detail:`${t.width} × ${t.height} · ${t.color_space}`})),...d.meshes.filter(m=>m.uv_preview).map(m=>({file:m.uv_preview,label:'UV layout · '+m.name,detail:m.uv_warning||'Painting guide · PNG / SVG included in the package'}))];for(const t of items){const b=node('button','texture-card');b.type='button';const img=node('img');img.src=`/api/jobs/${id}/blender/${t.file}`;img.alt=t.label;b.append(img,node('strong','',t.label),node('small','',t.detail));b.onclick=()=>openImage(img.src,t.label);$('textureGallery').append(b);}if(!items.length)$('textureGallery').append(node('p','hint','This model contains no image textures.'));}catch(e){if(version===inspectVersion){inspectId=null;errorAt('textureSummary',e);}}}
 function updateButtons(){
+  const workflow=profileControls?.workflow;
+  if(!jobOf())$('engineLabel').textContent=workflow?workflow.label:'TRELLIS.2';
   const budget=profileControls?.budget();
   const textures=multiview.usesPixal?[1024,2048]:availableTextures;
   const resolutions=multiview.usesPixal?[1024]:availableResolutions;
   for(const option of $('textureSize').options)option.disabled=Number(option.value)!==0&&!textures.includes(Number(option.value));
   multiview.sync(budget?.texture_size);
-  const supported=multiview.ready&&advancedControls.ready&&profileControls?.ready&&profileControls.finishingReady
+  const supported=workflow?workflow.available===true:multiview.ready&&advancedControls.ready&&profileControls?.ready&&profileControls.finishingReady
     && resolutions.includes(budget?.resolution)&&textures.includes(budget?.texture_size);
   $('generate').disabled=!multiview.hasFront||!supported||shutDown||submittingGeneration||restoringReferences;
-  referencePreview.sync(shutDown||submittingGeneration||restoringReferences);
+  referencePreview.sync(!!workflow||shutDown||submittingGeneration||restoringReferences);
+  $('openReferencePreview').hidden=!!workflow;
+  if(workflow){$('cropReference').hidden=true;$('referenceEditSummary').hidden=true;}
   updateRefinishTool(jobOf());
   $('cancel').hidden=!busy;
   $('cancel').disabled=!activeId||jobOf()?.settings.asset_type==='terrain_unity';
@@ -499,16 +510,25 @@ $('form').onsubmit=async event=>{
   updateButtons();
   $('notice').textContent='';
   try{
-    const form=new FormData($('form'));
-    const budget=profileControls.budget();
-    for(const [field,value] of Object.entries(budget))form.set(field,String(value));
-    multiview.appendRequest(form);
-    form.set('remove_bg',String(multiview.usesPixal||$('removeBg').checked));
+    const workflow=profileControls.workflow;
+    const current=new FormData($('form'));
+    const form=workflow?new FormData():current;
+    if(workflow){
+      for(const field of ['image','profile_id','name','height_m','asset_type','reference_prompt','parent_id']){
+        if(current.has(field))form.set(field,current.get(field));
+      }
+      if(!profileControls.appendWorkflow(form))return;
+    }else{
+      for(const [field,value] of Object.entries(profileControls.budget()))form.set(field,String(value));
+      multiview.appendRequest(form);
+      form.set('remove_bg',String(multiview.usesPixal||$('removeBg').checked));
+      form.set('keep_finishing_source',String($('keepFinishingSource').checked));
+      if(!multiview.usesPixal)form.set('advanced_settings',JSON.stringify(advancedControls.read()));
+      profileControls.appendFinishing(form);
+      referencePreview.append(form);
+      profileControls.closeWorkflowGraph();
+    }
     form.set('queue_only','true');
-    form.set('keep_finishing_source',String($('keepFinishingSource').checked));
-    if(!multiview.usesPixal)form.set('advanced_settings',JSON.stringify(advancedControls.read()));
-    profileControls.appendFinishing(form);
-    referencePreview.append(form);
     const v=await api(multiview.active?'/api/generate-multiview':'/api/generate',{method:'POST',body:form});
     if(!selectedId){selectedId=v.id;metadataId=null;}
     revealNewCreation();
@@ -547,7 +567,15 @@ async function reuseJob(j){
     $('parentId').value=j.id;
     $('name').value=(nameOf(j)+' version').slice(0,80);
     $('height').value=String(s.height_m);
-    for(const [id,v] of Object.entries({preset:s.preset,seed:s.seed,triangles:s.triangles,textureSize:s.texture_size,resolution:s.resolution||j.result?.resolution||512,assetType:s.asset_type||'object',referencePrompt:j.metadata?.reference_prompt||''}))$(id).value=String(v);
+    $('assetType').value=s.asset_type||'object';
+    $('referencePrompt').value=j.metadata?.reference_prompt||'';
+    if(profileControls.restoreWorkflow(s)){
+      detailControls.hint();
+      $('notice').textContent='Reference and workflow settings restored.';
+      return;
+    }
+    if(s.workflow_id)throw Error('This model’s workflow is missing from the current profile catalogue.');
+    for(const [id,v] of Object.entries({preset:s.preset,seed:s.seed,triangles:s.triangles,textureSize:s.texture_size,resolution:s.resolution||j.result?.resolution||512}))$(id).value=String(v);
     profileControls.restoreFinishing(s);
     const restoredOptions = s.hd_reconstruction||s.repair_surface||s.master_finishing ? s.generation_options : j.generation_options;
     advancedControls.apply(restoredOptions||s.generation_options||{});

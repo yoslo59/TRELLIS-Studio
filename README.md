@@ -106,13 +106,12 @@ resulting master. The generation profile keeps its source resolution. Both
 options are also available from **Finishing board**
 on a compatible saved source. [Runtime setup](docs/HI3D.md)
 
-**Game Asset** (`game_d`) uses the 1024 TRELLIS.2 cascade with 20 steps per phase,
-guidance 7.5 / 7.5 / 2, approximately 28,000 target triangles and 2K textures.
-It uses 2M pre-simplification, initial small-hole repair and DC remeshing capped at
-512. This remains the API default and the recipe used by **Reset to Game Asset**.
-Dimensions and seeds belong to individual models.
+**High Detail** and **Game Asset** offer editable workflow graphs and a choice of
+geometry engine. High Detail builds a dense mesh with two geometry passes and
+offers UltraTex for materials. Game Asset targets 12,000 triangles with baked
+normals and UltraTex materials. [Workflow profiles](docs/NATIVE_PROFILES.md)
 
-**High Detail**, the default startup profile in Create, uses the TRELLIS.2 1024 cascade
+**High Detail (Props)** uses the TRELLIS.2 1024 cascade
 with 12 / 25 / 12 sampling steps, a 300,000-triangle target and 2K textures. It
 keeps the decoded source for finishing variants and selects **Multiview refinement**
 when compatible. Choose a recipe and click **Use at startup** to remember it in
@@ -125,10 +124,11 @@ of 800,000 triangles and 2K textures. It keeps the source cache and selects
 native dual contouring. Existing installations can use the separately
 provisioned QuadDC and MeshLib integration. [Figure Master release notes](docs/RELEASE_3.13.0.md#figure-master)
 
-**Detail Study** is an experimental single-image TRELLIS.2 profile with 12 / 24 / 12
-sampling steps, Hi3D 1024 and a 4K material pass after refinement. **None** in
-**Master finishing** exports the decoded surface with native materials and keeps
-the source for later finishing. Save and delete custom profiles from Create.
+Save a copy of a standard recipe or manage your saved profiles from Create.
+**Reset profile settings** restores the selected recipe. Historical presets remain
+available through saved models and the API. The API default (`game_d`) uses the
+1024 TRELLIS.2 cascade, a 28,000-triangle target and 2K textures. Dimensions and
+seeds belong to individual models.
 
 512 and 1024 generation are provided by the standard installer. Higher-resolution controls require separate local capability validation and sufficient memory. Texture resolution is independent of geometry resolution.
 
