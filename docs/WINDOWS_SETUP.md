@@ -1,8 +1,8 @@
 # Windows x64 installer
 
-`TRELLIS-Studio-3.14.0-Setup-x64.exe` is the per-user NSIS installer for Windows x64.
-It copies the application and viewer, adds Start menu entries, and never installs
-GPU drivers, Blender or WSL. The executable is unsigned. Do not
+`TRELLIS-Studio-<version>-Setup-x64.exe` is the per-user NSIS installer for Windows x64.
+It copies the application and viewer and adds Start menu entries. It leaves GPU
+drivers and WSL to Windows. The executable is unsigned. Do not
 treat a SHA-256 checksum as an Authenticode signature.
 
 ## Install and open
@@ -14,9 +14,14 @@ treat a SHA-256 checksum as an Authenticode signature.
    covering local use, LAN HTTPS or automatic Internet HTTPS. See
    [TRELLIS Server](SERVER.md) for network settings.
    Review the NVIDIA GPU, driver and VRAM on **Check this PC**. Use **Browse**
-   to choose `blender.exe` when needed. Select TRELLIS.2, Pixal3D and UniRig
-   individually as offered. Allow around 29 GiB of model downloads plus
-   packages and roughly 100 GiB free for all three.
+   to choose `blender.exe` when needed. Select **TRELLIS.2 image-to-3D** for
+   local generation. On a fresh installation with a supported GPU, **High
+   Detail and Game Asset** is selected on the next page. Review and accept both
+   the FLUX.2 Klein 9B and MeshLib terms to install the two native workflows with
+   UltraTex.
+   Clear the selection to install standard TRELLIS.2 only. PiXal3D is
+   included in the native workflow bundle. The earlier PiXal3D component
+   and UniRig are separate choices.
    The installer asks for applicable model licences and tests the GPU packages
    before the corresponding model downloads. If a component fails, use
    **Repair or resume components** in the Start menu. See
@@ -35,10 +40,11 @@ treat a SHA-256 checksum as an Authenticode signature.
    Read the [model terms](../THIRD_PARTY_NOTICES.md#multiview-texture-refinement)
    before offering the component to Server users.
 
-   **UltraTex · 2K preview** is an optional local evaluation component. Setup
+   **UltraTex · 2K preview** is the separate optional six-view compatibility component. Setup
    checks CUDA eligibility and shows VRAM, memory and storage guidance. The
    FLUX.2 Klein 9B weights require acceptance of non-commercial, non-production
-   terms. See the [UltraTex guide](ULTRATEX.md) before enabling it.
+   terms. The native workflows include their own UltraTex runtime.
+   See the [UltraTex guide](ULTRATEX.md) before enabling the six-view preview.
 
    The separate **Optional motion generation** page offers Kimodo for either
    edition and component selection. It is unchecked by default. Selecting it
@@ -58,17 +64,16 @@ treat a SHA-256 checksum as an Authenticode signature.
 3. Import a GLB with embedded assets. The workshop supports viewing, inspection,
    library management, and GLB export without Blender. Blender is needed for
    importing other formats, some uncommon GLB extensions, and Blender-dependent
-   preparation and export formats. Install Blender separately or set
-   `TRELLIS_BLENDER` to its executable.
+   preparation and export formats. Select an existing Blender with **Browse** or
+   set `TRELLIS_BLENDER` to its executable.
 
 The Workshop installs pinned **PyMeshLab 2025.7.post1** for
 CPU-only HD-to-game reduction (about 55 MB downloaded from PyPI, not bundled in
 the executable). Setup verifies its native reduction filter with a small mesh.
 **Baked game copies** additionally need Blender 5.2 LTS for UVs and PBR/normal
-transfer. Standard Blender installations are discovered automatically. Blender
-is not installed by Setup, and Workshop still works when it is absent; the
-setup diagnostic and the operation's availability message explain the missing
-component. Texture projection needs neither Blender nor an NVIDIA GPU.
+transfer. Setup discovers standard Blender installations and can prepare a
+private portable copy with the native Game Asset component. A Workshop-only
+installation works without Blender. Texture projection runs on the CPU.
 
 Collection cards use two saved WebP renders. Studio creates them in an
 installed Edge, Chrome or Chromium renderer on the host while compute jobs
@@ -76,8 +81,7 @@ are idle. Until a preview pair is ready, the card displays its reference image.
 
 **HD Master Finishing** supports Studio 768 on a host with the TRELLIS.2
 runtime and a compatible saved source. WTiVo 1024 requires Blender and a
-separately provisioned runtime. The setup bundles Studio's integration and
-[WTiVo configuration guide](WTIVO.md).
+compatible runtime. See the [WTiVo configuration guide](WTIVO.md).
 
 The Studio header shows the installed version. When a newer stable release is
 available, **Update** opens a link to its release notes. The backend checks the
@@ -157,11 +161,22 @@ outside Hi3D's supported range.
 
 ## Standalone generation profiles
 
-Setup includes the adapters and editable graphs for **High Detail** and
-**Game Asset**. Their optional standalone runtimes, model weights, and local
-verification records are configured separately. The Setup option **UltraTex · 2K
-preview** installs the existing six-view adapter. See [Native profiles](NATIVE_PROFILES.md)
-for the standalone workflow requirements and locations.
+The **High Detail and Game Asset** option prepares the Studio-native geometry,
+mesh finishing and UltraTex runtimes, downloads verified model weights and
+configures the installation. It requires an eligible NVIDIA GPU with CUDA
+capability 8.6 or 8.9 and at least 12,000 MiB of VRAM. Start with at least
+75 GiB free for a fresh TRELLIS.2 installation with both native workflows.
+Review the disk check on **Check this PC** before continuing. ComfyUI is
+unnecessary for these workflows.
+The Setup page links to the FLUX.2 model terms and the non-commercial MeshLib
+license for the bundled geometry recipe.
+
+To add the native workflows to an existing installation, rerun Setup into the
+same folder and select **High Detail and Game Asset**. Setup reuses verified
+files. To resume a download or retry a verification, open **Repair or resume
+components** from the Start menu. Consult `logs/component-setup.log` for the
+failed stage. See [Native profiles](NATIVE_PROFILES.md) for storage and advanced
+configuration.
 
 ## Build and qualify
 

@@ -1,15 +1,40 @@
 """Run Character 05 mesh finishing in its isolated native environment."""
 
 from argparse import ArgumentParser
+from functools import lru_cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import json
+import re
 import subprocess
 import sys
 
 
 ROOT = Path(__file__).resolve().parent
 RUNTIME = ROOT / 'runtime/native-game-geometry/runtime.json'
+
+
+@lru_cache(maxsize=8)
+def _supports_blender(executable, modified_ns):
+    try:
+        version = subprocess.check_output([str(executable), '--version'], cwd=ROOT, text=True,
+                                          errors='replace', timeout=45,
+                                          creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    except (OSError, subprocess.SubprocessError):
+        return False
+    match = re.search(r'^Blender (\d+)\.(\d+)\.', version)
+    return bool(match and tuple(map(int, match.groups())) >= (5, 2))
+
+
+def find_game_blender():
+    """Keep a compatible configured Blender, with the Setup copy as a fallback."""
+    from studio_import import find_blender
+
+    portable = ROOT / '.tools/blender-5.2.2/blender.exe'
+    for executable in dict.fromkeys((find_blender(), portable)):
+        if executable and executable.is_file() and _supports_blender(executable, executable.stat().st_mtime_ns):
+            return executable
+    return None
 
 
 def _runtime():
@@ -30,9 +55,8 @@ def _runtime():
 def runtime_status():
     try:
         _runtime()
-        from studio_import import find_blender
-        if not find_blender():
-            raise ValueError('Install Blender for the Character 05 normal bake.')
+        if not find_game_blender():
+            raise ValueError('Install Blender 5.2 or later for the Character 05 normal bake.')
     except ValueError as error:
         return {'available': False, 'reason': str(error)}
     return {'available': True, 'reason': ''}
@@ -83,7 +107,6 @@ def _main():
     sys.path[:0] = [str(runtime['dependencies']), str(ROOT)]
     import numpy as np
     from native_game_finish import finish_character_mesh
-    from studio_import import find_blender
     from wtivo_runtime import WTiVoTimeout
 
     class BlockGraphRuntime:
@@ -92,7 +115,7 @@ def _main():
                 raise ImportError('The standalone mesh worker cannot load the ComfyUI application.')
 
     sys.meta_path.insert(0, BlockGraphRuntime())
-    blender = find_blender()
+    blender = find_game_blender()
     if not blender:
         raise RuntimeError('Install Blender for the Character 05 normal bake.')
     try:

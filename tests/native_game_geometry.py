@@ -1,6 +1,7 @@
 """Server validation and process transport for native Game Asset geometry controls."""
 
 from contextlib import contextmanager
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -13,6 +14,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import native_game_geometry
 import native_pixal3d
+from installer import install_native_game_geometry as provision
 from native_workflow_options import GAME_ASSET_FINISHING, settings, summary
 
 
@@ -120,6 +122,57 @@ class NativeGeometryOptionsTests(unittest.TestCase):
                 path = native_pixal3d.prepare_texture_mask(image, root / 'work/foreground.npy')
             self.assertEqual(path.read_bytes(), b'mask fixture')
             self.assertEqual(list(path.parent.iterdir()), [path])
+
+
+class NativeGameSetupTests(unittest.TestCase):
+    def test_public_recipe_matches_the_qualified_windows_recipe(self):
+        source = provision.HERE.parent / 'comfy_workflows/game-asset-character-05.json'
+        windows = source.read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+        self.assertEqual(hashlib.sha256(windows).hexdigest(), provision.RECIPE_SHA256)
+        spec = provision._manifest()
+        self.assertEqual({item['path'] for item in spec['weights']}, {
+            *native_pixal3d.CHECKPOINTS.values(), native_pixal3d.SHAPE_VAE,
+            native_pixal3d.VISION, native_pixal3d.BIREFNET, native_pixal3d.MOGE,
+        })
+        self.assertIn('comfy/ldm/trellis2/model.py', {entry['path'] for entry in spec['operators']})
+        self.assertTrue(all(entry['url'].startswith('https://raw.githubusercontent.com/')
+                            for entry in spec['operators']))
+
+    def test_managed_repair_reinstalls_missing_components_before_receipt(self):
+        with TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            python = root / provision.RUNTIME_PATH
+            python.parent.mkdir(parents=True)
+            python.touch()
+            for path, settings in provision._configurations().items():
+                provision.write_json(root, path, settings)
+            backends = dict.fromkeys(provision.ENGINES, True)
+            with (patch.object(provision, 'verify', side_effect=[FileNotFoundError(), backends]),
+                  patch.object(provision, '_install_operators') as operators,
+                  patch.object(provision, '_install_vision') as vision,
+                  patch.object(provision, '_install_wheels') as wheels,
+                  patch.object(provision, '_install_blender'),
+                  patch.object(provision, '_install_wtivo')):
+                self.assertEqual(provision.install(root), backends)
+            operators.assert_called_once()
+            vision.assert_called_once()
+            wheels.assert_called_once()
+            self.assertEqual(json.loads((root / provision.SHAPE_RECEIPT).read_text()), backends)
+
+    def test_game_blender_preserves_supported_configuration_and_falls_back(self):
+        with TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            custom = root / 'custom/blender.exe'
+            bundled = root / provision.BLENDER / 'blender.exe'
+            for path in (custom, bundled):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+            with (patch.object(native_game_geometry, 'ROOT', root),
+                  patch('studio_import.find_blender', return_value=custom),
+                  patch.object(native_game_geometry, '_supports_blender', return_value=True) as check):
+                self.assertEqual(native_game_geometry.find_game_blender(), custom)
+                check.side_effect = lambda candidate, _: candidate == bundled
+                self.assertEqual(native_game_geometry.find_game_blender(), bundled)
 
 
 if __name__ == '__main__':

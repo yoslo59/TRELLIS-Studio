@@ -11,6 +11,8 @@ param(
     [switch]$SkipMultiviewTexture,
     [switch]$AcceptUltraTexModelLicenses,
     [switch]$SkipUltraTex,
+    [switch]$AcceptNativeWorkflowModelLicenses,
+    [switch]$SkipNativeWorkflows,
     [switch]$Guided,
     [string]$Components='',
     [string]$BlenderPath='',
@@ -101,6 +103,8 @@ if ($Mode -ne 'Workshop' -or $taskNeedsWorkshop -or $WithKimodo) {
                 AcceptMultiviewTextureModelLicenses=$AcceptMultiviewTextureModelLicenses
                 SkipMultiviewTexture=$SkipMultiviewTexture
                 AcceptUltraTexModelLicenses=$AcceptUltraTexModelLicenses; SkipUltraTex=$SkipUltraTex
+                AcceptNativeWorkflowModelLicenses=$AcceptNativeWorkflowModelLicenses
+                SkipNativeWorkflows=$SkipNativeWorkflows
             }
             $taskGuidedStatus=Invoke-GuidedSetup @taskOptions
         } elseif ($Mode -eq 'Generation') {

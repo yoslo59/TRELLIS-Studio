@@ -265,6 +265,19 @@
 !/installer/multiview-texture-manifest.json
 !/installer/requirements-multiview-texture.txt
 !/installer/install_ultratex.py
+!/installer/install_native_workflows.py
+!/installer/native_workflow_install_common.py
+!/installer/native_workflow_python.py
+!/installer/install_native_ultratex.py
+!/installer/install_native_game_geometry.py
+!/installer/install_native_high_detail.py
+!/installer/native-ultratex-manifest.json
+!/installer/native-game-geometry-manifest.json
+!/installer/native-high-detail-manifest.json
+!/installer/requirements-native-ultratex.txt
+!/installer/requirements-native-game-geometry.txt
+!/installer/requirements-native-high-detail.txt
+!/installer/requirements-native-workflow-python.txt
 !/installer/ultratex-manifest.json
 !/installer/requirements-ultratex-comfy.txt
 !/installer/requirements-ultratex-gguf.txt
@@ -472,3 +485,4 @@
 !/docs/RELEASE_3.14.1-preview.2.md
 !/docs/RELEASE_3.14.1-preview.3.md
 !/docs/RELEASE_3.15.0.md
+!/docs/RELEASE_3.15.1.md

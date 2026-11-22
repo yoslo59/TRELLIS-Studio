@@ -5,6 +5,10 @@ compatible static GLB. It produces six color and six metallic/roughness views
 and bakes them into the existing 2048 × 2048 UV atlas. It preserves positions,
 indices and UVs. References and generated meshes are processed on the host.
 
+This guide covers the optional six-view preview. UltraTex for the native
+High Detail and Game Asset workflows is installed with those profiles in Setup.
+See [Standalone generation profiles](NATIVE_PROFILES.md#windows-setup).
+
 ## Setup
 
 Select **UltraTex · 2K preview** in Windows Setup and review the detected NVIDIA

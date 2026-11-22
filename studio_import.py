@@ -38,7 +38,10 @@ def find_blender():
         return Path(on_path)
     program_files = os.environ.get('ProgramW6432') or os.environ.get('PROGRAMFILES', 'C:/Program Files')
     candidates = sorted(Path(program_files).glob('Blender Foundation/Blender */blender.exe'), reverse=True)
-    return candidates[0] if candidates else None
+    if candidates:
+        return candidates[0]
+    bundled = runtime.parent.parent / '.tools/blender-5.2.2/blender.exe'
+    return bundled if bundled.is_file() else None
 
 def validate_glb(path):
     """Reject incomplete containers and external references before opening them."""

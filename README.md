@@ -20,9 +20,9 @@ One local generation produced two finishes from the same saved source. The high-
 
 ## Get started
 
-1. Download `TRELLIS-Studio-3.14.0-Setup-x64.exe` and `SHA256SUMS.txt`. Verify the unsigned executable against the published checksum. [Version 3.14.0 release](https://github.com/yoslo59/TRELLIS-Studio/releases/tag/v3.14.0)
+1. Download the latest Windows Setup executable and `SHA256SUMS.txt`. Verify the unsigned executable against the published checksum. [Latest release](https://github.com/yoslo59/TRELLIS-Studio/releases/latest)
 2. Choose **TRELLIS Desktop (single user)** or **TRELLIS Server (multi-user)**. Both include the CPU Workshop for GLB import, viewing, library management and standard animation files. Install Blender separately for features such as additional import formats, FBX export and baked game copies. [Windows Setup guide](docs/WINDOWS_SETUP.md)
-3. Select the optional components you need. **Check this PC** shows the detected NVIDIA GPU, driver and VRAM. Allow about **29 GiB** of model downloads plus packages and **100 GiB** of free space for TRELLIS.2, Pixal3D and UniRig together. Hi3D, multiview texture refinement and UltraTex have separate compatibility, storage and license requirements. [GPU profiles](docs/WINDOWS_SETUP.md#gpu-profiles)
+3. Select **TRELLIS.2 image-to-3D** for local generation. On a supported GPU, Setup offers **High Detail and Game Asset**, including the geometry engines, mesh finishing and native UltraTex. Review the FLUX.2 and MeshLib terms before installing those profiles. **Check this PC** shows the NVIDIA GPU, driver, VRAM and free disk space. [Setup requirements](docs/WINDOWS_SETUP.md#standalone-generation-profiles)
 4. Open **TRELLIS Studio** or **TRELLIS Server** from the Start menu. A new Server installation guides you through creating the first administrator. [Server setup guide](docs/SERVER.md)
 
 **Kimodo text-to-motion** is an optional CPU component. It needs initialized WSL2 Linux x64, AVX2/FMA/F16C, and at least **12 GiB free inside WSL**. Its approximately **9.3 GB** of weights are additional. [Model terms and setup](docs/MOTION_GENERATION.md)

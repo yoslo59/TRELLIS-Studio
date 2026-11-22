@@ -90,6 +90,7 @@ def _runtime(config_path):
         if entry['schema'] != 1:
             raise ValueError
         paths = {key: (config.parent / entry[key]).resolve() for key in ('package', 'models', 'u2net')}
+        dino = (config.parent / entry['dinov3']).resolve() if 'dinov3' in entry else None
         paths['python_paths'] = [(config.parent / item).resolve() for item in entry.get('python_paths', ())]
         paths['environment'] = {
             key: str((config.parent / value).resolve())
@@ -106,10 +107,13 @@ def _runtime(config_path):
             raise ValueError
     except (OSError, KeyError, TypeError, ValueError) as exc:
         raise ValueError('The portable High Detail pipeline source is missing or unsupported.') from exc
-    dino_paths = (models / DINO_DIRECTORY, models / 'Trellis2/dinov3' / DINO_DIRECTORY,
-                  models / 'Aero-Ex/Dinov3' / DINO_DIRECTORY)
-    if not all((models / 'Trellis2' / name).is_file() for name in MODEL_FILES) or not any(
-            (path / 'model.safetensors').is_file() and (path / 'config.json').is_file() for path in dino_paths):
+    dino_paths = (dino,) if dino is not None else (
+        models / 'Trellis2/dinov3' / DINO_DIRECTORY, models / DINO_DIRECTORY,
+        models / 'Aero-Ex/Dinov3' / DINO_DIRECTORY,
+    )
+    paths['dinov3'] = next((path for path in dino_paths if (path / 'model.safetensors').is_file()
+                           and (path / 'config.json').is_file()), None)
+    if paths['dinov3'] is None or not all((models / 'Trellis2' / name).is_file() for name in MODEL_FILES):
         raise ValueError('The native High Detail Q4 weights or local DINOv3 checkpoint are missing.')
     if not (paths['u2net'] / 'u2net.onnx').is_file():
         raise ValueError('The native High Detail background-removal weights are missing.')
@@ -308,6 +312,12 @@ class _DinoLockedSampler:
         return SimpleNamespace(samples=sample)
 
 
+def _bind_dino_checkpoint(pipeline, runtime):
+    # The pinned upstream loader assumes its own directory layout. Studio's
+    # setup can select the same local checkpoint from the shared foundation.
+    pipeline._pretrained_args['image_cond_model']['args']['model_name'] = str(runtime['dinov3'])
+
+
 def _load_model(torch, runtime, settings):
     from trellis2_gguf.pipelines.trellis2_image_to_3d import Trellis2ImageTo3DPipeline
 
@@ -339,6 +349,7 @@ def _load_model(torch, runtime, settings):
         enable_gguf=True, gguf_quant='Q4_K_M', precision=None, enable_sdnq=False,
         sdnq_use_quantized_matmul=True, sdnq_torch_compile=False, sdnq_svd_rank=32, isPixal3D=False,
     )
+    _bind_dino_checkpoint(pipeline, runtime)
     pipeline.low_vram = settings['low_vram']
     if pipeline.low_vram:
         pipeline.cuda()

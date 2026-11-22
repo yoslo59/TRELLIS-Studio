@@ -4,7 +4,8 @@ $ErrorActionPreference='Stop'
 $taskRoot=$PSScriptRoot
 $env:PYTHONUTF8='1'
 $env:UV_PYTHON_INSTALL_DIR=Join-Path $taskRoot '.tools\python'
-$env:UV_CACHE_DIR=Join-Path $taskRoot '.tools\uv-cache'
+$env:UV_LINK_MODE='copy'
+$env:UV_NO_CACHE='1'
 $env:UV_MANAGED_PYTHON='1'
 if (-not [Environment]::Is64BitOperatingSystem) { throw '64-bit Windows is required.' }
 $taskManifest=Get-Content -LiteralPath (Join-Path $taskRoot 'installer\manifest.json') -Raw | ConvertFrom-Json

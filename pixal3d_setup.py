@@ -33,15 +33,12 @@ def obtain(entry, destination, local_source=None, allow_download=True):
         print(f'Verified: {destination.name}', flush=True)
     elif local_source and verified(local_source, entry):
         destination.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            os.link(local_source, destination)
-        except OSError:
-            with tempfile.TemporaryDirectory(prefix='pixal3d-copy-', dir=destination.parent) as temp:
-                copy = Path(temp) / destination.name
-                shutil.copyfile(local_source, copy)
-                if not verified(copy, entry):
-                    raise RuntimeError(f'Asset changed while copying: {local_source}')
-                copy.rename(destination)
+        with tempfile.TemporaryDirectory(prefix='pixal3d-copy-', dir=destination.parent) as temp:
+            copy = Path(temp) / destination.name
+            shutil.copyfile(local_source, copy)
+            if not verified(copy, entry):
+                raise RuntimeError(f'Asset changed while copying: {local_source}')
+            copy.rename(destination)
         print(f'Reused verified file: {destination.name}', flush=True)
     elif allow_download:
         fetch(entry, destination)

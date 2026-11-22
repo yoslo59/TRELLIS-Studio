@@ -96,6 +96,13 @@ Var SkipUltraTex
 Var UltraTexCheckbox
 Var AcceptUltraTexLicenses
 Var UltraTexLicenseCheckbox
+Var InstallNativeWorkflows
+Var NativeWorkflowsDefault
+Var NativeWorkflowsSupported
+Var SkipNativeWorkflows
+Var NativeWorkflowsCheckbox
+Var AcceptNativeWorkflowLicenses
+Var NativeWorkflowLicenseCheckbox
 Var InstallKimodo
 Var KimodoCheckbox
 Var AcceptKimodoLicenses
@@ -111,6 +118,7 @@ Var KimodoArguments
 Page custom ShowInstallMode SaveInstallMode
 Page custom ShowHardware SaveHardware
 Page custom ShowComponentMode SaveComponentMode
+Page custom ShowNativeWorkflowOptions SaveNativeWorkflowOptions
 Page custom ShowHi3dOptions SaveHi3dOptions
 Page custom ShowMultiviewTextureOptions SaveMultiviewTextureOptions
 Page custom ShowUltraTexOptions SaveUltraTexOptions
@@ -190,6 +198,10 @@ Function .onInit
   StrCpy $InstallUltraTex "0"
   StrCpy $SkipUltraTex "0"
   StrCpy $AcceptUltraTexLicenses "0"
+  StrCpy $InstallNativeWorkflows "0"
+  StrCpy $NativeWorkflowsDefault "0"
+  StrCpy $SkipNativeWorkflows "0"
+  StrCpy $AcceptNativeWorkflowLicenses "0"
   StrCpy $InstallKimodo "0"
   StrCpy $AcceptKimodoLicenses "0"
   ${IfNot} ${IsNativeAMD64}
@@ -301,6 +313,16 @@ Function ShowHardware
     ReadINIStr $AcceptMultiviewTextureLicenses "$PLUGINSDIR\preflight.ini" "Plan" "MultiviewTextureLicenseAccepted"
     ReadINIStr $InstallUltraTex "$PLUGINSDIR\preflight.ini" "Plan" "UltraTex"
     ReadINIStr $AcceptUltraTexLicenses "$PLUGINSDIR\preflight.ini" "Plan" "UltraTexLicenseAccepted"
+    ReadINIStr $InstallNativeWorkflows "$PLUGINSDIR\preflight.ini" "Plan" "NativeWorkflows"
+    ReadINIStr $NativeWorkflowsDefault "$PLUGINSDIR\preflight.ini" "Plan" "NativeWorkflowsDefault"
+    ReadINIStr $AcceptNativeWorkflowLicenses "$PLUGINSDIR\preflight.ini" "Plan" "NativeWorkflowsLicenseAccepted"
+    StrCpy $SkipNativeWorkflows "0"
+    ${If} $InstallNativeWorkflows != "1"
+      StrCpy $InstallNativeWorkflows "0"
+    ${EndIf}
+    ${If} $AcceptNativeWorkflowLicenses != "1"
+      StrCpy $AcceptNativeWorkflowLicenses "0"
+    ${EndIf}
     ${If} $InstallUltraTex != "1"
       StrCpy $InstallUltraTex "0"
     ${EndIf}
@@ -444,7 +466,7 @@ Function ShowComponentMode
   Pop $0
   ${NSD_CreateCheckbox} 0 27u 100% 13u "TRELLIS.2 image-to-3D  (about 15 GiB of models)"
   Pop $TrellisCheckbox
-  ${NSD_CreateCheckbox} 0 45u 100% 13u "Pixal3D multi-view generation  (about 8.25 GiB more)"
+  ${NSD_CreateCheckbox} 0 45u 100% 13u "Pixal3D compatibility generation  (about 8.25 GiB more)"
   Pop $Pixal3DCheckbox
   ${NSD_CreateCheckbox} 0 63u 100% 13u "UniRig skeleton and skinning  (WSL2 and Blender)"
   Pop $UniRigCheckbox
@@ -520,6 +542,94 @@ Function SaveComponentMode
   ${NSD_GetState} $UniRigCheckbox $InstallUniRig
   ${If} $InstallPixal3D == "1"
     StrCpy $InstallTrellis "1"
+  ${EndIf}
+FunctionEnd
+
+Function NativeWorkflowChoiceChanged
+  Pop $0
+  ${NSD_GetState} $NativeWorkflowsCheckbox $0
+  EnableWindow $NativeWorkflowLicenseCheckbox $0
+FunctionEnd
+
+Function OpenNativeWorkflowMeshLibLicense
+  Pop $0
+  ReadINIStr $1 "$PLUGINSDIR\preflight.ini" "NativeWorkflows" "MeshLibLicenseUrl"
+  ${If} $1 != ""
+    ExecShell "open" "$1"
+  ${EndIf}
+FunctionEnd
+
+Function ShowNativeWorkflowOptions
+  ${If} $InstallTrellis != "1"
+    StrCpy $SkipNativeWorkflows "0"
+    Abort
+  ${EndIf}
+  !insertmacro MUI_HEADER_TEXT "High Detail and Game Asset" "Install the native workflows with UltraTex for TRELLIS Studio."
+  Call ExtractUltraTexLicense
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  ReadINIStr $NativeWorkflowsSupported "$PLUGINSDIR\preflight.ini" "NativeWorkflows" "Supported"
+  ReadINIStr $1 "$PLUGINSDIR\preflight.ini" "NativeWorkflows" "Status"
+  ${If} $1 == ""
+    StrCpy $1 "NVIDIA hardware could not be checked. You can continue with the other components."
+  ${EndIf}
+  ${NSD_CreateCheckbox} 0 1u 100% 15u "Install High Detail and Game Asset (recommended)"
+  Pop $NativeWorkflowsCheckbox
+  ${NSD_OnClick} $NativeWorkflowsCheckbox NativeWorkflowChoiceChanged
+  ${NSD_CreateLabel} 13u 19u -13u 23u "Setup downloads native geometry, mesh finishing and UltraTex. Read the non-commercial evaluation terms before continuing."
+  Pop $0
+  ${NSD_CreateLabel} 13u 43u -13u 22u "$1"
+  Pop $0
+  ${If} $BlenderReady == "1"
+    StrCpy $2 "Game Asset uses the Blender selected on Check this PC."
+  ${Else}
+    StrCpy $2 "Setup can prepare a private portable Blender for Game Asset."
+  ${EndIf}
+  ${NSD_CreateLabel} 13u 67u -13u 14u "$2"
+  Pop $0
+  ReadINIStr $2 "$PLUGINSDIR\preflight.ini" "NativeWorkflows" "Guidance"
+  ${NSD_CreateLabel} 13u 83u -13u 14u "$2"
+  Pop $0
+  ${NSD_CreateLink} 13u 99u 52% 11u "FLUX.2 [klein] 9B terms"
+  Pop $0
+  ${NSD_OnClick} $0 OpenUltraTexLicense
+  ${NSD_CreateLink} 58% 99u 35% 11u "MeshLib terms"
+  Pop $0
+  ${NSD_OnClick} $0 OpenNativeWorkflowMeshLibLicense
+  ${If} $NativeWorkflowsSupported != "1"
+    EnableWindow $0 0
+  ${EndIf}
+  ${NSD_CreateCheckbox} 0 112u 100% 22u "I have read and accept the FLUX.2 [klein] 9B and MeshLib terms."
+  Pop $NativeWorkflowLicenseCheckbox
+  StrCpy $0 $InstallNativeWorkflows
+  ${If} $NativeWorkflowsSupported != "1"
+    StrCpy $0 "0"
+    EnableWindow $NativeWorkflowsCheckbox 0
+  ${ElseIf} $NativeWorkflowsDefault == "1"
+    StrCpy $0 "1"
+  ${EndIf}
+  ${NSD_SetState} $NativeWorkflowsCheckbox $0
+  ${NSD_SetState} $NativeWorkflowLicenseCheckbox $AcceptNativeWorkflowLicenses
+  EnableWindow $NativeWorkflowLicenseCheckbox $0
+  nsDialogs::Show
+FunctionEnd
+
+Function SaveNativeWorkflowOptions
+  ${If} $NativeWorkflowsSupported != "1"
+    Return
+  ${EndIf}
+  ${NSD_GetState} $NativeWorkflowsCheckbox $InstallNativeWorkflows
+  ${NSD_GetState} $NativeWorkflowLicenseCheckbox $AcceptNativeWorkflowLicenses
+  StrCpy $NativeWorkflowsDefault "0"
+  StrCpy $SkipNativeWorkflows "0"
+  ${If} $InstallNativeWorkflows == "0"
+    StrCpy $SkipNativeWorkflows "1"
+  ${ElseIf} $AcceptNativeWorkflowLicenses != "1"
+    MessageBox MB_ICONEXCLAMATION "Accept both the FLUX.2 [klein] 9B and MeshLib terms, or clear the native workflows selection." /SD IDOK
+    Abort
   ${EndIf}
 FunctionEnd
 
@@ -679,10 +789,14 @@ Function OpenUltraTexLicense
   ExecShell "open" "$PLUGINSDIR\FLUX.2-klein-base-9B-LICENSE.txt"
 FunctionEnd
 
-Function ShowUltraTexOptions
-  !insertmacro MUI_HEADER_TEXT "Optional UltraTex 2K preview" "Local evaluation with Desktop or Server on validated NVIDIA hardware."
+Function ExtractUltraTexLicense
   InitPluginsDir
   File /oname=$PLUGINSDIR\FLUX.2-klein-base-9B-LICENSE.txt "${PAYLOAD_ROOT}\licenses\FLUX.2-klein-base-9B-LICENSE.md"
+FunctionEnd
+
+Function ShowUltraTexOptions
+  !insertmacro MUI_HEADER_TEXT "Optional UltraTex 2K preview" "Six-view compatibility component for local evaluation."
+  Call ExtractUltraTexLicense
   nsDialogs::Create 1018
   Pop $0
   ${If} $0 == error
@@ -691,7 +805,7 @@ Function ShowUltraTexOptions
   ${NSD_CreateCheckbox} 0 3u 100% 15u "Install UltraTex 2K preview (optional)"
   Pop $UltraTexCheckbox
   ${NSD_OnClick} $UltraTexCheckbox UltraTexChoiceChanged
-  ${NSD_CreateLabel} 13u 20u -13u 30u "Six-view PBR texturing for non-commercial, non-production evaluation. Requires TRELLIS.2 and downloads about 14 GB of model files."
+  ${NSD_CreateLabel} 13u 20u -13u 30u "Six-view compatibility component. High Detail and Game Asset install their own UltraTex runtime. This preview adds about 14 GB of model downloads."
   Pop $0
   ReadINIStr $1 "$PLUGINSDIR\preflight.ini" "UltraTex" "Status"
   ReadINIStr $2 "$PLUGINSDIR\preflight.ini" "UltraTex" "Guidance"
@@ -926,6 +1040,10 @@ Section "${SETUP_NAME}"
   StrCpy $HardwareArguments ""
   ${If} $InstallTrellis == "1"
     StrCpy $ComponentsArgument "trellis"
+    ${If} $InstallNativeWorkflows == "1"
+    ${AndIf} $NativeWorkflowsSupported == "1"
+      StrCpy $ComponentsArgument "$ComponentsArgument,native-workflows"
+    ${EndIf}
   ${EndIf}
   ${If} $InstallPixal3D == "1"
     StrCpy $ComponentsArgument "$ComponentsArgument,pixal3d"
@@ -967,6 +1085,14 @@ Section "${SETUP_NAME}"
     ${AndIf} $WslDistribution != ""
       StrCpy $HardwareArguments '$HardwareArguments -WslDistribution "$WslDistribution"'
     ${EndIf}
+  ${EndIf}
+  ${If} $InstallTrellis == "1"
+  ${AndIf} $InstallNativeWorkflows == "1"
+  ${AndIf} $NativeWorkflowsSupported == "1"
+  ${AndIf} $AcceptNativeWorkflowLicenses == "1"
+    StrCpy $HardwareArguments "$HardwareArguments -AcceptNativeWorkflowModelLicenses"
+  ${ElseIf} $SkipNativeWorkflows == "1"
+    StrCpy $HardwareArguments "$HardwareArguments -SkipNativeWorkflows"
   ${EndIf}
   ${If} $InstallHi3d == "1"
   ${AndIf} $AcceptHi3dLicenses == "1"

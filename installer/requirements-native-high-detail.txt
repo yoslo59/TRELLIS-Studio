@@ -1,0 +1,11 @@
+# High Detail Windows CPython 3.11 overlay. Foundation supplies the shared runtime.
+# NumPy 1.26 matches the pinned CUDA and MeshLib wheel ABI.
+anyio==4.16.0 --hash=sha256:c66ae634e0b8228396b801741beb3294326d4b6102f7bba4041c0dfb58c29026
+gguf==0.19.0 --hash=sha256:70bcd10edfe697fb2dad6e40af2234b9d8ece9a41a99761405121ebda1c3c1cd
+httpcore==1.0.9 --hash=sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55
+httpx==0.28.1 --hash=sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad
+huggingface-hub==1.5.0 --hash=sha256:c9c0b3ab95a777fc91666111f3b3ede71c0cdced3614c553a64e98920585c4ee
+meshlib-core==3.2.0.29 --hash=sha256:bf415e2b603e4803791340f3d08a1503ef171ad3b85713e399ef5de09baf0cf1
+numpy==1.26.4 --hash=sha256:cd25bcecc4974d09257ffcd1f098ee778f7834c3ad767fe5db785be9a4aa9cb2
+rembg==2.0.75 --hash=sha256:536cc7aec597e6e17d805992f9014e6082b5bef76b1b68034d746e0690af3a94
+transformers==5.2.0 --hash=sha256:9ecaf243dc45bee11a7d93f8caf03746accc0cb069181bbf4ad8566c53e854b4

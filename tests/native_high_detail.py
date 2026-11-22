@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import struct
 import sys
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
@@ -22,10 +23,35 @@ class HighDetailSettingsTests(unittest.TestCase):
                     for stage in schema['stages'] if 'fields' in stage}
         self.assertEqual(defaults, native.DEFAULTS)
 
+    def test_runtime_reads_foundation_dino_without_an_alias(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = root / 'native-high-detail.json'
+            entry = {'schema': 1, 'package': 'package', 'models': 'models', 'u2net': 'rembg',
+                     'dinov3': 'engine/MODELS/dinov3'}
+            config.write_text(json.dumps(entry), encoding='utf-8')
+            source = root / entry['package'] / native.MANIFEST
+            source.parent.mkdir()
+            source.write_text(json.dumps({'schema': 1, 'trellis_gguf_revision': native.PIPELINE_REVISION,
+                                          'quant_revision': native.QUANT_REVISION}), encoding='utf-8')
+            checkpoint = root / entry['dinov3']
+            paths = [checkpoint / 'config.json', checkpoint / 'model.safetensors', root / entry['u2net'] / 'u2net.onnx']
+            paths.extend(root / 'models/Trellis2' / name for name in native.MODEL_FILES)
+            for path in paths:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+
+            self.assertEqual(native._runtime(config)['dinov3'], checkpoint.resolve())
+            self.assertFalse((root / 'models' / native.DINO_DIRECTORY).exists())
+
     def test_default_sampler_and_occupancy_pass_through_unchanged(self):
         coordinates = object()
+        dino = Path('engine/MODELS/dinov3').resolve()
 
         class PinnedPipeline:
+            def __init__(self):
+                self._pretrained_args = {'image_cond_model': {'args': {'model_name': 'default-folder'}}}
+
             @classmethod
             def from_pretrained(cls, *_args, **_kwargs):
                 return cls()
@@ -42,7 +68,8 @@ class HighDetailSettingsTests(unittest.TestCase):
         module = 'trellis2_gguf.pipelines.trellis2_image_to_3d'
         with patch.dict(sys.modules, {module: SimpleNamespace(Trellis2ImageTo3DPipeline=PinnedPipeline)}), \
              patch.object(native, '_reset_cuda'):
-            pipeline = native._load_model(Mock(), {'models': Path('.')}, native.DEFAULTS['44'])
+            pipeline = native._load_model(Mock(), {'models': Path('.'), 'dinov3': dino}, native.DEFAULTS['44'])
+        self.assertEqual(pipeline._pretrained_args['image_cond_model']['args']['model_name'], str(dino))
         pipeline.stage_settings = native.DEFAULTS['17']
         sampler = object()
         self.assertIs(pipeline._get_sampler('euler', sampler), sampler)

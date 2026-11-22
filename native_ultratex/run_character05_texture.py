@@ -75,8 +75,9 @@ def runtime_ops(cancelled):
         fastbake._interrupt, fastbake.choose_device = saved_bake
 
 
-def selected_sources():
-    manifest = json.loads((NATIVE_RUNTIME / 'source-manifest.json').read_text(encoding='utf-8'))
+def selected_sources(manifest=None):
+    if manifest is None:
+        manifest = json.loads((NATIVE_RUNTIME / 'source-manifest.json').read_text(encoding='utf-8'))
     for relative, digest in manifest['files'].items():
         path = NATIVE_RUNTIME / relative
         if sha256(path.read_bytes()).hexdigest() != digest:

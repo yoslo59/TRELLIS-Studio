@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "blender": {
+    "url": "https://download.blender.org/release/Blender5.2/blender-5.2.2-windows-x64.zip",
+    "filename": "blender-5.2.2-windows-x64.zip",
+    "bytes": 404453484,
+    "sha256": "3849d17a682cba006075aaa3f3597ecb5c9c30ec31035b2e092c53e40679b535"
+  },
+  "operators": [
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/LICENSE",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "comfy_extras/nodes_mesh_postprocess.py",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/comfy_extras/nodes_mesh_postprocess.py",
+      "bytes": 151613,
+      "sha256": "215ed682a2a4554de99d6d676236723e9cfc7e037b0cde77747ca802f8ddd005"
+    },
+    {
+      "path": "comfy_extras/nodes_save_3d.py",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/comfy_extras/nodes_save_3d.py",
+      "bytes": 46225,
+      "sha256": "b67519d34648d9d61f9663188b5b11d0727693c0e89e527724310b99de847d47"
+    },
+    {
+      "path": "comfy_extras/mesh3d/uv_unwrap/mesh.py",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/comfy_extras/mesh3d/uv_unwrap/mesh.py",
+      "bytes": 5530,
+      "sha256": "b73b1509db7a9a5b5f2d0f3316de292a768616707dab355766aa9a428732d051"
+    },
+    {
+      "path": "comfy_extras/mesh3d/uv_unwrap/segment.py",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/comfy_extras/mesh3d/uv_unwrap/segment.py",
+      "bytes": 17039,
+      "sha256": "c53a3a2b7af31a3eb6034eb7e910bad1c67464613900c260d8b714d0d5e5d685"
+    },
+    {
+      "path": "comfy_extras/mesh3d/uv_unwrap/parameterize.py",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/comfy_extras/mesh3d/uv_unwrap/parameterize.py",
+      "bytes": 23565,
+      "sha256": "1594225fc3740fc72d91dc536c3a3957cb141fce90e308a108bb7859d1cfa778"
+    },
+    {
+      "path": "comfy_extras/mesh3d/uv_unwrap/pack.py",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/comfy_extras/mesh3d/uv_unwrap/pack.py",
+      "bytes": 39504,
+      "sha256": "fc39f8f583a14c516d1c3be4acd79b04ce661cce89dc56c70bb4e5ed13e614ad"
+    },
+    {
+      "path": "comfy/ldm/trellis2/model.py",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/comfy/ldm/trellis2/model.py",
+      "bytes": 52828,
+      "sha256": "baa8b081de2eada84754b867282bd21d498233816326f8842943857fe1d07e0c"
+    },
+    {
+      "path": "comfy/ldm/trellis2/vae.py",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/comfy/ldm/trellis2/vae.py",
+      "bytes": 43939,
+      "sha256": "77d55274133aeb103a97979bb89e16b90f87ecf4018b8a8c0e89c87f45555124"
+    },
+    {
+      "path": "comfy/ldm/trellis2/flexgemm.py",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/comfy/ldm/trellis2/flexgemm.py",
+      "bytes": 8141,
+      "sha256": "457e6a06149ca440fb56cd29f1194a6d4ba1ede92991d7e438836a631525811b"
+    },
+    {
+      "path": "comfy/ldm/genmo/joint_model/layers.py",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/3c1b7a17fdf239d35ce98cc777756f572d089795/comfy/ldm/genmo/joint_model/layers.py",
+      "bytes": 5053,
+      "sha256": "bb0ae6cc4dee093547688f667e307bc37d83697d7342dc944f20499682321c95"
+    }
+  ],
+  "toolkits": [
+    {
+      "url": "https://codeload.github.com/Mstafa-awad/ComfyUI-Mesh-Quad-Reconstruct/zip/74048b3415537e26cc72b46b082a010cd0e357ce",
+      "bytes": 23759,
+      "sha256": "eb0e68c9a6e19034efdf1ba9aef285b4f832ccc06d14b315d8fa28496484bb7d",
+      "filename": "quad.zip",
+      "files": [
+        "nodes.py",
+        "LICENSE"
+      ],
+      "destination": "runtime/native-game-geometry/toolkit/ComfyUI-Mesh-Quad-Reconstruct"
+    },
+    {
+      "url": "https://codeload.github.com/Mstafa-awad/LODTailor-The-Mesh-Trimmer-ComfyuiNode/zip/3d25b7d4aa382fa5dac210eb5d8d0eadc4a4f183",
+      "bytes": 19521529,
+      "sha256": "37d4f3cb7f7e115e35638857954114bc46db09b225606cdd43770098269b21a9",
+      "filename": "lodtailor.zip",
+      "files": [
+        "decimate_only.py",
+        "LICENSE"
+      ],
+      "destination": "runtime/native-game-geometry/toolkit/LODTailor-The-Mesh-Trimmer-ComfyuiNode"
+    },
+    {
+      "url": "https://codeload.github.com/Mstafa-awad/LODTailor-Bake-Forger/zip/f13589c22558e3ca49dfa87dce709233eb3cc86b",
+      "bytes": 51690,
+      "sha256": "72f12b2c213a69f131f966a3ba71573d0789bc53f821ff80a94415e55adab758",
+      "filename": "bake.zip",
+      "files": [
+        "__init__.py",
+        "LICENSE",
+        "NOTICE.txt"
+      ],
+      "destination": "runtime/native-game-geometry/toolkit/LODTailor-Bake-Forger"
+    },
+    {
+      "url": "https://codeload.github.com/Mstafa-awad/WTiVo-FastMergeByDistance/zip/5392949165ceed1e74448b1949d6e0dc9b34dd92",
+      "bytes": 305328,
+      "sha256": "cc77e6b12fa06e43a82ab3e3078638621527a5b402a77f6bf79b1ee72fd0b902",
+      "filename": "merge.zip",
+      "files": [
+        "node.py",
+        "native.py",
+        "python_weld.py",
+        "native/wtivo_fast_weld_mt.dll",
+        "LICENSE"
+      ],
+      "destination": "runtime/native-game-geometry/toolkit/WTiVo-FastMergeByDistance"
+    }
+  ],
+  "vision_sources": [
+    {
+      "url": "https://huggingface.co/ZhengPeng7/BiRefNet/resolve/e2bf8e4460fc8fa32bba5ea4d94b3233d367b0e4/birefnet.py",
+      "bytes": 91896,
+      "sha256": "208771ae626f653d64128fbf2d6ac9f8e645c5cc5e286258a73ec3322bbfe5ef",
+      "filename": "birefnet.py",
+      "destination": "runtime/native-pixal3d/packages/birefnet_native/birefnet.py"
+    },
+    {
+      "url": "https://huggingface.co/ZhengPeng7/BiRefNet/resolve/e2bf8e4460fc8fa32bba5ea4d94b3233d367b0e4/BiRefNet_config.py",
+      "bytes": 298,
+      "sha256": "e7b8c2a74f6cea6a59553d517f71d47f2c1d90e670a13416af17c25fe2f3dc52",
+      "filename": "BiRefNet_config.py",
+      "destination": "runtime/native-pixal3d/packages/birefnet_native/BiRefNet_config.py"
+    }
+  ],
+  "birefnet_license": {
+    "url": "https://raw.githubusercontent.com/ZhengPeng7/BiRefNet/f7079632d681ecf12161fcea8905682934e59e51/LICENSE",
+    "bytes": 1066,
+    "sha256": "92a7089e0915fc32bc40067560b398f1e6a7a5958abd7d04eda393629a5acefb",
+    "destination": "runtime/native-pixal3d/packages/birefnet_native/LICENSE"
+  },
+  "vision_archives": [
+    {
+      "url": "https://codeload.github.com/microsoft/MoGe/zip/74fbce054ebed49800de42d0ad0e83495065719a",
+      "bytes": 11600986,
+      "sha256": "c256a67674c7779ef5e873199353ecff507b9430e4cea5fedfbfce23ceb68035",
+      "filename": "moge.zip",
+      "destination": "runtime/native-pixal3d/packages/moge",
+      "roots": [
+        "moge",
+        "LICENSE",
+        "configs/train/v2.json"
+      ]
+    },
+    {
+      "url": "https://codeload.github.com/EasternJournalist/utils3d-moge/zip/62f09d58509485564e24d5d9f6aac9ee9ebc0c37",
+      "bytes": 395250,
+      "sha256": "be8aa3a645fb5014d98004ac371efd8bca80ea40d0580545bfcf2d0a6779f07d",
+      "filename": "utils3d.zip",
+      "destination": "runtime/native-pixal3d/packages/utils3d_moge",
+      "roots": [
+        "utils3d_moge",
+        "LICENSE"
+      ]
+    }
+  ],
+  "wtivo": [
+    {
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/WTiVo-WatertightVoxel-ComfyuiNode/fb9e9ea6a7deec965d3a4bf43ba7a4a9ff3856f3/wtivo.py",
+      "bytes": 48587,
+      "sha256": "bb3b2ffd450a643e981271bba88d66cb735ec1e766fbe27df350faa2c618d55d",
+      "filename": "wtivo-wtivo.py",
+      "destination": ".tools/wtivo/source/wtivo.py"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/WTiVo-WatertightVoxel-ComfyuiNode/fb9e9ea6a7deec965d3a4bf43ba7a4a9ff3856f3/LICENSE",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "filename": "wtivo-LICENSE",
+      "destination": ".tools/wtivo/source/LICENSE"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/WTiVo-WatertightVoxel-ComfyuiNode/fb9e9ea6a7deec965d3a4bf43ba7a4a9ff3856f3/LICENSING.md",
+      "bytes": 3577,
+      "sha256": "fa2e651af7b3eea023c9a0f0d638763f9be4143c01d2157f5e7abac903a299e0",
+      "filename": "wtivo-LICENSING.md",
+      "destination": ".tools/wtivo/source/LICENSING.md"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/WTiVo-WatertightVoxel-ComfyuiNode/fb9e9ea6a7deec965d3a4bf43ba7a4a9ff3856f3/NOTICE",
+      "bytes": 2109,
+      "sha256": "6993a419ecc91451f56562b0ac2eb1d1cfad9b91421f83a506ce543f16fff94d",
+      "filename": "wtivo-NOTICE",
+      "destination": ".tools/wtivo/source/NOTICE"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/WTiVo-WatertightVoxel-ComfyuiNode/fb9e9ea6a7deec965d3a4bf43ba7a4a9ff3856f3/build/ForNonBlackwellgpu%28rtx50%20and%20below%29.rar",
+      "bytes": 6223640,
+      "sha256": "a1f0112b66e76d5506e659d94b7058855d1c8c1eb7479e8669b447b5c3f73af8",
+      "filename": "wtivo-ForNonBlackwellgpu(rtx50 and below).rar",
+      "destination": ".tools/wtivo/source/build/ForNonBlackwellgpu(rtx50 and below).rar"
+    }
+  ],
+  "weights": [
+    {
+      "path": "clip_vision/dino_v3_L_naf_fp32.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Pixal3D/resolve/f37641be376725d324c56626007cc477f1249a69/clip_vision/dino_v3_L_naf_fp32.safetensors?download=true",
+      "bytes": 1215214176,
+      "sha256": "4ad2ec4e0879a5b5b04cd97325cc37da954a7b6edca5170b86510f17f2b2290f"
+    },
+    {
+      "path": "vae/trellis_2_shape_vae_bf16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Pixal3D/resolve/f37641be376725d324c56626007cc477f1249a69/vae/trellis_2_shape_vae_bf16.safetensors?download=true",
+      "bytes": 1095844024,
+      "sha256": "de0cb4949a76c59ee5c091a995a69bcc8c51d5aeda939f0c641a50d2a72341f4"
+    },
+    {
+      "path": "diffusion_models/pixal3d_int8_convrot.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Pixal3D/resolve/f37641be376725d324c56626007cc477f1249a69/diffusion_models/pixal3d_int8_convrot.safetensors?download=true",
+      "bytes": 5584555824,
+      "sha256": "4621eac3b715484f79303c7152af641fe0b2b14f4d0e3d394fd6922d00f955ec"
+    },
+    {
+      "path": "geometry_estimation/moge_2_vitl_normal_fp16.safetensors",
+      "bytes": 661859924,
+      "sha256": "cb1a692d03235671e959e81360d7b4d9f44aefadb1f852d6ca6aa17799d5e31f",
+      "url": "https://huggingface.co/Comfy-Org/MoGe/resolve/1484985258ba7ef45c314144fcf0e90924ffbf44/geometry_estimation/moge_2_vitl_normal_fp16.safetensors?download=true"
+    },
+    {
+      "path": "background_removal/birefnet.safetensors",
+      "bytes": 444473596,
+      "sha256": "9ab37426bf4de0567af6b5d21b16151357149139362e6e8992021b8ce356a154",
+      "url": "https://huggingface.co/Comfy-Org/BiRefNet/resolve/884af709e9b795d89dafbf97f29c8d6a2386f5c6/background_removal/birefnet.safetensors?download=true"
+    },
+    {
+      "path": "diffusion_models/trellis_2_int8_convrot.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/TRELLIS.2/resolve/430a9d09b2416687018c8fe8edced2ad4858a439/diffusion_models/trellis_2_int8_convrot.safetensors?download=true",
+      "bytes": 5253048192,
+      "sha256": "d01952ad137213f6a868f86b6b877026276f84af5eec23069217475a0bad3a31"
+    }
+  ],
+  "wheels": {
+    "cumesh": {
+      "url": "https://raw.githubusercontent.com/visualbruno/ComfyUI-Trellis2/14597418bbe33a440ead4667e2966408f0524a21/wheels/Windows/Torch280/cumesh-1.0-cp312-cp312-win_amd64.whl",
+      "bytes": 3329339,
+      "sha256": "fc5124db900a883d3b48e031bcaeca7d07f500b9935dcb40b2cab6b365126de4",
+      "filename": "cumesh-1.0-cp312-cp312-win_amd64.whl"
+    },
+    "torchvision": {
+      "url": "https://download.pytorch.org/whl/cu128/torchvision-0.23.0%2Bcu128-cp312-cp312-win_amd64.whl",
+      "bytes": 7540039,
+      "sha256": "20fa9c7362a006776630b00b8a01919fedcf504a202b81358d32c5aef39956fe",
+      "filename": "torchvision-0.23.0+cu128-cp312-cp312-win_amd64.whl"
+    }
+  }
+}

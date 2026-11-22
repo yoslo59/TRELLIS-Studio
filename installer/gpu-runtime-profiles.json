@@ -24,6 +24,11 @@
     "minimum_vram_mib": 12000,
     "license_sha256": "468D9F4332C0C895E9132C035982A40A12750092603A2E910913CB49AA887D3B"
   },
+  "native_workflows": {
+    "compute_capabilities": ["8.6", "8.9"],
+    "minimum_vram_mib": 12000,
+    "meshlib_license_revision": "df34d41cbdbeb8343aeecdfd5755a361e5dc291d"
+  },
   "windows": {
     "torch28-cu128": {
       "driver_min": "570.65",

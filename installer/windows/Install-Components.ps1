@@ -32,7 +32,7 @@ function Invoke-GuidedSetupCommand([string]$Executable,[string[]]$Arguments) {
             if ($_ -is [Management.Automation.ErrorRecord] -and $_.FullyQualifiedErrorId -notmatch '^NativeCommandErrorMessage') {
                 $lastError=$line
             }
-            if ($line -match '^(INSTALLATION STOPPED|PIXAL3D SETUP STOPPED|HI3D SETUP STOPPED|MULTIVIEW TEXTURE SETUP STOPPED|ULTRATEX SETUP STOPPED|Kimodo installation failed)\s*:') {
+            if ($line -match '^(INSTALLATION STOPPED|PIXAL3D SETUP STOPPED|HI3D SETUP STOPPED|MULTIVIEW TEXTURE SETUP STOPPED|ULTRATEX SETUP STOPPED|NATIVE WORKFLOWS SETUP STOPPED|Kimodo installation failed)\s*:') {
                 $lastError=$line
             }
             Write-Host $line
@@ -87,10 +87,14 @@ function Invoke-GuidedSetup {
         [switch]$AcceptMultiviewTextureModelLicenses,
         [switch]$SkipMultiviewTexture,
         [switch]$AcceptUltraTexModelLicenses,
-        [switch]$SkipUltraTex
+        [switch]$SkipUltraTex,
+        [switch]$AcceptNativeWorkflowModelLicenses,
+        [switch]$SkipNativeWorkflows
     )
+    $env:UV_LINK_MODE='copy'
+    $env:UV_NO_CACHE='1'
     . (Join-Path $PSScriptRoot 'Setup-Preflight.ps1')
-    $setupOrder=@('trellis','pixal3d','hi3d','multiview-texture','ultratex','unirig','kimodo')
+    $setupOrder=@('trellis','native-workflows','pixal3d','hi3d','multiview-texture','ultratex','unirig','kimodo')
     $setupStatePath=Join-Path $InstallRoot 'config\component-install.json'
     $setupState=Read-GuidedSetupJson $setupStatePath
     if ($setupState.Count -and $setupState.schema -ne 1) { throw 'Unsupported component setup receipt. Existing settings were preserved.' }
@@ -105,6 +109,10 @@ function Invoke-GuidedSetup {
     $requested=@($RequestedComponents -split ',' | ForEach-Object {$_.Trim().ToLowerInvariant()} | Where-Object {$_})
     if ($Retry -and -not $requested.Count) { $requested=@($setupState.requested | Where-Object {$_}) }
     if ($WithKimodo) { $requested+=@('kimodo') }
+    if ($SkipNativeWorkflows) {
+        $requested=@($requested | Where-Object { $_ -ne 'native-workflows' })
+        $setupState.requested=@($setupState.requested | Where-Object { $_ -ne 'native-workflows' })
+    }
     if ($SkipHi3d) {
         $requested=@($requested | Where-Object { $_ -ne 'hi3d' })
         $setupState.requested=@($setupState.requested | Where-Object { $_ -ne 'hi3d' })
@@ -120,7 +128,7 @@ function Invoke-GuidedSetup {
     foreach ($name in $requested) {
         if ($name -notin $setupOrder) { throw "Unknown setup component: $name." }
     }
-    if (@($requested | Where-Object { $_ -in @('pixal3d','hi3d','multiview-texture','ultratex') }).Count) { $requested+=@('trellis') }
+    if (@($requested | Where-Object { $_ -in @('native-workflows','pixal3d','hi3d','multiview-texture','ultratex') }).Count) { $requested+=@('trellis') }
     $selected=@($setupOrder | Where-Object {$_ -in $requested})
     $setupState.requested=@($setupOrder | Where-Object {$_ -in $selected -or $_ -in $setupState.requested})
     Save-GuidedSetupJson $setupStatePath $setupState
@@ -132,6 +140,33 @@ function Invoke-GuidedSetup {
     if ($BlenderPath) { $probeArgs.BlenderPath=$BlenderPath }
     if ($WslDistribution) { $probeArgs.WslDistribution=$WslDistribution }
     $probe=Get-SetupPreflight @probeArgs
+    $nativeWorkflowReason=''
+    if ('native-workflows' -in $selected) {
+        try {
+            $manifest=Read-SetupGpuManifest
+            $license=Join-Path $InstallRoot 'licenses\FLUX.2-klein-base-9B-LICENSE.md'
+            $licenseHash=(Get-FileHash -LiteralPath $license -Algorithm SHA256).Hash
+            if ($licenseHash -cne $manifest.ultratex.license_sha256) {
+                throw 'The packaged FLUX.2 [klein] 9B model terms could not be verified. Use the complete Setup package.'
+            }
+            $meshLibRevision=$manifest.native_workflows.meshlib_license_revision
+            if ($meshLibRevision -cnotmatch '^[0-9a-f]{40}$') {
+                throw 'The pinned MeshLib terms could not be verified. Use the complete Setup package.'
+            }
+            if ($AcceptNativeWorkflowModelLicenses) {
+                $setupState.licenses.native_workflows=$licenseHash
+                $setupState.licenses.meshlib=$meshLibRevision
+                Save-GuidedSetupJson $setupStatePath $setupState
+            }
+            if (-not $probe.NativeWorkflows.Supported) {
+                $nativeWorkflowReason=$probe.NativeWorkflows.Status
+            } elseif ($setupState.licenses.native_workflows -cne $licenseHash -and $setupState.licenses.ultratex -cne $licenseHash) {
+                $nativeWorkflowReason='The FLUX.2 [klein] 9B model terms have not been accepted. Run Setup again to select High Detail and Game Asset.'
+            } elseif ($setupState.licenses.meshlib -cne $meshLibRevision) {
+                $nativeWorkflowReason='The MeshLib terms have not been accepted. Run Setup again to select High Detail and Game Asset.'
+            }
+        } catch { $nativeWorkflowReason=$_.Exception.Message }
+    }
     if ($BlenderPath -and -not $probe.Blender.Ready) { throw $probe.Blender.Status }
     if ($probe.Blender.Ready) { $config.blender_path=$probe.Blender.Path }
     if ($probe.WSL.Ready) { $config.wsl_distribution=$probe.WSL.Distribution }
@@ -189,6 +224,18 @@ function Invoke-GuidedSetup {
         $nativeInstall={Invoke-GuidedSetupCommand $windowsPowerShell ($bootstrapArgs+@('-SkipRig','-AcceptDinoV3License'))}
         $nativeVerify={Invoke-GuidedSetupCommand $windowsPowerShell ($bootstrapArgs+@('-SkipRig','-VerifyOnly'))}
         Invoke-GuidedComponent 'trellis' $nativeInstall $nativeVerify $nativeReason
+    }
+    if ('native-workflows' -in $selected) {
+        Write-Host 'Preparing the standalone High Detail and Game Asset workflows with native UltraTex. The optional six-view UltraTex preview is a separate component.'
+        if (-not $nativeWorkflowReason -and $setupState.components.trellis.status -ne 'ready') {
+            $nativeWorkflowReason='Verify TRELLIS.2 generation on the selected GPU first.'
+        }
+        $nativeWorkflowSetup=Join-Path $InstallRoot 'installer\install_native_workflows.py'
+        $nativeWorkflowArgs=@('-B','-u',$nativeWorkflowSetup,'--root',$InstallRoot,
+            '--accept-ultratex-license','--accept-meshlib-license')
+        $nativeWorkflowInstall={Invoke-GuidedSetupCommand $nativePython $nativeWorkflowArgs}
+        $nativeWorkflowVerify={Invoke-GuidedSetupCommand $nativePython ($nativeWorkflowArgs+@('--verify-only'))}
+        Invoke-GuidedComponent 'native-workflows' $nativeWorkflowInstall $nativeWorkflowVerify $nativeWorkflowReason
     }
     if ('pixal3d' -in $selected) {
         $pixalReason=if ($setupState.components.trellis.status -ne 'ready') {'Verify TRELLIS generation on the selected GPU first.'} else {''}

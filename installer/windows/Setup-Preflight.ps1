@@ -353,12 +353,40 @@ function Get-SetupDisk([string]$Root) {
     return $result
 }
 
+function Get-SetupNativeWorkflows([psobject]$Gpu) {
+    $result=[pscustomobject][ordered]@{
+        Supported=$false; Status=''; MeshLibLicenseUrl=''
+        Guidance='Allow 75 GiB of free disk space for a fresh installation.'
+    }
+    if (-not $Gpu.Supported) {
+        $result.Status=$Gpu.Status
+        return $result
+    }
+    try { $policy=(Read-SetupGpuManifest).native_workflows }
+    catch { $result.Status=$_.Exception.Message; return $result }
+    if (-not $policy -or -not $policy.compute_capabilities.Count -or [int]$policy.minimum_vram_mib -le 0 -or
+        $policy.meshlib_license_revision -cnotmatch '^[0-9a-f]{40}$') {
+        $result.Status='The native workflows hardware policy is missing or invalid. Use the complete Setup package.'
+        return $result
+    }
+    if ($Gpu.Compute -notin $policy.compute_capabilities -or $Gpu.MemoryMiB -lt [int]$policy.minimum_vram_mib) {
+        $capabilities=$policy.compute_capabilities -join ', '
+        $result.Status="The native workflows require a supported NVIDIA GPU (CUDA capability $capabilities) and at least $($policy.minimum_vram_mib) MiB of VRAM."
+        return $result
+    }
+    $result.MeshLibLicenseUrl="https://github.com/MeshInspector/MeshLib/blob/$($policy.meshlib_license_revision)/LICENSE"
+    $result.Supported=$true
+    $result.Status='The detected GPU meets the requirements. Setup checks the runtimes on this GPU.'
+    return $result
+}
+
 function Get-SetupInstallPlan([string]$Root) {
     $state=Read-SetupJson -Root $Root -RelativePath 'config\component-install.json'
     $saved=$state.schema -eq 1 -and $state.requested -is [array]
+    $existingInstallation=$Root -and (Read-SetupJson -Root $Root -RelativePath 'bundled-web.json')
     $requested=if ($saved) {
         $state.requested
-    } elseif ($Root -and (Read-SetupJson -Root $Root -RelativePath 'bundled-web.json')) {
+    } elseif ($existingInstallation) {
         # Earlier Windows installers did not record their component choices.
         if ((Test-Path -LiteralPath (Join-Path $Root 'models/trellis2/pipeline.json') -PathType Leaf) -and
             (Test-Path -LiteralPath (Join-Path $Root 'engine/MODELS/dinov3/model.safetensors') -PathType Leaf)) {
@@ -382,8 +410,20 @@ function Get-SetupInstallPlan([string]$Root) {
     if ($state.licenses.ultratex) {
         try { $ultraTexAccepted=$state.licenses.ultratex -ceq (Read-SetupGpuManifest).ultratex.license_sha256 } catch { }
     }
+    $nativeWorkflowsAccepted=$false
+    if ($state.licenses.meshlib) {
+        try {
+            $manifest=Read-SetupGpuManifest
+            $nativeWorkflowsAccepted=($ultraTexAccepted -or
+                $state.licenses.native_workflows -ceq $manifest.ultratex.license_sha256) -and
+                $state.licenses.meshlib -ceq $manifest.native_workflows.meshlib_license_revision
+        } catch { }
+    }
     return [pscustomobject][ordered]@{
         Saved=$saved
+        NativeWorkflowsDefault=(-not $saved -and -not $existingInstallation)
+        NativeWorkflows='native-workflows' -in $requested
+        NativeWorkflowsLicenseAccepted=$nativeWorkflowsAccepted
         Trellis='trellis' -in $requested
         Pixal3D='pixal3d' -in $requested
         UniRig='unirig' -in $requested
@@ -408,6 +448,7 @@ function Get-SetupPreflight {
     $gpu=Get-SetupGpu -RequestedUuid $GpuUuid -AllowReselect:$automaticGpu
     return [pscustomobject][ordered]@{
         GPU=$gpu
+        NativeWorkflows=(Get-SetupNativeWorkflows -Gpu $gpu)
         Hi3D=(Get-SetupHi3d -Gpu $gpu)
         MultiviewTexture=(Get-SetupMultiviewTexture -Gpu $gpu)
         UltraTex=(Get-SetupUltraTex -Gpu $gpu)

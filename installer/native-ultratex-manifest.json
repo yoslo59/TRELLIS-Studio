@@ -1,0 +1,287 @@
+{
+  "schema": 1,
+  "license": {
+    "path": "licenses/FLUX.2-klein-base-9B-LICENSE.md",
+    "sha256": "468d9f4332c0c895e9132c035982a40a12750092603a2e910913cb49aa887d3b",
+    "url": "https://huggingface.co/black-forest-labs/FLUX.2-klein-base-9B/blob/8e4154e4c94c6eb08644d0761d404e1c28d325c2/LICENSE.md"
+  },
+  "source_revisions": {
+    "texture_core": "4dea3ff0c61e0ec0aa82808ffe2299f14089db92",
+    "GGUF dequantizer": "4dfc025e4be06ba9c210bd1189546f7af67f445d",
+    "UltraTex standalone": "a726678f3f3631fe2c5e3d1fb4597114784c7a8b"
+  },
+  "source_files": [
+    {
+      "path": "modules/utx_graphics/__init__.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/__init__.py",
+      "bytes": 63,
+      "sha256": "c3567b8be97a85f15dc7b013baa2bd692e4ad4e95203745f8f722d172a767d0b"
+    },
+    {
+      "path": "modules/utx_graphics/bake.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/bake.py",
+      "bytes": 25800,
+      "sha256": "9b9711b81647730d84f2627b1c376d078e797a10e44d821daa36c2068cc65792"
+    },
+    {
+      "path": "modules/utx_graphics/conditions.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/conditions.py",
+      "bytes": 12466,
+      "sha256": "e748db25a24ea203498a9a5de99017987ed640830a16c2950106ed3e4d59cdf2"
+    },
+    {
+      "path": "modules/utx_graphics/contracts.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/contracts.py",
+      "bytes": 6647,
+      "sha256": "2f4a04f730748e4c779d80ad96c7a85f9b73c25526d3c67dde3fa7a3a53c30fd"
+    },
+    {
+      "path": "modules/utx_graphics/cpu.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/cpu.py",
+      "bytes": 2441,
+      "sha256": "25f7a15694068f2b40aa23bcc2acaeae02b71117cae135fddc3c578531d5bc07"
+    },
+    {
+      "path": "modules/utx_graphics/enhance.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/enhance.py",
+      "bytes": 12531,
+      "sha256": "3dba62c1e66e24ee95df8897b7dc19cb15608e10413c95e1e5fbd88f479dc224"
+    },
+    {
+      "path": "modules/utx_graphics/fastbake.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/fastbake.py",
+      "bytes": 83326,
+      "sha256": "ea7f649ab06a64df4518d2f2d3d9afacd88e162edac74c3828781bca186f71ed"
+    },
+    {
+      "path": "modules/utx_graphics/filtersupport.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/filtersupport.py",
+      "bytes": 3254,
+      "sha256": "c48a15999a3ffbc763f3f61b64d9c354b1b064b131346111b4e6c5a528cd5fad"
+    },
+    {
+      "path": "modules/utx_graphics/geometry.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/geometry.py",
+      "bytes": 14216,
+      "sha256": "ecab5d1451f5bf2abbe99dcf3201f12074e7edbf1104d018e13017756f849c16"
+    },
+    {
+      "path": "modules/utx_graphics/guidance.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/guidance.py",
+      "bytes": 2236,
+      "sha256": "d5a2089afaebda1a9f2c72839e1381c0347b9692d8217f9b60ba6f3675aa1ef7"
+    },
+    {
+      "path": "modules/utx_graphics/LICENSE",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/LICENSE",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "modules/utx_graphics/patchbake.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/patchbake.py",
+      "bytes": 11129,
+      "sha256": "67a779942a1bdc5ff1f94d7ce0c5c639ca49817b7afabb98357721a81a0d06e3"
+    },
+    {
+      "path": "modules/utx_graphics/patchcut.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/patchcut.py",
+      "bytes": 5239,
+      "sha256": "c270923da1bbbe2503b31acb6747446ea0398529d93351efb8b15a8d03f857bb"
+    },
+    {
+      "path": "modules/utx_graphics/patchgraph.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/patchgraph.py",
+      "bytes": 3263,
+      "sha256": "3be7f7c9a2b88eb5f10538bd35458c293130e10eca918464c7b6d3adca264ce5"
+    },
+    {
+      "path": "modules/utx_graphics/render.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/render.py",
+      "bytes": 8262,
+      "sha256": "c9c23b8f9c136e2f5cfbed16e1a3edcbdc5f74b3499bf268c1505f5bf5b983f1"
+    },
+    {
+      "path": "modules/utx_graphics/runtime.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/runtime.py",
+      "bytes": 6925,
+      "sha256": "a170fbfb1c18f17695411eb5a265aefe2499580f0c935689d30868202cdcc5d0"
+    },
+    {
+      "path": "modules/utx_graphics/sharpbake.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/sharpbake.py",
+      "bytes": 11325,
+      "sha256": "e0314fd3aab7e61e203c287263ba0578460cc2b90f38caaf3213f681cfb7d260"
+    },
+    {
+      "path": "modules/utx_graphics/sourceanchor.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/sourceanchor.py",
+      "bytes": 5522,
+      "sha256": "c0291a899b93fa317f2e37ccbd2c3e3fd41da5da822579551d513a5f4718af9f"
+    },
+    {
+      "path": "modules/utx_graphics/surfacefilter.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/surfacefilter.py",
+      "bytes": 5506,
+      "sha256": "707074e68b4d975eaacc59fc003e35050b2b77b58844b3aa019602af5ce4bd35"
+    },
+    {
+      "path": "modules/utx_graphics/THIRD_PARTY_NOTICES.md",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/THIRD_PARTY_NOTICES.md",
+      "bytes": 9979,
+      "sha256": "4f0d87320c214fcbd982e6db5d4d17124798848a29bb65d4ba46778c449d49bb"
+    },
+    {
+      "path": "modules/utx_graphics/vae_tiles.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/vae_tiles.py",
+      "bytes": 3775,
+      "sha256": "b378a2f71996226b2b3035f79b5c45be7c3d8a90a7c9099dfb0b503c4832182a"
+    },
+    {
+      "path": "modules/utx_graphics/vendor/sparse_attention/__init__.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/vendor/sparse_attention/__init__.py",
+      "bytes": 644,
+      "sha256": "97a4ed1a9f01068908dcf1b463a340e4d2864ca6d681036d224cde75088ac127"
+    },
+    {
+      "path": "modules/utx_graphics/vendor/sparse_attention/core.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/vendor/sparse_attention/core.py",
+      "bytes": 3252,
+      "sha256": "070586dd77d504d9ed35026e585cc3c48aefb141c694e8b797288b6143f3a8a0"
+    },
+    {
+      "path": "modules/utx_graphics/vendor/sparse_attention/kernel.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/vendor/sparse_attention/kernel.py",
+      "bytes": 11648,
+      "sha256": "4f18260ae3509e93bb2e86431d15472de17758766c11f14d5f89f8d89d3c4790"
+    },
+    {
+      "path": "modules/utx_graphics/vendor/sparse_attention/LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/vendor/sparse_attention/LICENSE.txt",
+      "bytes": 11368,
+      "sha256": "6f427d81a2ca1bb51f6b5a6e06e83e3fc71b57a7c60118f9d1b258e9512ed325"
+    },
+    {
+      "path": "modules/utx_graphics/vendor/sparse_attention/PATCHES.md",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/vendor/sparse_attention/PATCHES.md",
+      "bytes": 2644,
+      "sha256": "d6f848cfc41e7a6c8dca206a3082c5a4fcf1f68b60b3d4a06b5f0baed8f7a906"
+    },
+    {
+      "path": "modules/utx_graphics/vendor/sparse_attention/utils.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/vendor/sparse_attention/utils.py",
+      "bytes": 4724,
+      "sha256": "f11b4fd38d9709f3331e7825243bbce241d3103b92a405a468f836ecc09ed740"
+    },
+    {
+      "path": "modules/utx_graphics/vendor/UPSTREAM_LICENSE",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/vendor/UPSTREAM_LICENSE",
+      "bytes": 1067,
+      "sha256": "1d0ddbb9d271e32eee95c487afb53e2d336bce67c2c0e601cda263ed13a1f419"
+    },
+    {
+      "path": "modules/utx_graphics/visibility_v3.py",
+      "url": "https://raw.githubusercontent.com/Mstafa-awad/UltraTex-ComfyUI-nodes/4dea3ff0c61e0ec0aa82808ffe2299f14089db92/core/visibility_v3.py",
+      "bytes": 5695,
+      "sha256": "dad92009f3c7c7d736cfcc66bff2d906c17acf8a187f161d6c2911bfae55d3fd"
+    },
+    {
+      "path": "sources/autoencoder.py",
+      "url": "https://raw.githubusercontent.com/yiboz2001/UltraTex/a726678f3f3631fe2c5e3d1fb4597114784c7a8b/ultratex/backbones/flux2/autoencoder.py",
+      "bytes": 11139,
+      "sha256": "bb578f78d097a88f6e7e8aa01032c10f55659729b85203ae2d5852a7889ac96a"
+    },
+    {
+      "path": "sources/flux2.py",
+      "url": "https://raw.githubusercontent.com/yiboz2001/UltraTex/a726678f3f3631fe2c5e3d1fb4597114784c7a8b/ultratex/backbones/flux2/model.py",
+      "bytes": 31325,
+      "sha256": "324a7b9d4f9250aae39db4ec5a9d2afeb8157177d6cc9762bdb2f3ca03a279ec"
+    },
+    {
+      "path": "sources/gguf_dequant.py",
+      "url": "https://raw.githubusercontent.com/city96/ComfyUI-GGUF/4dfc025e4be06ba9c210bd1189546f7af67f445d/dequant.py",
+      "bytes": 12338,
+      "sha256": "031254636ebd2c5dc6c497c797ef1446d3986b04b318d04cebea956fd48091e0"
+    },
+    {
+      "path": "sources/LICENSE.GGUF",
+      "url": "https://raw.githubusercontent.com/city96/ComfyUI-GGUF/4dfc025e4be06ba9c210bd1189546f7af67f445d/LICENSE",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "sources/LICENSE.UltraTex",
+      "url": "https://raw.githubusercontent.com/yiboz2001/UltraTex/a726678f3f3631fe2c5e3d1fb4597114784c7a8b/LICENSE",
+      "bytes": 1067,
+      "sha256": "1d0ddbb9d271e32eee95c487afb53e2d336bce67c2c0e601cda263ed13a1f419"
+    },
+    {
+      "path": "tokenizer/LICENSE",
+      "url": "https://raw.githubusercontent.com/QwenLM/Qwen2.5-VL/96588727e44c78b25ba03ea03b8e12f7e64fd0da/LICENSE",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "tokenizer/merges.txt",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/0decb39ee5b5e17c200334589fc317dbbe98310e/comfy/text_encoders/qwen25_tokenizer/merges.txt",
+      "bytes": 1671853,
+      "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
+    },
+    {
+      "path": "tokenizer/tokenizer_config.json",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/0decb39ee5b5e17c200334589fc317dbbe98310e/comfy/text_encoders/qwen25_tokenizer/tokenizer_config.json",
+      "bytes": 8018,
+      "sha256": "49292bd4a58a43382bf01311bc3ed7a151a7f16fe07d155e900ea1af281555db"
+    },
+    {
+      "path": "tokenizer/vocab.json",
+      "url": "https://raw.githubusercontent.com/Comfy-Org/ComfyUI/0decb39ee5b5e17c200334589fc317dbbe98310e/comfy/text_encoders/qwen25_tokenizer/vocab.json",
+      "bytes": 2776833,
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    }
+  ],
+  "models": [
+    {
+      "path": "diffusion_models/flux-2-klein-base-9b-Q4_0.gguf",
+      "bytes": 5616228640,
+      "sha256": "02d4c2b55b5a6d4aca65eafd0f0eabe8c1e3837391042b6879be04eb99c7e116",
+      "url": "https://huggingface.co/unsloth/FLUX.2-klein-base-9B-GGUF/resolve/62ede6c5d20015b63112603ae59b556ca75f5bc9/flux-2-klein-base-9b-Q4_0.gguf",
+      "license": "FLUX Non-Commercial License v2.1"
+    },
+    {
+      "path": "vae/flux2-vae.safetensors",
+      "bytes": 336213556,
+      "sha256": "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5",
+      "url": "https://huggingface.co/Comfy-Org/flux2-dev/resolve/9630c1b4b6e690497ae0c19bb6b1b35d4ebedcb7/split_files/vae/flux2-vae.safetensors",
+      "license": "FLUX Non-Commercial License v2.1"
+    },
+    {
+      "path": "loras/ultratex_flux2.safetensors",
+      "bytes": 478172752,
+      "sha256": "3b1915177a81bc2ab43f501355bf39113df0128e6cbc6fedf8b8621d5e06a01c",
+      "url": "https://www.modelscope.ai/models/Yibo-Zhang/UltraTex/resolve/526614b481738d367f91889e531b6e30545fdf59/flux2/lora/dit_lora.safetensors",
+      "license": "MIT (publisher model card)"
+    },
+    {
+      "path": "loras/ultratex_flux2_mr.safetensors",
+      "bytes": 478172752,
+      "sha256": "13e94f5a30a789b1e3e76d8c96cbba5f52fb2f68411e56377f382e145da23fc1",
+      "url": "https://www.modelscope.ai/models/Yibo-Zhang/UltraTex/resolve/a9c9bbdd0c299f4015198672c87c6ea870e8b213/flux2_mr/lora/dit_lora.safetensors",
+      "license": "MIT (publisher model card)"
+    },
+    {
+      "path": "ultratex/ultratex_flux2_decoder.pt",
+      "bytes": 99261764,
+      "sha256": "981dc4c52481687c6da4e6211617615a2b2bcc33456e1953ee6c5478aa00025b",
+      "url": "https://www.modelscope.ai/models/Yibo-Zhang/UltraTex/resolve/13bfe2d6bab5325141203902a3cd671b7faacfcb/flux2/decoder.pt",
+      "license": "MIT (publisher model card)"
+    },
+    {
+      "path": "text_encoders/Qwen3-8B-Q4_K_M.gguf",
+      "bytes": 5027784512,
+      "sha256": "120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4",
+      "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/a6adef130ffb23ddaf1a62fec9dced968c9bc482/Qwen3-8B-Q4_K_M.gguf",
+      "license": "Apache-2.0"
+    }
+  ]
+}

@@ -16,15 +16,19 @@ The profile picker shows the availability of each verified local component. Game
 
 For completed native models, **Prepare → Texture Projection** uses the model's scene placement and its existing UVs. **Finishing board** can create an UltraTex 2K texture copy from the saved reference. **Game Copy from HD** can bake a separate lower-detail model. **HD Master Finishing** appears for assets with a reusable generation cache.
 
-## Administrator-provisioned runtimes
+## Windows Setup
 
-The Windows installer includes the standalone adapters and the standard Studio components. Its **UltraTex · 2K preview** option is for the existing optional six-view adapter. The native workflows use a separate standalone runtime. Studio reports the availability of each engine and texture method in the profile picker. These runtimes use local source, weights and verification records.
+Select **TRELLIS.2 image-to-3D**, then **High Detail and Game Asset**. After you accept the FLUX.2 Klein 9B and MeshLib terms, Setup prepares PiXal3D and TRELLIS.2 geometry, mesh finishing and the native UltraTex runtime. The Studio worker runs these workflows locally. The **UltraTex · 2K preview** entry in Setup is a separate six-view compatibility component. Use **Repair or resume components** to finish an interrupted native installation. See the [Windows Setup guide](WINDOWS_SETUP.md#standalone-generation-profiles).
+
+## Runtime configuration
+
+Studio reports the availability of each locally verified engine and texture method in the profile picker. The following files describe the native runtimes for diagnostics or manual installation.
 
 ### High Detail geometry
 
 Run `python native_high_detail_portable.py PIPELINE_SOURCE GGUF_OPERATORS_SOURCE INSTALLATION` with local copies of the pinned source trees. The command verifies the source files it adapts. The required revisions are declared in the script. It produces a standalone Python package and preserves the upstream license files.
 
-Create `config/native-high-detail.json` with `schema` set to `1` and define `package` for the generated package, `models` for the weights root and `u2net` for the directory containing `u2net.onnx`. The weights root contains `Trellis2` and the local DINOv3 files. Optional `python_paths` points to local dependency directories where needed. All paths can be relative to the configuration directory. Stock Windows Setup leaves portable components and weights to the local administrator.
+The `config/native-high-detail.json` file uses schema `1` and defines `package` for the generated package, `models` for the weights root and `u2net` for the directory containing `u2net.onnx`. The weights root contains `Trellis2` and the local DINOv3 files. Optional `python_paths` points to local dependency directories where needed. All paths can be relative to the configuration directory.
 
 ### Game Asset and standalone UltraTex
 

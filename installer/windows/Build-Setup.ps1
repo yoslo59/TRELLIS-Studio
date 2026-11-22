@@ -33,6 +33,7 @@ $taskFiles=@($taskFiles | Sort-Object -Unique | Where-Object {
     $parts=$_ -split '/'
     ($parts.Count -eq 1 -and $_ -cne 'comfy_profiles.py' -and ($_ -match '\.(py|cmd|ps1)$' -or $taskRootFiles -contains $_ -or $_ -match '^requirements-(windows|mcp-lock|mcp)\.txt$')) -or
     ($parts.Count -gt 1 -and ($taskRoots -ccontains $parts[0] -or $_ -in $taskDocFiles -or
+        $_ -cin @('comfy_workflows/game-asset-character-05.json','comfy_workflows/PIXELARTISTRY-MIT-LICENSE.txt') -or
         $_ -cmatch '^third_party/assetfurnace/image_to_3dlab/(__init__|photo_paint|view_align)\.py$'))
 })
 $taskRequired=@('app.py','package.json','installer/setup.py','installer/windows/check-idle.ps1','installer/windows/Launch.cmd','installer/windows/Launch-Installed.ps1','installer/windows/Manage-Shortcuts.ps1','installer/windows/trellis-studio.ico','Start-Studio.ps1','web/studio.html','animations/library.json','unity/TrellisPackageImporter.cs')
@@ -83,6 +84,14 @@ $taskRequired+=@('gpu_runtime.py','installer/windows/Setup-Preflight.ps1',
     'UniRig/check-runtime.py','UniRig/runtime.sh','UniRig/runtime-profile.py',
     'installer/windows/trellis-welcome.bmp','installer/requirements-unirig-blackwell.txt',
     'installer/prepare_unirig_bpy.py','UniRig/run-skin-inference.py')
+$taskRequired+=@('installer/install_native_workflows.py','installer/native_workflow_install_common.py',
+    'installer/native_workflow_python.py','installer/install_native_high_detail.py',
+    'installer/install_native_game_geometry.py','installer/install_native_ultratex.py',
+    'installer/native-high-detail-manifest.json','installer/native-game-geometry-manifest.json',
+    'installer/native-ultratex-manifest.json','installer/requirements-native-high-detail.txt',
+    'installer/requirements-native-game-geometry.txt','installer/requirements-native-ultratex.txt',
+    'installer/requirements-native-workflow-python.txt','comfy_workflows/game-asset-character-05.json',
+    'comfy_workflows/PIXELARTISTRY-MIT-LICENSE.txt')
 foreach($taskItem in $taskRequired) {
     if ($taskItem -cnotin $taskFiles) { throw "Required public payload is missing: $taskItem" }
 }

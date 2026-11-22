@@ -1,0 +1,182 @@
+{
+  "schema": 1,
+  "weights_revision": "edf81aef93af0823ac8721da3c9cd3c52d539f87",
+  "pipeline": {
+    "revision": "b3b9e951874c5fb5c936566c93b908299be08b2c",
+    "url": "https://codeload.github.com/Aero-Ex/ComfyUI-Trellis2-GGUF/zip/b3b9e951874c5fb5c936566c93b908299be08b2c",
+    "bytes": 52850246,
+    "sha256": "7105ccc158b987a62ff0c1f78cf0a394de58e3405af8fb034a72af642073ad20"
+  },
+  "quantization": {
+    "revision": "6ea2651e7df66d7585f6ffee804b20e92fb38b8a",
+    "url": "https://codeload.github.com/city96/ComfyUI-GGUF/zip/6ea2651e7df66d7585f6ffee804b20e92fb38b8a",
+    "bytes": 38051,
+    "sha256": "aad273a0b774684285b4496f6edff7e2293bd29d71ef89926d6861bfdf4947ac"
+  },
+  "windows_wheels": [
+    {
+      "name": "cumesh-1.0-cp311-cp311-win_amd64.whl",
+      "url": "https://raw.githubusercontent.com/visualbruno/ComfyUI-Trellis2/14597418bbe33a440ead4667e2966408f0524a21/wheels/Windows/Torch280/cumesh-1.0-cp311-cp311-win_amd64.whl",
+      "bytes": 3327975,
+      "sha256": "d1ed72dfb2815776812bd634c175885bf373ae585306a5b819dc191041c1f024"
+    },
+    {
+      "name": "custom_rasterizer-0.1-cp311-cp311-win_amd64.whl",
+      "url": "https://raw.githubusercontent.com/visualbruno/ComfyUI-Trellis2/14597418bbe33a440ead4667e2966408f0524a21/wheels/Windows/Torch280/custom_rasterizer-0.1-cp311-cp311-win_amd64.whl",
+      "bytes": 129446,
+      "sha256": "6ab906e7883805d6d890b408b2070d0140d930212f86ac435988cc33d90d09da"
+    },
+    {
+      "name": "flex_gemm-0.0.1-cp311-cp311-win_amd64.whl",
+      "url": "https://raw.githubusercontent.com/visualbruno/ComfyUI-Trellis2/14597418bbe33a440ead4667e2966408f0524a21/wheels/Windows/Torch280/flex_gemm-0.0.1-cp311-cp311-win_amd64.whl",
+      "bytes": 216157,
+      "sha256": "71658a676bfc8e7d7b15550a4a502c759e6f315a064cb990a0235d1d1dd2d9ad"
+    },
+    {
+      "name": "nvdiffrast-0.4.0-cp311-cp311-win_amd64.whl",
+      "url": "https://raw.githubusercontent.com/visualbruno/ComfyUI-Trellis2/14597418bbe33a440ead4667e2966408f0524a21/wheels/Windows/Torch280/nvdiffrast-0.4.0-cp311-cp311-win_amd64.whl",
+      "bytes": 1007924,
+      "sha256": "7362a491d8012f3cd4b9097b029fc97161dbdf965a0658be313fbb8a64dfa3f0"
+    },
+    {
+      "name": "nvdiffrec_render-0.0.0-cp311-cp311-win_amd64.whl",
+      "url": "https://raw.githubusercontent.com/visualbruno/ComfyUI-Trellis2/14597418bbe33a440ead4667e2966408f0524a21/wheels/Windows/Torch280/nvdiffrec_render-0.0.0-cp311-cp311-win_amd64.whl",
+      "bytes": 872409,
+      "sha256": "2bc74423d15cce8dc7ee2db3741e6cc71e700f485cb51fd86f26c53b2755cab1"
+    },
+    {
+      "name": "o_voxel-0.0.1-cp311-cp311-win_amd64.whl",
+      "url": "https://raw.githubusercontent.com/visualbruno/ComfyUI-Trellis2/14597418bbe33a440ead4667e2966408f0524a21/wheels/Windows/Torch280/o_voxel-0.0.1-cp311-cp311-win_amd64.whl",
+      "bytes": 240312,
+      "sha256": "531e370e7768d32a438ca7ebbdc5d7644cb3b9c4838f2539c6768dc464cb3145"
+    }
+  ],
+  "patches": [
+    {
+      "source": "patch/remeshing.py",
+      "destination": "cumesh/remeshing.py",
+      "sha256": "d485519477382fa5bd152240e8c09b05c26958e330d152a7d18f281d34754cb8"
+    },
+    {
+      "source": "patch/flexible_dual_grid.py",
+      "destination": "o_voxel/convert/flexible_dual_grid.py",
+      "sha256": "801eb5edda6486dfd4fec1baec7ae182b8343025101e06a24cbaad0cb0062d53"
+    }
+  ],
+  "assets": [
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/decoders/Stage1/ss_dec_conv3d_16l8_fp16.json",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/decoders/Stage1/ss_dec_conv3d_16l8_fp16.json",
+      "bytes": 245,
+      "sha256": "646781293f1cda74720de85d1cef50a957fb4aebd9a4bd014e454e32f2330ac5"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/decoders/Stage1/ss_dec_conv3d_16l8_fp16.safetensors",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/decoders/Stage1/ss_dec_conv3d_16l8_fp16.safetensors",
+      "bytes": 147591972,
+      "sha256": "1c76d4a40519aa2d711cc263a8404105231ac26db31d946bed48b84fee79009a"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/decoders/Stage2/shape_dec_next_dc_f16c32_fp16.json",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/decoders/Stage2/shape_dec_next_dc_f16c32_fp16.json",
+      "bytes": 678,
+      "sha256": "5f1b856dffce79466fb18f5f0eefc08f08c673b24b3c05b20359c0b6d318a209"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/decoders/Stage2/shape_dec_next_dc_f16c32_fp16.safetensors",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/decoders/Stage2/shape_dec_next_dc_f16c32_fp16.safetensors",
+      "bytes": 948490494,
+      "sha256": "e3b718d3e43e4f8780e9a24ac6fff231811a67e3b058e336e10fe654c911d581"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/decoders/Stage2/tex_dec_next_dc_f16c32_fp16.json",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/decoders/Stage2/tex_dec_next_dc_f16c32_fp16.json",
+      "bytes": 705,
+      "sha256": "22074e4ab5b28e2b72d33a3fe61bf416134b89e12d0fc5c729f37da75da0c4d1"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/decoders/Stage2/tex_dec_next_dc_f16c32_fp16.safetensors",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/decoders/Stage2/tex_dec_next_dc_f16c32_fp16.safetensors",
+      "bytes": 948458812,
+      "sha256": "97ea69addea2ecd9312910f5f548234665eef51c088386180b7cd5b258645e3c"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/encoders/shape_enc_next_dc_f16c32_fp16.json",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/encoders/shape_enc_next_dc_f16c32_fp16.json",
+      "bytes": 653,
+      "sha256": "5a960a5c419d70f8d4a7a6b6e52ae689cd948c88bd7ed92346adfbf82cd12007"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/encoders/shape_enc_next_dc_f16c32_fp16.safetensors",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/encoders/shape_enc_next_dc_f16c32_fp16.safetensors",
+      "bytes": 708797208,
+      "sha256": "f37c5ff5b983b68e9946060000f09bc131f3e84318a2c8b7430a81e4b4636c41"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/pipeline.json",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/pipeline.json",
+      "bytes": 4186,
+      "sha256": "222c359ab1ed9bc6735a640a34f95d47f8681b9bc4aaa101bfb80274676253c6"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/refiner/ss_flow_img_dit_1_3B_64_bf16.json",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/refiner/ss_flow_img_dit_1_3B_64_bf16.json",
+      "bytes": 467,
+      "sha256": "6cdfb636854f60ffcadd8c49244169cd449f34c5ccdb55b5ff7c04678f9c399e"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/refiner/ss_flow_img_dit_1_3B_64_bf16_Q4_K_M.gguf",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/refiner/ss_flow_img_dit_1_3B_64_bf16_Q4_K_M.gguf",
+      "bytes": 788950208,
+      "sha256": "67a521fff20c9fb97d87d1a71feea4d3ead17d458eb0bbc86feb4ed87411b9d2"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/shape/slat_flow_img2shape_dit_1_3B_1024_bf16.json",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/shape/slat_flow_img2shape_dit_1_3B_1024_bf16.json",
+      "bytes": 458,
+      "sha256": "7ebd6d367393f52fee9e92c2b3d727a9026a338549c6a6fa84c7ea122140ffdd"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/shape/slat_flow_img2shape_dit_1_3B_1024_bf16_Q4_K_M.gguf",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/shape/slat_flow_img2shape_dit_1_3B_1024_bf16_Q4_K_M.gguf",
+      "bytes": 789245216,
+      "sha256": "4078c6ed5051f022362141f54059bea0408cfafd762d434753948d1e3cd3edf7"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/shape/slat_flow_img2shape_dit_1_3B_512_bf16.json",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/shape/slat_flow_img2shape_dit_1_3B_512_bf16.json",
+      "bytes": 458,
+      "sha256": "ddbd7a1d34ce9a8e7af2f6ef9ae686d9ab49f69e62dacb98d8409b511cdbd5e2"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/shape/slat_flow_img2shape_dit_1_3B_512_bf16_Q4_K_M.gguf",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/shape/slat_flow_img2shape_dit_1_3B_512_bf16_Q4_K_M.gguf",
+      "bytes": 789245216,
+      "sha256": "14f8bb3e8a35e7a72dc31bedc5486da4e1c1d129baf13b40f8d3422ed6265f83"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16.json",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16.json",
+      "bytes": 458,
+      "sha256": "31f4fdad9974930e5e9324ac9dfb6ef7de6b30cea51854ba515ef827a8d353b2"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16_Q4_K_M.gguf",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16_Q4_K_M.gguf",
+      "bytes": 789441824,
+      "sha256": "56819e6b768ad8f7bfd79a1cc9ab322647ba0baf5b46eadea098d128d3486977"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/texture/slat_flow_imgshape2tex_dit_1_3B_512_bf16.json",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/texture/slat_flow_imgshape2tex_dit_1_3B_512_bf16.json",
+      "bytes": 458,
+      "sha256": "3093796257a62f838d2e5578ac4580ca3b7d88d10b87d348065d3fdfcc4c2077"
+    },
+    {
+      "path": "models/trellis2-gguf/weights/Trellis2/texture/slat_flow_imgshape2tex_dit_1_3B_512_bf16_Q4_K_M.gguf",
+      "url": "https://huggingface.co/Aero-Ex/Trellis2-GGUF/resolve/edf81aef93af0823ac8721da3c9cd3c52d539f87/texture/slat_flow_imgshape2tex_dit_1_3B_512_bf16_Q4_K_M.gguf",
+      "bytes": 789441824,
+      "sha256": "d63c08cdab36fdc35736aa3c8aab92214edf02c6fe13fe4a0090e717841833b5"
+    }
+  ]
+}
