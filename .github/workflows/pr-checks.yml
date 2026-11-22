@@ -43,6 +43,7 @@ jobs:
           python -S -B tests/native_game_profile.py
           python -S -B tests/native_game_geometry.py
           python -S -B tests/native_high_detail.py
+          python -S -B tests/import_worker_status.py
 
       - name: Set up Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0

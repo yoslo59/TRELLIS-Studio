@@ -449,6 +449,7 @@
 !/native_game_profile.py
 !/tests/native_game_profile.py
 !/tests/native_high_detail.py
+!/tests/import_worker_status.py
 !/tests/native_game_geometry.py
 !/tests/workflow_topology.mjs
 !/web/workflow-graph.js

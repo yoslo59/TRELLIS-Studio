@@ -12,6 +12,7 @@
 - **Texture Projection**, **Finishing board**, and **Game Copy from HD** support native outputs when the required model data is available.
 - **Finishing board** can create an UltraTex material variant using a saved reference and the model's existing geometry and UVs.
 - WTiVo reports the reconstruction grid and preserves its partial log when a timeout occurs. Standalone UltraTex uses a shorter compiler-cache path on Windows.
+- Windows model imports retry status and settings updates when a reader briefly holds a file open.
 
 ## Windows Setup
 

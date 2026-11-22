@@ -2,15 +2,15 @@
 from pathlib import Path
 import json, os, subprocess, sys, time, traceback, shutil
 from studio_import import find_blender, validate_glb, animation_recipes
+from studio_workspace import write
 
 ROOT = Path(__file__).resolve().parent
 JOB = Path(sys.argv[1]).resolve()
 started = time.time()
 
 def status(state, stage, progress, **extra):
-    path = JOB/'status.tmp'
-    path.write_text(json.dumps(dict(state=state, stage=stage, progress=progress, elapsed=round(time.time()-started,1), **extra), ensure_ascii=False), encoding='utf-8')
-    path.replace(JOB/'status.json')
+    record = dict(state=state, stage=stage, progress=progress, elapsed=round(time.time()-started,1), **extra)
+    write(JOB/'status.json', record)
     print(stage, flush=True)
 
 
@@ -68,7 +68,7 @@ try:
     result = json.loads((JOB/'result.json').read_text(encoding='utf-8'))
     settings = json.loads((JOB/'settings.json').read_text(encoding='utf-8'))
     settings.update(height_m=result['height_m'], texture_size=result['texture_size'], triangles=result['triangles'],animation_clips=animation_recipes(data))
-    (JOB/'settings.json').write_text(json.dumps(settings, indent=2, ensure_ascii=False), encoding='utf-8')
+    write(JOB/'settings.json', settings)
     status('done', 'Model imported', 100, result=result)
 except Exception as error:
     traceback.print_exc()
