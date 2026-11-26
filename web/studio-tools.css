@@ -238,3 +238,8 @@ button.has-icon{gap:7px}button>.ui-icon{flex-shrink:0;vertical-align:middle}#sav
   .export-preflight { margin-inline: 19px; }
   .export-check-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.export-material-option { margin: 12px 0; }
+.export-material-option label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.export-material-option input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent, #c4f58a); }
+.export-material-option small { display: block; margin: 3px 0 0 24px; color: var(--muted); }

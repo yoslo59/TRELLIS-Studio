@@ -4,6 +4,7 @@ from contextlib import contextmanager
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -198,7 +199,8 @@ class NativeGeometryOptionsTests(unittest.TestCase):
             config.write_text(json.dumps(dict(python=python.name, weights=weights.name, birefnet=source.name,
                                               dependencies=[])), encoding='utf-8')
 
-            def run(command, *, cwd, env, **_):
+            popen = subprocess.Popen
+            def run(command, *, cwd, env, **options):
                 self.assertEqual(command[0], str(python))
                 self.assertEqual(command[-3], str(image))
                 self.assertEqual(command[-1], '--mask-only')
@@ -206,16 +208,41 @@ class NativeGeometryOptionsTests(unittest.TestCase):
                 self.assertEqual(env['CUDA_VISIBLE_DEVICES'], '-1')
                 scratch = Path(command[-2])
                 self.assertEqual(scratch.parent, Path(cwd).resolve())
-                scratch.write_bytes(b'mask fixture')
-                return SimpleNamespace(returncode=0, stdout='')
+                script = "import pathlib, sys; pathlib.Path(sys.argv[1]).write_bytes(b'mask fixture')"
+                return popen([sys.executable, '-c', script, str(scratch)], cwd=cwd, env=env, **options)
 
             with (patch.object(native_pixal3d, 'CONFIG', config),
-                  patch.object(native_pixal3d.subprocess, 'run', side_effect=run)):
+                  patch.object(native_pixal3d.subprocess, 'Popen', side_effect=run)):
                 self.assertTrue(native_pixal3d.texture_mask_status()['available'])
                 self.assertFalse(native_pixal3d.runtime_status()['available'])
                 path = native_pixal3d.prepare_texture_mask(image, root / 'work/foreground.npy')
             self.assertEqual(path.read_bytes(), b'mask fixture')
             self.assertEqual(list(path.parent.iterdir()), [path])
+
+    def test_background_mask_is_stopped_if_geometry_fails_and_preserves_existing_output(self):
+        popen = subprocess.Popen
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            image, mask = root / 'ref.png', root / 'existing.npy'
+            image.touch()
+            mask.write_bytes(b'previous mask')
+            children = []
+            def launch(_command, **options):
+                process = popen([sys.executable, '-c', 'import time; time.sleep(60)'], **options)
+                children.append(process)
+                return process
+            with (patch.object(native_pixal3d, '_config', return_value={'python': sys.executable}),
+                  patch.object(native_pixal3d.subprocess, 'Popen', side_effect=launch)):
+                with self.assertRaisesRegex(ValueError, 'geometry failed'):
+                    with native_pixal3d.pending_texture_mask(image, mask) as pending:
+                        self.assertIsNone(children[0].poll())
+                        self.assertFalse(pending.done())
+                        raise ValueError('geometry failed')
+                self.assertIsNotNone(children[0].poll())
+                with self.assertRaisesRegex(RuntimeError, 'foreground preparation failed'):
+                    pending.result()
+            self.assertEqual(mask.read_bytes(), b'previous mask')
+            self.assertEqual(set(root.iterdir()), {image, mask})
 
 
 class NativeGameSetupTests(unittest.TestCase):

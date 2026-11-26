@@ -19,6 +19,33 @@ from installer import install_native_high_detail as provision
 
 
 class HighDetailSettingsTests(unittest.TestCase):
+    def test_cpu_mask_reports_elapsed_and_critical_time_separately(self):
+        for ready, finished, wait, overlap in [(True, 7., 0., 5.), (False, 14., 4., 8.)]:
+            with self.subTest(ready=ready), TemporaryDirectory() as directory:
+                scratch = Path(directory)
+                receipt = {}
+
+                def texture(_geometry, _ref, mask, candidate, _work, report, *, options):
+                    self.assertEqual(mask, scratch / 'foreground.npy')
+                    candidate.write_bytes(b'textured')
+                    report('Baking the texture')
+                    return receipt
+
+                future = Mock()
+                future.done.return_value = ready
+                future.result.return_value = (2., finished)
+                progress = Mock()
+                destination = scratch / 'finished.glb'
+                with (patch.object(native, 'perf_counter', return_value=10.),
+                      patch('native_game_profile.texture_mesh', side_effect=texture)):
+                    native._retexture_ultratex(scratch/'input.glb', scratch/'ref.png', destination, scratch,
+                                               future, 4096, progress)
+                self.assertEqual(receipt['reference_mask'], dict(elapsed_seconds=finished-2.,
+                                                                wait_seconds=wait, overlap_seconds=overlap))
+                self.assertEqual(destination.read_bytes(), b'textured')
+                self.assertEqual(progress.call_args_list[-1].args, ('Baking the texture', 96))
+                self.assertEqual(progress.call_count, 1 if ready else 2)
+
     def test_ready_upgrade_verification_requires_patched_flex_gemm(self):
         expression = b'(out_offset_n[:, None] * Co + out_offset_co[None, :])'
         corrected = b'(out_offset_n[:, None].to(tl.int64) * Co + out_offset_co[None, :])'
@@ -138,6 +165,52 @@ class HighDetailSettingsTests(unittest.TestCase):
         native._material_sides(doc, False)
         self.assertEqual(doc['materials'], [{'alphaMode': 'MASK', 'doubleSided': False}, {'doubleSided': False}])
         self.assertEqual(colored, {'attributes': {'COLOR_0': 2}, 'material': 1})
+
+    @unittest.skipUnless(find_spec('trimesh') and find_spec('torch'), 'requires the Studio mesh runtime')
+    def test_uv_donor_preserves_chart_seams_normals_and_texture_coordinates(self):
+        import numpy as np
+        import torch
+        import trimesh
+        from PIL import Image
+        from glb_data import accessor, read
+        from retexture_worker import append_textures
+
+        surface = trimesh.creation.icosphere(subdivisions=0)
+        pipeline = Mock()
+        pipeline.preprocess_mesh.return_value = surface
+        # Two adjacent faces share geometric vertices but have separate chart coordinates.
+        chart_map = np.array(surface.faces[:2]).ravel()
+        vertices = np.array(surface.vertices[chart_map], dtype=np.float32)
+        faces = np.array([[0, 1, 2], [3, 4, 5]], dtype=np.int32)
+        uv = np.array([[0,.1], [.2,.3], [.4,.5], [.6,.7], [.8,.9], [1,0]], dtype=np.float32)
+        chart = Mock()
+        chart.uv_unwrap.return_value = tuple(torch.from_numpy(v.copy()) for v in (vertices, faces, uv, chart_map))
+        modules = {'cumesh': SimpleNamespace(CuMesh=lambda: chart)}
+        settings = native.DEFAULTS['25'] | {'use_custom_normals': True}
+        with patch.dict(sys.modules, modules), patch.object(torch.Tensor, 'cuda', lambda value: value):
+            model = native._unwrap_for_ultratex(pipeline, surface, settings)
+        pipeline.preprocess_mesh.assert_called_once_with(surface)
+        np.testing.assert_array_equal(model.vertices, vertices[:, [0, 2, 1]] * [1, 1, -1])
+        np.testing.assert_array_equal(model.faces, faces)
+        expected_normals = surface.vertex_normals[chart_map][:, [0, 2, 1]] * [1, 1, -1]
+        np.testing.assert_allclose(model.vertex_normals, expected_normals)
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / 'donor.glb'
+            model.export(path)
+            document, binary = read(path)
+            primitive = document['meshes'][0]['primitives'][0]
+            np.testing.assert_allclose(accessor(document, binary, primitive['attributes']['TEXCOORD_0']), uv,
+                                       atol=1e-7)
+            self.assertFalse(document.get('images'))
+            self.assertEqual(document['materials'][primitive['material']]['alphaMode'], 'OPAQUE')
+            document.setdefault('images', [])
+            document.setdefault('textures', [])
+            result = path.with_name('result.glb')
+            append_textures(result, document, binary, Image.new('RGB', (2, 2)), Image.new('RGB', (2, 2)))
+            finished, _ = read(result)
+            self.assertEqual(len(finished['images']), 2)
+            self.assertEqual(finished['accessors'], document['accessors'])
 
     @unittest.skipUnless(find_spec('trimesh'), 'trimesh is a Studio runtime dependency')
     def test_material_sides_reaches_glb(self):

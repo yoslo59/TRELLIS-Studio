@@ -26,6 +26,11 @@ treat a SHA-256 checksum as an Authenticode signature.
    before the corresponding model downloads. If a component fails, use
    **Repair or resume components** in the Start menu. See
    `logs/component-setup.log` for the failing step.
+   **TOPOS face refinement** adds portrait-based face reconstruction to **Prepare**.
+   Selecting it includes the TRELLIS.2 GPU runtime and downloads 3.49 GB of geometry
+   weights plus the shared face detector. Both editions use the same option.
+   [Face refinement](FACE_REFINEMENT.md)
+
    **Hi3D detail refinement** is a separate selection for compatible NVIDIA GPUs.
    On a new installation it is unchecked. Setup displays the detected GPU, driver
    and VRAM guidance before downloading the model, and asks you to accept the

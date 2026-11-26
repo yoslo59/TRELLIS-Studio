@@ -45,10 +45,15 @@ def remove_animation(source, destination, name, index=None):
         shutil.copyfileobj(incoming, outgoing)
     return data
 
+def view_buffer(data, binary, view):
+    uri = data['buffers'][view.get('buffer', 0)].get('uri')
+    return base64.b64decode(uri.split(',', 1)[1]) if uri else binary
+
+
 def image(data,binary,index):
     entry=data['images'][index]
     if 'bufferView' in entry:
-        view=data['bufferViews'][entry['bufferView']];start=view.get('byteOffset',0);raw=binary[start:start+view['byteLength']]
+        view=data['bufferViews'][entry['bufferView']];start=view.get('byteOffset',0);raw=view_buffer(data,binary,view)[start:start+view['byteLength']]
     else:raw=base64.b64decode(entry['uri'].split(',',1)[1])
     result=Image.open(io.BytesIO(raw));result.load();return result
 
@@ -58,7 +63,7 @@ def accessor(data,binary,index):
     view=data['bufferViews'][a['bufferView']];dtype=np.dtype({5120:'i1',5121:'u1',5122:'<i2',5123:'<u2',5125:'<u4',5126:'<f4'}[a['componentType']])
     width={'SCALAR':1,'VEC2':2,'VEC3':3,'VEC4':4,'MAT4':16}[a['type']];stride=view.get('byteStride',width*dtype.itemsize)
     start=view.get('byteOffset',0)+a.get('byteOffset',0)
-    result=np.ndarray((a['count'],width),dtype=dtype,buffer=binary,offset=start,strides=(stride,dtype.itemsize)).copy()
+    result=np.ndarray((a['count'],width),dtype=dtype,buffer=view_buffer(data,binary,view),offset=start,strides=(stride,dtype.itemsize)).copy()
     if a.get('normalized') and dtype.kind in ('i','u'):
         result=np.maximum(result.astype(float)/np.iinfo(dtype).max,-1)
     return result

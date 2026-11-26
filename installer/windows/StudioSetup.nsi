@@ -49,6 +49,9 @@ VIAddVersionKey "LegalCopyright" "TRELLIS Studio contributors (MIT)"
 !define MUI_UNICON "${PAYLOAD_ROOT}\installer\windows\trellis-studio.ico"
 
 Var InstallTrellis
+Var InstallTopos
+Var SkipTopos
+Var ToposCheckbox
 Var InstallPixal3D
 Var InstallUniRig
 Var TrellisCheckbox
@@ -182,6 +185,8 @@ Function .onInit
   ; Ignore language preferences saved by previous bilingual installers.
   StrCpy $LANGUAGE ${LANG_ENGLISH}
   StrCpy $InstallTrellis "0"
+  StrCpy $InstallTopos "0"
+  StrCpy $SkipTopos "0"
   StrCpy $InstallPixal3D "0"
   StrCpy $InstallUniRig "0"
   StrCpy $BlenderReady "0"
@@ -305,6 +310,10 @@ Function ShowHardware
     StrCpy $PreflightRoot "$INSTDIR"
     StrCpy $BlenderSummary ""
     ReadINIStr $InstallTrellis "$PLUGINSDIR\preflight.ini" "Plan" "Trellis"
+    ReadINIStr $InstallTopos "$PLUGINSDIR\preflight.ini" "Plan" "Topos"
+    ${If} $InstallTopos != "1"
+      StrCpy $InstallTopos "0"
+    ${EndIf}
     ReadINIStr $InstallPixal3D "$PLUGINSDIR\preflight.ini" "Plan" "Pixal3D"
     ReadINIStr $InstallUniRig "$PLUGINSDIR\preflight.ini" "Plan" "UniRig"
     ReadINIStr $InstallHi3d "$PLUGINSDIR\preflight.ini" "Plan" "Hi3D"
@@ -470,20 +479,26 @@ Function ShowComponentMode
   Pop $Pixal3DCheckbox
   ${NSD_CreateCheckbox} 0 63u 100% 13u "UniRig skeleton and skinning  (WSL2 and Blender)"
   Pop $UniRigCheckbox
+  ${NSD_CreateCheckbox} 0 80u 100% 13u "TOPOS face refinement  (3.49 GB of models)"
+  Pop $ToposCheckbox
   ${If} $GpuSupported != "1"
     StrCpy $InstallTrellis "0"
     StrCpy $InstallPixal3D "0"
     EnableWindow $TrellisCheckbox 0
     EnableWindow $Pixal3DCheckbox 0
+    StrCpy $InstallTopos "0"
+    EnableWindow $ToposCheckbox 0
     StrCpy $1 "GPU generation needs a supported NVIDIA card and driver."
   ${Else}
     StrCpy $1 "The detected GPU matches the $GpuProfile dependency profile."
   ${EndIf}
   ${NSD_SetState} $TrellisCheckbox $InstallTrellis
   ${NSD_SetState} $Pixal3DCheckbox $InstallPixal3D
+  ${NSD_SetState} $ToposCheckbox $InstallTopos
   ${NSD_SetState} $UniRigCheckbox $InstallUniRig
   ${NSD_OnClick} $TrellisCheckbox UpdateGenerationChoices
   ${NSD_OnClick} $Pixal3DCheckbox SelectTrellisDependency
+  ${NSD_OnClick} $ToposCheckbox SelectTrellisDependency
   ${If} $GpuSupported != "1"
   ${OrIf} $RigSupported != "1"
     StrCpy $2 "UniRig is unavailable for this GPU profile."
@@ -507,14 +522,14 @@ Function ShowComponentMode
     ${NSD_Uncheck} $UniRigCheckbox
     EnableWindow $UniRigCheckbox 0
   ${EndIf}
-  ${NSD_CreateLabel} 0 84u 100% 18u "$1"
+  ${NSD_CreateLabel} 0 97u 100% 15u "$1"
   Pop $0
-  ${NSD_CreateLabel} 0 104u 100% 22u "$2"
+  ${NSD_CreateLabel} 0 113u 100% 20u "$2"
   Pop $0
   ${If} $VramNotice != ""
-    ${NSD_CreateLabel} 0 126u 100% 20u "$VramNotice"
+    ${NSD_CreateLabel} 0 133u 100% 17u "$VramNotice"
   ${Else}
-    ${NSD_CreateLabel} 0 126u 100% 13u "Setup checks each selected engine before marking it ready."
+    ${NSD_CreateLabel} 0 133u 100% 13u "Setup checks each selected engine before marking it ready."
   ${EndIf}
   Pop $0
   nsDialogs::Show
@@ -525,6 +540,7 @@ Function UpdateGenerationChoices
   ${NSD_GetState} $TrellisCheckbox $0
   ${If} $0 != "1"
     ${NSD_Uncheck} $Pixal3DCheckbox
+    ${NSD_Uncheck} $ToposCheckbox
   ${EndIf}
 FunctionEnd
 
@@ -539,8 +555,15 @@ FunctionEnd
 Function SaveComponentMode
   ${NSD_GetState} $TrellisCheckbox $InstallTrellis
   ${NSD_GetState} $Pixal3DCheckbox $InstallPixal3D
+  ${NSD_GetState} $ToposCheckbox $InstallTopos
+  StrCpy $SkipTopos "0"
+  ${If} $InstallTopos == "0"
+  ${AndIf} $GpuSupported == "1"
+    StrCpy $SkipTopos "1"
+  ${EndIf}
   ${NSD_GetState} $UniRigCheckbox $InstallUniRig
   ${If} $InstallPixal3D == "1"
+  ${OrIf} $InstallTopos == "1"
     StrCpy $InstallTrellis "1"
   ${EndIf}
 FunctionEnd
@@ -1040,6 +1063,9 @@ Section "${SETUP_NAME}"
   StrCpy $HardwareArguments ""
   ${If} $InstallTrellis == "1"
     StrCpy $ComponentsArgument "trellis"
+    ${If} $InstallTopos == "1"
+      StrCpy $ComponentsArgument "$ComponentsArgument,topos"
+    ${EndIf}
     ${If} $InstallNativeWorkflows == "1"
     ${AndIf} $NativeWorkflowsSupported == "1"
       StrCpy $ComponentsArgument "$ComponentsArgument,native-workflows"
@@ -1093,6 +1119,9 @@ Section "${SETUP_NAME}"
     StrCpy $HardwareArguments "$HardwareArguments -AcceptNativeWorkflowModelLicenses"
   ${ElseIf} $SkipNativeWorkflows == "1"
     StrCpy $HardwareArguments "$HardwareArguments -SkipNativeWorkflows"
+  ${EndIf}
+  ${If} $SkipTopos == "1"
+    StrCpy $HardwareArguments "$HardwareArguments -SkipTopos"
   ${EndIf}
   ${If} $InstallHi3d == "1"
   ${AndIf} $AcceptHi3dLicenses == "1"

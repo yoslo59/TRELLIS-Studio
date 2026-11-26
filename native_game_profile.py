@@ -52,6 +52,12 @@ def runtime_status(backend='pixal3d'):
 
 def texture_mesh(source, image, mask, output, work, progress=None, *, options=None):
     """Generate the configured UltraTex albedo and metal/roughness views and bake them."""
+    work = Path(work).resolve()
+    # UltraTex's atomic cache writes append a hash and a UUID to nested job paths.
+    # Use the same private directory with Win32 long-path semantics, including on shares.
+    if os.name == 'nt' and not str(work).startswith('\\\\?\\'):
+        path = str(work)
+        work = Path('\\\\?\\UNC\\' + path[2:] if path.startswith('\\\\') else '\\\\?\\' + path)
     command = [str(TEXTURE_PYTHON), '-I', '-B', '-u', str(TEXTURE_RUNNER), '--source-glb', str(source),
                '--reference', str(image), '--foreground-mask', str(mask), '--output', str(output),
                '--work', str(work), '--models', str(TEXTURE_MODELS)]
@@ -63,6 +69,8 @@ def texture_mesh(source, image, mask, output, work, progress=None, *, options=No
     # Keep Triton's hashed compilation paths out of the deeply nested Server job directory.
     env = os.environ.copy()
     env.setdefault('TRITON_CACHE_DIR', str(TEXTURE / 'triton-cache'))
+    if progress is not None:
+        progress('Starting the UltraTex runtime')
     with subprocess.Popen(command, cwd=TEXTURE, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                           text=True, encoding='utf-8', errors='replace',
                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)) as process:
@@ -105,7 +113,7 @@ def run_profile(image_path, output_path, job_dir, options=None, progress=None):
         del vertices, faces
         quad_percent = 55
         wtivo_percent = 61
-        milestones = iter((quad_percent, wtivo_percent, 67, 74, 78, 81))
+        milestones = iter((quad_percent, wtivo_percent, 67, 70, 74, 76, 78, 81))
         normal_mesh, finish = finish_geometry(raw_mesh, scratch / 'finishing',
                                               lambda label: progress(label, next(milestones, 81)), options=options,
                                               quad_progress=lambda label: progress(label, quad_percent),

@@ -1,5 +1,5 @@
-import {optionHelp} from './advanced-controls.js?v=standard-profiles';
-import {createWorkflowGraph} from './workflow-graph.js?v=standard-profiles';
+import {optionHelp} from './advanced-controls.js?v=studio-timing';
+import {createWorkflowGraph} from './workflow-graph.js?v=studio-timing';
 
 const byId = id => document.getElementById(id);
 
@@ -52,7 +52,7 @@ function enginePicker(grid, figureMaster) {
   };
 }
 
-export function createStandardWorkflowGraph(workspace, profileName, preset, fields) {
+export function standardWorkflowDefinition(preset, fields) {
   const figureMaster = preset === 'figure_master';
   const advancedFields = predicate => fields.filter(predicate).map(field => [
     `option_${field.key}`, field.label.replace(/^(Structure|Shape|Texture) · /, ''), field.hint,
@@ -73,12 +73,21 @@ export function createStandardWorkflowGraph(workspace, profileName, preset, fiel
     stage('export', 'Model GLB', 'output', [['height', 'Height (m)'], ['keepFinishingSource', 'Keep finishing source']]),
   ];
   const topology = {
-    columns: [['reference'], ['structure', 'pixal3d'], ['shape'], ['finish'], ['uv'], ['texture'], ['export']],
-    stages: figureMaster ? {} : {pixal3d: {title: 'PiXal3D generation', type: 'geometry', geometry_backend: 'pixal3d'}},
-    links: [['reference', 'structure', 'image'], ['structure', 'shape', 'latent'],
+    columns: [['reference', 'weights'], ['structure', 'pixal3d'], ['shape'], ['finish'], ['uv'], ['texture'], ['export']],
+    stages: {
+      weights: {title: 'TRELLIS.2 model loading', type: 'geometry', geometry_backend: 'trellis2'},
+      ...(!figureMaster && {pixal3d: {title: 'PiXal3D generation', type: 'geometry', geometry_backend: 'pixal3d'}}),
+    },
+    links: [['reference', 'structure', 'image'], ['weights', 'structure', 'model'], ['structure', 'shape', 'latent'],
       ['shape', 'finish', 'mesh'], ['reference', 'pixal3d', 'image'], ['pixal3d', 'finish', 'mesh'],
       ['finish', 'uv', 'mesh'], ['uv', 'texture', 'mesh'], ['texture', 'export', 'texture']],
   };
+  return {stages, topology};
+}
+
+export function createStandardWorkflowGraph(workspace, profileName, preset, fields) {
+  const figureMaster = preset === 'figure_master';
+  const {stages, topology} = standardWorkflowDefinition(preset, fields);
   const update = [];
   const graph = createWorkflowGraph(workspace, [{stages}], profileName, node => {
     const grid = document.createElement('div');

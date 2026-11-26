@@ -72,6 +72,11 @@
 !/pixal3d_runtime.py
 !/pixal3d_worker.py
 !/face_projection.py
+!/face_refine_engine.py
+!/face_refine_geometry.py
+!/face_refine_transfer.py
+!/face_refine_api.py
+!/face_refine_worker.py
 !/texture_projection.py
 !/retexture_runtime.py
 !/retexture_worker.py
@@ -116,12 +121,16 @@
 !/tests/rig_landmarks_api.py
 !/tests/rig_landmarks_blender.py
 !/tests/texture_projection.py
+!/tests/material_export.py
 !/tests/studio_release.py
 !/tests/texture-projection-geometry.mjs
 !/tests/texture-projection-auto-align.mjs
 !/tests/baked_game_copy.py
 !/tests/game_copy_installer.py
 !/tests/model_finishing_api.py
+!/tests/face_refine_api.py
+!/tests/face_refine_geometry.py
+!/tests/topos_setup.ps1
 !/tests/wtivo_runtime.py
 !/tests/hi3d_api.py
 !/tests/hi3d_weights.py
@@ -218,12 +227,18 @@
 !/web/validation-en.js
 !/web/version-history.js
 !/web/viewer-lighting.js
+!/web/material-preview.js
+!/web/face-crop.js
+!/web/face-refine.js
+!/web/face-refine.css
+!/web/face-relief-preview.js
 !/web/workbench-ui.js
 !/web/workbench.css
 !/web/workspace-library.js
 !/web/workspace.css
 /docs/*
 !/docs/API.md
+!/docs/FACE_REFINEMENT.md
 !/docs/MCP.md
 !/docs/screenshots/
 !/docs/demo/
@@ -259,6 +274,8 @@
 # Runtime payloads and public illustrations are selected explicitly too.
 /installer/*
 !/installer/setup.py
+!/installer/install_topos.py
+!/installer/requirements-topos.txt
 !/installer/install_hi3d.py
 !/installer/hi3d-manifest.json
 !/installer/requirements-hi3d.txt
@@ -469,6 +486,13 @@
 !/web/workflow-graph.js
 !/web/workflow-topology.js
 !/web/standard-workflow-graph.js
+!/web/workflow-run.js
+!/web/workflow-timings.js
+!/web/profile-history.js
+!/web/face-lineage.js
+!/generation_timings.py
+!/tests/generation_timings.py
+!/tests/profile_history.mjs
 !/native_ultratex/
 /native_ultratex/*
 !/native_ultratex/dependencies.py
@@ -489,3 +513,4 @@
 !/docs/RELEASE_3.15.0.md
 !/docs/RELEASE_3.15.1.md
 !/docs/RELEASE_3.15.2.md
+!/docs/RELEASE_3.15.3.md

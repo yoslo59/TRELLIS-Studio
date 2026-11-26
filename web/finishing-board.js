@@ -1,6 +1,6 @@
 import {button, dialog, el, field, input, select} from './workbench-ui.js?v=3.4.0';
 import {detailRefinements} from './hd-master-finishing.js?v=detail-refinement-native';
-import {createAdvancedControls, optionHelp} from './advanced-controls.js?v=figure-master-ultratex';
+import {createAdvancedControls, optionHelp} from './advanced-controls.js?v=studio-timing';
 import {canOpenFinishingBoard} from './card-menu.js?v=texture-variant';
 
 const number = value => Number.isFinite(value) ? value.toLocaleString('en-US') : '—';

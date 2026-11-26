@@ -7,6 +7,7 @@ Aero-Ex adaptations of Microsoft TRELLIS.2.
 from __future__ import annotations
 
 import gc
+from contextlib import ExitStack
 from importlib.util import find_spec
 import json
 import math
@@ -323,6 +324,12 @@ def _load_model(torch, runtime, settings):
 
     class NativePipeline(Trellis2ImageTo3DPipeline):
         stage_settings = None
+        material_atlas_progress = None
+
+        def postprocess_mesh(self, *args, **kwargs):
+            if self.material_atlas_progress is not None:
+                self.material_atlas_progress()
+            return super().postprocess_mesh(*args, **kwargs)
 
         def sample_sparse_structure(self, cond, resolution, *args, **kwargs):
             coordinates = super().sample_sparse_structure(cond, resolution, *args, **kwargs)
@@ -429,14 +436,14 @@ def _pixal_mesh_in_trellis_frame(torch, result):
     return Mesh(torch.from_numpy(positions), torch.from_numpy(np.ascontiguousarray(faces, dtype=np.int32)))
 
 
-def _repair(torch, mesh, quad, reduction, orientation, progress, *, start):
+def _repair(torch, mesh, quad, reduction, orientation, progress, *, start, pass_name='first pass'):
     import cumesh
     import pymeshlab
     import trimesh
     from meshlib import mrmeshnumpy, mrmeshpy
 
     _reset_cuda(torch)
-    progress('Reconstructing the surface with QuadDC', start)
+    progress(f'Reconstructing the surface with QuadDC · {pass_name}', start)
     vertices, faces = cumesh.remeshing.reconstruct_mesh_dc_quad(
         mesh.vertices.cuda(), mesh.faces.cuda(), quad['resolution'], verbose=True,
         band=quad['remesh_band'], remove_inner_faces=quad['remove_inner_faces'],
@@ -453,7 +460,7 @@ def _repair(torch, mesh, quad, reduction, orientation, progress, *, start):
     mesh.vertices = vertices.to(mesh.device)
     mesh.faces = faces.to(mesh.device)
     del vertices, faces
-    progress('Reducing triangles and repairing holes', start + 5)
+    progress(f'Reducing triangles and repairing holes · {pass_name}', start + 5)
     if reduction['method'] == 'Cumesh':
         mesh.simplify_with_cumesh(target=reduction['target_face_num'])
     elif reduction['method'] == 'Meshlib':
@@ -470,6 +477,7 @@ def _repair(torch, mesh, quad, reduction, orientation, progress, *, start):
     vertices = torch.from_numpy(mrmeshnumpy.getNumpyVerts(surface)).float().numpy()
     faces = torch.from_numpy(mrmeshnumpy.getNumpyFaces(surface.topology)).int().numpy()
     del surface
+    progress(f'Orienting the mesh · {pass_name}', start + 8)
     direction = orientation['reorient_vertices']
     if direction == '90 degrees':
         vertices[:, 1], vertices[:, 2] = vertices[:, 2].copy(), -vertices[:, 1]
@@ -501,6 +509,38 @@ def _texture(pipeline, reference, mesh, settings):
     )[0]
 
 
+def _unwrap_for_ultratex(pipeline, mesh, settings):
+    """Keep the pinned texture_mesh geometry path up to and including its UV seams."""
+    import cumesh
+    import numpy as np
+    import torch
+    import trimesh
+
+    mesh = pipeline.preprocess_mesh(mesh)
+    normals = np.asarray(mesh.vertex_normals) if settings['use_custom_normals'] else None
+    unwrapper = cumesh.CuMesh()
+    unwrapper.init(torch.from_numpy(mesh.vertices).float().cuda(), torch.from_numpy(mesh.faces).int().cuda())
+    vertices, faces, uvs, vertex_map = unwrapper.uv_unwrap(
+        compute_charts_kwargs={
+            'threshold_cone_half_angle_rad': np.radians(settings['mesh_cluster_threshold_cone_half_angle_rad']),
+            'refine_iterations': 0, 'global_iterations': 1, 'smooth_strength': 1,
+        },
+        return_vmaps=True, verbose=True,
+    )
+    del unwrapper
+    vertices = vertices.cpu().numpy()
+    vertices[:, 1], vertices[:, 2] = vertices[:, 2], -vertices[:, 1]
+    if normals is not None:
+        normals = normals[vertex_map.cpu().numpy()]
+        normals[:, 1], normals[:, 2] = normals[:, 2], -normals[:, 1]
+    uvs = uvs.cpu().numpy()
+    uvs[:, 1] = 1 - uvs[:, 1]
+    # TextureVisuals writes TEXCOORD_0 even though the donor has no texture images.
+    material = trimesh.visual.material.PBRMaterial(alphaMode=settings['texture_alpha_mode'], doubleSided=True)
+    return trimesh.Trimesh(vertices=vertices, faces=faces.cpu().numpy(), vertex_normals=normals, process=False,
+                           visual=trimesh.visual.TextureVisuals(uv=uvs, material=material))
+
+
 def _material_sides(tree, double_sided):
     materials = tree.setdefault('materials', [])
     for primitive in (primitive for mesh in tree['meshes'] for primitive in mesh['primitives']):
@@ -518,20 +558,23 @@ def ultratex_status():
     return texture_mask_status() if texture['available'] else texture
 
 
-def _retexture_ultratex(staging, reference, destination, work, atlas_size, progress):
+def _retexture_ultratex(staging, reference, destination, scratch, mask_future, atlas_size, progress):
     from native_game_profile import texture_mesh
-    from native_pixal3d import prepare_texture_mask
     from native_workflow_options import settings
 
-    with TemporaryDirectory(prefix='.high-detail-ultratex-', dir=work) as directory:
-        scratch = Path(directory)
-        progress('Preparing the original reference for UltraTex', 94)
-        mask = prepare_texture_mask(reference, scratch / 'foreground.npy')
-        recipe = settings('game_asset_native', {'377': {'texture_size': atlas_size}})
-        candidate = scratch / 'model.glb'
-        result = texture_mesh(staging, reference, mask, candidate, scratch / 'texture',
-                              lambda label: progress(label, 96), options=recipe)
-        os.replace(candidate, destination)
+    joined = perf_counter()
+    if not mask_future.done():
+        progress('Waiting for the UltraTex reference mask', 94)
+    started, finished = mask_future.result()
+    seconds = finished - started
+    critical = max(0.0, finished - joined)
+    recipe = settings('game_asset_native', {'377': {'texture_size': atlas_size}})
+    candidate = scratch / 'model.glb'
+    result = texture_mesh(staging, reference, scratch / 'foreground.npy', candidate, scratch / 'texture',
+                          lambda label: progress(label, 96), options=recipe)
+    result['reference_mask'] = dict(elapsed_seconds=round(seconds, 3), wait_seconds=round(critical, 3),
+                                    overlap_seconds=round(seconds - critical, 3))
+    os.replace(candidate, destination)
     return result
 
 
@@ -563,11 +606,33 @@ def run_profile(image_path, output_path, job_dir, options=None, progress=None, *
     geometry = stages['44']['geometry_backend']
     runtime = _runtime(config_path)
     _check_geometry_backend(geometry)
+    if geometry == PIXAL_GEOMETRY and stages['17'] != DEFAULTS['17']:
+        raise ValueError('The first TRELLIS.2 pass settings apply only to TRELLIS.2 GGUF geometry.')
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with ExitStack() as resources:
+        scratch = mask_future = None
+        if use_ultratex:
+            from native_pixal3d import pending_texture_mask
+            # Studio cancels the process tree and removes the private result directory.
+            scratch = Path(resources.enter_context(TemporaryDirectory(prefix='.high-detail-ultratex-', dir=destination.parent)))
+            mask_future = resources.enter_context(pending_texture_mask(ref, scratch / 'foreground.npy'))
+            report = progress
+
+            def progress(label, percent):
+                if mask_future.done():
+                    mask_future.result()
+                report(label, percent)
+
+        return _run_stages(ref, destination, work, stages, runtime, progress, started, scratch, mask_future)
+
+
+def _run_stages(ref, destination, work, stages, runtime, progress, started, scratch, mask_future):
+    material = stages['25']
+    geometry = stages['44']['geometry_backend']
+    use_ultratex = mask_future is not None
     use_pixal = geometry == PIXAL_GEOMETRY
     pixal_result = None
     if use_pixal:
-        if stages['17'] != DEFAULTS['17']:
-            raise ValueError('The first TRELLIS.2 pass settings apply only to TRELLIS.2 GGUF geometry.')
         # Pixal3D owns its environment and unloads it before loading this worker's
         # TRELLIS.2 dependencies. It conditions on the original reference.
         pixal_result = _generate_pixal_reference(ref, work, progress)
@@ -579,7 +644,6 @@ def run_profile(image_path, output_path, job_dir, options=None, progress=None, *
 
     if not torch.cuda.is_available():
         raise RuntimeError('The native High Detail profile requires CUDA.')
-    destination.parent.mkdir(parents=True, exist_ok=True)
     progress('Preparing the reference image', 42 if use_pixal else 8)
     reference = _prepare_image(ref, **stages['12'])
     progress('Loading TRELLIS.2 GGUF model weights', 42 if use_pixal else 13)
@@ -590,15 +654,22 @@ def run_profile(image_path, output_path, job_dir, options=None, progress=None, *
             del pixal_result
         else:
             raw = _generate(torch, pipeline, reference, stages['17'], progress)
-        first = _repair(torch, raw, stages['41'], stages['11'], stages['14'], progress, start=43)
+        first = _repair(torch, raw, stages['41'], stages['11'], stages['14'], progress, start=43, pass_name='first pass')
         del raw
         progress('Refining the TRELLIS.2 mesh', 56)
         refined = _refine(torch, pipeline, reference, first, stages['20'])
         del first
-        surface = _repair(torch, refined, stages['42'], stages['22'], stages['23'], progress, start=72)
+        surface = _repair(torch, refined, stages['42'], stages['22'], stages['23'], progress, start=72, pass_name='second pass')
         del refined
-        progress('Generating TRELLIS.2 materials', 87)
-        textured = _texture(pipeline, reference, surface, stages['25'])
+        if use_ultratex and material['texture_alpha_mode'] == 'OPAQUE' and getattr(surface.visual, 'uv', None) is None:
+            progress('Unwrapping the mesh for UltraTex', 90)
+            textured = _unwrap_for_ultratex(pipeline, surface, material)
+        else:
+            progress('Generating TRELLIS.2 materials', 87)
+            atlas_stage = ('Baking TRELLIS.2 vertex materials' if material['bake_on_vertices']
+                           else 'Unwrapping and baking TRELLIS.2 materials')
+            pipeline.material_atlas_progress = lambda: progress(atlas_stage, 90)
+            textured = _texture(pipeline, reference, surface, material)
         del surface, pipeline
 
     progress('Packaging the mesh and its UV atlas', 92 if use_ultratex else 97)
@@ -614,7 +685,7 @@ def run_profile(image_path, output_path, job_dir, options=None, progress=None, *
         textured.export(staging, file_type='glb', **export_options)
         if use_ultratex:
             _reset_cuda(torch)
-            ultratex = _retexture_ultratex(staging, ref, destination, work, material['ultratex_size'], progress)
+            ultratex = _retexture_ultratex(staging, ref, destination, scratch, mask_future, material['ultratex_size'], progress)
         else:
             os.replace(staging, destination)
     finally:

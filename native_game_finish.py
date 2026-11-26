@@ -624,6 +624,7 @@ def finish_reduced_character(toolkit, blender, comfy_source, work, *, donor, low
         write_character_glb(comfy_source, high_glb, donor)
     unwrapped = unwrap_character_uv(comfy_source, low['vertices'], low['faces'],
                                     colors=low.get('vertex_colors'), device=device, options=options)
+    progress('Smoothing the unwrapped mesh normals')
     write_character_glb(comfy_source, low_glb, unwrapped, smooth=True, options=options)
     unwrap_export_seconds = time.perf_counter() - started
     if str(device).split(':', 1)[0] == 'cuda':
@@ -689,10 +690,11 @@ def finish_character_mesh(root, toolkit, cumesh_directory, blender, comfy_source
         progress('Closing the mesh with WTiVo')
         vertices, faces, before['watertight'] = rebuild_watertight(
             root, work, vertices, faces, options=options, progress=wtivo_progress)
-    progress('Preparing high- and low-poly meshes with LODTailor')
+    progress('Reducing the dense donor with LODTailor')
     started = time.perf_counter()
     donor = trim_surface(toolkit, blender, work / 'lod-donor', vertices, faces, game_mesh=False,
                          with_attributes=True, options=options)
+    progress('Reducing the game mesh with LODTailor')
     low = trim_surface(toolkit, blender, work / 'lod-game', donor['vertices'], donor['faces'], game_mesh=True,
                        vertex_colors=donor['vertex_colors'], with_attributes=True, options=options)
     before['lod_seconds'] = round(time.perf_counter() - started, 3)

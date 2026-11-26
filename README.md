@@ -29,10 +29,10 @@ One local generation produced two finishes from the same saved source. The high-
 
 Use **Repair or resume components** after an interrupted download. Setup verifies downloads with SHA-256. The uninstaller can stop its own idle local services and keeps the library. [Repair and uninstall](docs/WINDOWS_SETUP.md)
 
-**New in 3.14.0** — Choose **Advanced** for humanoid rigs with twist bones
-and optional articulated fingers. Use **Creature** to edit a predicted
-skeleton before skinning and add procedural clips to compatible rigs.
-[Release notes](docs/RELEASE_3.14.0.md)
+**New in 3.15.3** — Adjust a model’s roughness and metallic response before export,
+follow generation timings in the workflow graph, and refine a character’s face
+on a separate copy. High Detail with UltraTex skips a redundant material pass.
+[Release notes](docs/RELEASE_3.15.3.md)
 
 ### Install from source
 
@@ -49,7 +49,7 @@ skeleton before skinning and add procedural clips to compatible rigs.
 | **Create** | Local TRELLIS.2 and Pixal3D generation with shared profiles, selectable texture methods and master finishing. Preview the cutout and framing, then crop or correct the mask while keeping the original. |
 | **Queue** | Schedule batches of up to 30 images. Correct the recipe of a failed job and create a linked retry with the same references and seed. The original failure remains available for review. |
 | **Collection** | Textured and clay card previews, search, category/type/review filters, favourites, tags, notes, nested folders, saved views, multiple selection and restorable trash. |
-| **Review** | PBR/clay/normals/wireframe views, camera presets, adjustable preview lighting, synchronised before/after comparison, topology/UV/material/dimension diagnostics. |
+| **Review** | PBR/clay/normals/wireframe views, camera presets, adjustable lighting, roughness and metallic controls, synchronised before/after comparison, topology/UV/material/dimension diagnostics. |
 | **Animate** | UniRig skeleton and skin-weight prediction, editable frontal joint markers, visible skeleton inspection, 84 authored humanoid motions, a library of generated motions and procedural motion on compatible creature rigs. |
 | **Prepare** | Reference-based color projection, HD-to-game reduction and material baking, linked LOD copies, pivot and collision tools, and dedicated printing copies. |
 | **History** | Parent/child lineage, recipes, comments, recoverable checkpoints and restoration as a new card. |
@@ -59,11 +59,19 @@ skeleton before skinning and add procedural clips to compatible rigs.
 
 ### Collection previews
 
+In the 3D preview, open **Material** next to **Prepare** to adjust roughness and metallic response. Studio remembers the sliders for each model in this browser. GLB, Blender, Unity and Unreal exports apply the adjustments by default. Check **Use original materials** in Export to use the authored material for that package.
+
+Compare, LOD inspection, Game preparation, Motion workshop and the Refine face 3D view use the same adjustments. Switch on **Original materials** in an inspection to see the source surface.
+
 Move the pointer across a model card to compare its textured and clay renders at the same angle. When the card has keyboard focus, use the left and right arrow keys. Studio saves two WebP images per model revision. It builds missing pairs for existing models while compute jobs are idle, using Edge, Chrome or Chromium on the host. The card displays its reference image while the renders are pending or unavailable. Opening the model loads the GLB in the 3D viewer. [Browser requirements](docs/WINDOWS_SETUP.md)
 
 In **Present your model**, **Save card turntable** records a compact six-second video for the selected model. A previous recording can be used if it fits the 6 MiB limit. Use the card's play control to watch a saved turntable.
 
 ### Try another finish
+
+Choose **Prepare → Refine face** on a textured character before rigging. Check the portrait crop, preview the facial relief and adjust its intensity before saving a copy with the original textures. This optional step runs on demand. [Face refinement and component installation](docs/FACE_REFINEMENT.md)
+
+Refined copies show the saved intensity and provide a shortcut to their source model. If a copy fails, open **Refine face on source** in the queue to try again.
 
 Select **HD Master** in single-image or multi-view mode to retain the full decoded geometry and material volume. Its working GLB has a default ceiling of 1.2 million triangles. Studio measures surface deviation after simplification and keeps a lighter mesh when it meets the tolerance. Increase the ceiling in the generation settings to allow more geometry when needed. Use **Keep source for finishing variants** with other profiles and **Preview reference** to check how thin parts, hands and feet survive the cutout.
 
@@ -105,6 +113,10 @@ Hi3D runtime to refine a native TRELLIS.2 single-image source and bake the
 resulting master. The generation profile keeps its source resolution. Both
 options are also available from **Finishing board**
 on a compatible saved source. [Runtime setup](docs/HI3D.md)
+
+The profile chooser shows each recipe’s triangle target. Once your collection has three completed original generations with matching settings, it also shows the observed time range.
+
+During generation, open **View generation graph** to see the active stage, its elapsed time and the total. Expand **Stage timings** for individual operations, including the UltraTex views. The saved graph is available beside the generation log. Stage timings begin with jobs run on this version.
 
 **High Detail** and **Game Asset** offer editable workflow graphs and a choice of
 geometry engine. High Detail builds a dense mesh with two geometry passes and
@@ -257,8 +269,8 @@ frontal T-pose humanoid. Inspect faces, hands, thin parts and materials in
 
 | Destination | Contents | Convention |
 | --- | --- | --- |
-| **Portable GLB** | Original self-contained geometry, PBR, rig and embedded clips | Metres, Y up |
-| **Blender** | Editable packed `.blend`, original GLB and material maps | Metres, Z up |
+| **Portable GLB** | Self-contained geometry, selected PBR materials, rig and embedded clips | Metres, Y up |
+| **Blender** | Editable packed `.blend`, GLB and material maps | Metres, Z up |
 | **Unity** | Animated FBX, PBR maps, optional Editor importer; prepared LOD/collision resources | Metres, Y up |
 | **Unreal Engine** | Animated FBX, ORM maps and DirectX normal maps | Centimetres, Z up |
 | **3D printing** | Dedicated STL and topology report; create a print copy first | Millimetres, Z up |
@@ -268,7 +280,7 @@ Exports run as separate cancellable jobs and provide downloadable ZIPs. Engine p
 
 For Unity, merge the exported common `Editor` folder into your project, then choose **Tools → TRELLIS Studio → Configure exported models**. It configures materials, Generic animation/avatar settings and, for prepared copies, a prefab with LODGroup and collisions. Skinned LODs follow LOD 0's bones. Humanoid avatar mapping, controllers and gameplay remain project-specific. Unreal imports still require checking material assignment and normal settings.
 
-In Export, choose **Check model** to measure the asset against editable budgets for its destination and intended use. The report distinguishes checks from the review decision; topology diagnostics can show open and non-manifold edges on a static model. Exported reports refer to the exact source GLB in the export.
+In Export, choose **Check model** to measure the asset against editable budgets for its destination and intended use. The report distinguishes checks from the review decision; topology diagnostics can show open and non-manifold edges on a static model. Exported reports identify the GLB measured during preflight by its SHA-256 hash.
 
 To update a Unity asset, extract the new package **outside** `Assets`, select the existing model folder in Unity and choose **Tools → TRELLIS Studio → Preview model update**. Point it to the incoming `studio-export.json`. Review the changes and select the files to update. The importer checks that existing object references still resolve and leaves your materials and prefab edits in place. If the mesh was re-UV-mapped, include its matching textures. Existing projects can install the updated Editor helper without replacing their assets.
 

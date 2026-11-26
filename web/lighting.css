@@ -211,3 +211,56 @@
   #viewport .animation-player input[type=range] { min-width: 45px; }
   #viewport .animation-player output { display: none; }
 }
+
+#materialPreviewPanel {
+  flex: none;
+  min-width: 0;
+  container: material-settings / inline-size;
+  background: #18211d;
+  border-bottom: 1px solid var(--shell-line);
+}
+.material-preview-sliders {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 10px clamp(12px, 1.2vw, 22px);
+}
+.material-preview-sliders .lighting-slider { min-width: 0; margin: 0; }
+.material-preview-sliders .lighting-slider > span { align-items: baseline; gap: 4px; margin: 0; font-size: 12px; }
+.material-preview-sliders .lighting-slider small {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.material-preview-actions { display: grid; justify-items: end; gap: 5px; }
+.material-preview-actions small { color: var(--muted); font-size: 10px; }
+.material-preview-actions button { padding: 4px 10px; border: 1px solid var(--shell-line); border-radius: 6px; font-size: 11px; }
+.material-preview-actions button:disabled { opacity: .45; }
+.workspace .view-tabs #materialPreviewToggle.material-adjusted { border-color: var(--shell-active-border); }
+.workspace .view-tabs #materialPreviewToggle[aria-expanded=true] { color: var(--accent); border-color: var(--shell-active-border); background: #243221; }
+@container material-settings (max-width: 520px) {
+  .material-preview-sliders { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; padding: 8px 12px; }
+  .material-preview-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; }
+}
+.studio-dialog .inspection-material-toggle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 5px 8px;
+  max-width: calc(100% - 16px);
+  border: 1px solid var(--shell-line, #43533a);
+  border-radius: 7px;
+  background: #18201bed;
+  color: var(--text, #d0dfc3);
+  font-size: 11px;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.studio-dialog .inspection-material-toggle:has(:disabled) { color: var(--muted); cursor: default; }

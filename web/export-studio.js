@@ -1,19 +1,38 @@
 import {icon} from './card-menu.js?v=3.4.0';
 import {createExportPreflight} from './export-preflight.js?v=3.4.0';
 const nameOf=j=>j?.metadata?.display_name||j?.settings.name||'Model';
-export function createExportStudio({api,printCopy,openAction}){
+export function createExportStudio({api,printCopy,openAction,getMaterialAdjustment}){
  const dialog=document.createElement('dialog');dialog.id='exportDialog';dialog.className='studio-dialog export-dialog';dialog.setAttribute('aria-labelledby','exportTitle');
- dialog.innerHTML=`<header class="studio-dialog-head"><div><span class="eyebrow">EXPORT</span><h2 id="exportTitle">Export model</h2><p id="exportSelection"></p></div><button type="button" class="dialog-x" data-close aria-label="Close export"></button></header><div class="export-layout"><div class="export-destinations"><span class="export-label">DESTINATION</span><div class="export-targets" id="exportTargets" role="group" aria-label="Export destination"></div></div><section class="export-preview"><div class="export-preview-brand"><span id="exportFormatIcon"></span><div><h3 id="exportDestinationName"></h3><div id="exportFileTypes" class="export-file-types"></div></div></div><p id="exportDescription"></p><div class="export-source"><img id="exportSourceImage" alt=""><div><strong id="exportSourceLabel"></strong><small id="exportSourceClips"></small></div></div><dl class="export-convention"><dt>Units</dt><dd id="exportUnits"></dd><dt>Up axis</dt><dd id="exportAxis"></dd></dl><details class="export-import-notes"><summary>Package details</summary><p id="exportRecipe"></p></details></section></div><div class="export-task" id="exportTask" hidden><div class="export-stage"><strong id="exportStage"></strong><span id="exportPercent"></span></div><progress id="exportProgress" max="100" value="0" aria-label="Export progress"></progress><p id="exportTaskDetail"></p></div><p id="exportNotice" class="tool-error" role="status"></p><footer class="studio-dialog-actions"><span class="export-preservation">Original models preserved</span><button id="newExport" class="secondary" type="button" hidden>Another export</button><button id="cancelExportTask" class="secondary" type="button" hidden>Cancel export</button><a id="downloadExport" class="primary action-link" hidden download></a><button id="prepareExport" class="primary" type="button">Prepare package</button></footer>`;
+ dialog.innerHTML=`<header class="studio-dialog-head"><div><span class="eyebrow">EXPORT</span><h2 id="exportTitle">Export model</h2><p id="exportSelection"></p></div><button type="button" class="dialog-x" data-close aria-label="Close export"></button></header><div class="export-layout"><div class="export-destinations"><span class="export-label">DESTINATION</span><div class="export-targets" id="exportTargets" role="group" aria-label="Export destination"></div></div><section class="export-preview"><div class="export-preview-brand"><span id="exportFormatIcon"></span><div><h3 id="exportDestinationName"></h3><div id="exportFileTypes" class="export-file-types"></div></div></div><p id="exportDescription"></p><div class="export-source"><img id="exportSourceImage" alt=""><div><strong id="exportSourceLabel"></strong><small id="exportSourceClips"></small></div></div><dl class="export-convention"><dt>Units</dt><dd id="exportUnits"></dd><dt>Up axis</dt><dd id="exportAxis"></dd></dl><div class="export-material-option" id="exportMaterials" hidden><label><input id="exportOriginalMaterials" type="checkbox"> Use original materials</label><small id="exportMaterialSummary"></small></div><details class="export-import-notes"><summary>Package details</summary><p id="exportRecipe"></p></details></section></div><div class="export-task" id="exportTask" hidden><div class="export-stage"><strong id="exportStage"></strong><span id="exportPercent"></span></div><progress id="exportProgress" max="100" value="0" aria-label="Export progress"></progress><p id="exportTaskDetail"></p></div><p id="exportNotice" class="tool-error" role="status"></p><footer class="studio-dialog-actions"><span class="export-preservation">Original models preserved</span><button id="newExport" class="secondary" type="button" hidden>Another export</button><button id="cancelExportTask" class="secondary" type="button" hidden>Cancel export</button><a id="downloadExport" class="primary action-link" hidden download></a><button id="prepareExport" class="primary" type="button">Prepare package</button></footer>`;
  document.body.append(dialog);const $=id=>dialog.querySelector('#'+id);const beacon=document.createElement('button');beacon.type='button';beacon.className='export-beacon';beacon.hidden=true;beacon.setAttribute('aria-label','Open export task');document.getElementById('compareModel').before(beacon);
- const targets=[['library','folder','Collection backup','Sources, profiles and embedded motion','Original units'],['blender','blender','Blender','Packed .blend + original GLB','Metres · Z up'],['unity','cube','Unity','Animated FBX + PBR textures','Metres · Y up'],['unreal','unreal','Unreal Engine','Animated FBX + ORM textures','Centimetres · Z up'],['print','print','3D printing','Dedicated STL + topology report','Millimetres · Z up'],['glb','globe','Portable GLB','Original rig, clips and PBR','Metres · Y up']];let archiveMode=false,includeRevisions=false,jobs=[],target='blender',task=null,state=null,timer=null;
- const recipes={library:'A portable TRELLIS collection with hashed files, source images, profiles, model metadata and embedded animation. Restore it into a new collection on another installation.',blender:'Geometry, rig, actions and textures packed in a Blender source. The original GLB is also included.',unity:'FBX keeps the skeleton and clips. PBR maps and an optional Unity Editor material helper are included. No controller or Humanoid Avatar is generated.',unreal:'FBX uses centimetre coordinates and Z up. Includes ORM packing, a DirectX normal map and import instructions. Material graphs and animation blueprints are editor setup steps.',print:'Exports existing print copies. For a normal model, prepare a dedicated copy first so the original remains unchanged.',glb:'The source GLB is preserved byte-for-byte, including its embedded materials, skin and animation clips.'};
- const descriptions={library:'Your models, reference images, recipes, animation clips and collection details in one verified archive.',blender:'An editable source with packed textures and all available animation clips.',unity:'Model, skeleton and clips in FBX, with PBR textures and a Unity material helper.',unreal:'Model, skeleton and clips in FBX, with ORM textures and DirectX normal maps.',print:'A millimetre-scale STL and its preparation report, ready to inspect in your slicer.',glb:'The original self-contained model, including its materials, skeleton and clips.'};
+ const targets=[['library','folder','Collection backup','Sources, profiles and embedded motion','Original units'],['blender','blender','Blender','Packed .blend + GLB','Metres · Z up'],['unity','cube','Unity','Animated FBX + PBR textures','Metres · Y up'],['unreal','unreal','Unreal Engine','Animated FBX + ORM textures','Centimetres · Z up'],['print','print','3D printing','Dedicated STL + topology report','Millimetres · Z up'],['glb','globe','Portable GLB','Original rig, clips and PBR','Metres · Y up']];let archiveMode=false,includeRevisions=false,jobs=[],target='blender',task=null,state=null,timer=null;
+ const recipes={library:'A portable TRELLIS collection with hashed files, source images, profiles, model metadata and embedded animation. Restore it into a new collection on another installation.',blender:'Geometry, rig, actions and textures packed in a Blender source. The package also includes the GLB with the selected materials.',unity:'FBX keeps the skeleton and clips. PBR maps and an optional Unity Editor material helper are included. No controller or Humanoid Avatar is generated.',unreal:'FBX uses centimetre coordinates and Z up. Includes ORM packing, a DirectX normal map and import instructions. Material graphs and animation blueprints are editor setup steps.',print:'Exports existing print copies. For a normal model, prepare a dedicated copy first so the original remains unchanged.',glb:'Includes embedded materials, skin and animation clips.'};
+ const descriptions={library:'Your models, reference images, recipes, animation clips and collection details in one verified archive.',blender:'An editable source with packed textures and all available animation clips.',unity:'Model, skeleton and clips in FBX, with PBR textures and a Unity material helper.',unreal:'Model, skeleton and clips in FBX, with ORM textures and DirectX normal maps.',print:'A millimetre-scale STL and its preparation report, ready to inspect in your slicer.',glb:'A self-contained model with its materials, skeleton and clips.'};
  const files={library:['Models','Sources','Profiles','Library'],blender:['.blend','.glb','Textures'],unity:['.fbx','.glb','PBR'],unreal:['.fbx','.glb','ORM'],print:['.stl','Report'],glb:['.glb']};
  const preflight=createExportPreflight({
   api,onChange:refreshPrepareButton,onAction:(action,job)=>{dialog.close();openAction(action,job);},
  });
  dialog.querySelector('.export-layout').after(preflight.root);
  preflight.root.hidden=true;
+ let materialAdjustments = {};
+ function selectMaterials() {
+  materialAdjustments = {};
+  for (const job of jobs) {
+   const values = getMaterialAdjustment?.(job.id);
+   if (values?.roughness || values?.metalness) materialAdjustments[job.id] = values;
+  }
+  $('exportOriginalMaterials').checked = false;
+ }
+ function supportsMaterials() { return target !== 'library' && target !== 'print'; }
+ function showMaterials() {
+  const count = Object.keys(materialAdjustments).length;
+  const useOriginal = $('exportOriginalMaterials').checked;
+  $('exportMaterials').hidden = !!task || !supportsMaterials() || count === 0;
+  $('exportMaterialSummary').textContent = useOriginal ? 'Exporting the authored roughness and metallic values.' :
+    count === 1 && jobs.length === 1 ? 'Exporting your roughness and metallic adjustments.' :
+      `Exporting material adjustments for ${count} of ${jobs.length} models.`;
+ }
+ $('exportOriginalMaterials').addEventListener('change', showMaterials);
  function needsPrintCopy(){return target==='print'&&jobs.some(job=>job.settings.asset_type!=='print');}
  function refreshPrepareButton(){
   const needCopy=needsPrintCopy();
@@ -30,6 +49,7 @@ export function createExportStudio({api,printCopy,openAction}){
  }
  function tiles(){const root=$('exportTargets');root.replaceChildren();for(const [id,picto,label,detail]of targets){if(archiveMode?id!=='library':id==='library')continue;const b=document.createElement('button');b.type='button';b.className='export-target';b.dataset.target=id;b.setAttribute('aria-pressed',id===target);b.disabled=!!task;const copy=document.createElement('span'),title=document.createElement('strong'),small=document.createElement('small'),radio=document.createElement('i');title.textContent=label;small.textContent={library:'Transferable archive',blender:'Editable source',unity:'FBX + PBR maps',unreal:'FBX + ORM maps',print:'STL + report',glb:'Self-contained file'}[id];radio.className='export-choice';radio.setAttribute('aria-hidden','true');copy.append(title,small);b.append(icon(picto),copy,radio);b.onclick=()=>{target=id;tiles();root.querySelector('[aria-pressed="true"]')?.focus();};root.append(b);}
   preview();
+  showMaterials();
   const needCopy=needsPrintCopy();
   preflight.setSelection(jobs,target,!task&&!archiveMode&&!needCopy&&jobs.length>0&&jobs.length<=50);
   refreshPrepareButton();
@@ -41,13 +61,17 @@ export function createExportStudio({api,printCopy,openAction}){
    beacon.hidden=false;beacon.replaceChildren(icon(state.state==='done'?'check':running?'download':'alert'),document.createTextNode(running?'Export · '+(state.progress||0)+'%':state.state==='done'?'Export ready':'Export task'));
    if(running)timer=setTimeout(poll,1000);
   }catch(error){state={state:'error'};$('newExport').hidden=false;$('prepareExport').hidden=true;$('cancelExportTask').hidden=true;$('exportNotice').textContent=error.message;beacon.hidden=false;beacon.replaceChildren(icon('alert'),document.createTextNode('Export unavailable'));}}
- function reset(){clearTimeout(timer);task=null;state=null;remember();preflight.reset();$('exportTask').hidden=true;$('downloadExport').hidden=true;$('cancelExportTask').hidden=true;$('newExport').hidden=true;$('prepareExport').hidden=false;$('exportNotice').textContent='';beacon.hidden=true;tiles();}
+ function reset(){clearTimeout(timer);task=null;state=null;selectMaterials();remember();preflight.reset();$('exportTask').hidden=true;$('downloadExport').hidden=true;$('cancelExportTask').hidden=true;$('newExport').hidden=true;$('prepareExport').hidden=false;$('exportNotice').textContent='';beacon.hidden=true;tiles();}
  $('prepareExport').onclick=async()=>{
   if(target==='print'&&jobs.length===1&&needsPrintCopy()){dialog.close();printCopy.open(jobs[0]);return;}
   if(preflight.needsCheck){await preflight.run();return;}
   $('prepareExport').disabled=true;$('exportNotice').textContent='';
   try{
-   const r=await api('/api/exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:jobs.map(j=>j.id),target,include_revisions:includeRevisions,preflight:preflight.exportData})});
+   const body = {ids: jobs.map(j => j.id), target, include_revisions: includeRevisions, preflight: preflight.exportData};
+   if (supportsMaterials() && !$('exportOriginalMaterials').checked && Object.keys(materialAdjustments).length) {
+    body.material_adjustments = materialAdjustments;
+   }
+   const r=await api('/api/exports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
    task=r.id;remember();tiles();poll();
   }catch(error){$('exportNotice').textContent=error.message;$('prepareExport').disabled=false;}
  };

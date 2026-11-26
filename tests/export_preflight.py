@@ -91,6 +91,21 @@ async def check(app):
     else:
         raise AssertionError('A negative triangle budget was accepted.')
 
+    for destination, adjustments in (
+        ('glb', {identifier: {'roughness': True}}),
+        ('glb', {identifier: {'metalness': -1.1}}),
+        ('unity', {'f' * 32: {'roughness': .3}}),
+        ('library', {identifier: {'roughness': .3}}),
+        ('print', {identifier: {'metalness': .3}}),
+    ):
+        try:
+            await app.create_export(request({'ids': [identifier], 'target': destination,
+                                             'material_adjustments': adjustments}))
+        except HTTPException as error:
+            assert error.status_code == 400
+        else:
+            raise AssertionError(f'Invalid material adjustments accepted for {destination}.')
+
     async def package(digest=None):
         body = {'ids': [identifier], 'target': 'glb'}
         if digest:

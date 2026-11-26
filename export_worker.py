@@ -23,6 +23,7 @@ try:
             lambda fraction,stage:status('running',f'{index+1}/{len(request["ids"])} · {stage}',round((index+fraction)/len(request['ids'])*85)+2),
             preflight_budget=preflight['budget'] if preflight else None,
             expected_hash=preflight['source_hashes'][identifier] if preflight else None,
+            material_adjustment=request.get('material_adjustments', {}).get(identifier),
         )
         items.append(dict(id=identifier,name=name,clips=len(manifest['animations']),file=safe+'-'+identifier[:8]))
     if target=='unity':

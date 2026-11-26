@@ -388,10 +388,11 @@ def run_character05_texture(source_glb, source_image, foreground_mask, output_gl
     with runtime_ops(cancelled):
         setups = prepare_textures(source_glb, source_image, foreground_mask, work_dir, prompt)
         check_cancel(cancelled)
-        emit('Encoding the UltraTex text prompts')
+        emit('Loading the UltraTex text encoder')
         tokenizer = NATIVE_RUNTIME / 'tokenizer'
         tokens = text_prompt_tokens(prompt['357']['inputs']['text'], tokenizer)
         qwen, embedding = load_qwen_text(assets, gguf_dequant, device=device, dtype=torch.float32)
+        emit('Encoding the UltraTex text prompts')
         text = encode_qwen_clip(qwen, embedding, tokens, device=device, dtype=torch.float32).cpu()
         negative = None
         if (prompt['357']['inputs']['text'] != prompt['376']['inputs']['text']
@@ -400,6 +401,7 @@ def run_character05_texture(source_glb, source_image, foreground_mask, output_gl
             negative = encode_qwen_clip(qwen, embedding, tokens, device=device, dtype=torch.float32).cpu()
         del qwen, embedding
         torch.cuda.empty_cache()
+        emit('Loading the UltraTex VAE')
         vae = load_flux_texture_vae(assets, vae_source, device=device, dtype=torch.bfloat16)
         keep_branch = None
         flux = None
@@ -416,11 +418,13 @@ def run_character05_texture(source_glb, source_image, foreground_mask, output_gl
                 del initial, keep
                 pack, _ = build_tokens(conditions, setup.runtime)
                 if keep_branch != view_pass.task:
+                    emit(f'Loading the UltraTex {view_pass.task} diffusion model')
                     del flux
                     flux = load_klein_gguf(assets, flux_source, gguf_dequant, view_pass.task,
                                           device=device, dtype=torch.bfloat16, lora_strength=view_pass.lora_strength,
                                           token_chunk=setup.runtime.token_chunk)
                     keep_branch = view_pass.task
+                    emit(f'Preparing {view_pass.task} at {view_pass.yaw:g} degrees')
                 sampling_budget(setup.runtime, pack, text, device, emit)
                 flux_source._SPARSE_ATTENTION = UltraTexAttention(view_pass.sparse_retention)
                 values = sample_pass(flux, pack, text, negative, view_pass, device=device, cancelled=cancelled,
@@ -436,6 +440,7 @@ def run_character05_texture(source_glb, source_image, foreground_mask, output_gl
                                            setups['mr'], ViewCollection(tuple(rendered['mr'])), **texture_bake_options(bake))
         check_cancel(cancelled)
         assert_native_imports()
+        emit('Assembling the UltraTex material')
         write_texture_copy(source_glb, output_glb, maps, prompt['384']['inputs'])
     with output_glb.open('rb') as stream:
         checksum = file_digest(stream, 'sha256').hexdigest()

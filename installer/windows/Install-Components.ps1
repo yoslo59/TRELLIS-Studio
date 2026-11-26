@@ -32,7 +32,7 @@ function Invoke-GuidedSetupCommand([string]$Executable,[string[]]$Arguments) {
             if ($_ -is [Management.Automation.ErrorRecord] -and $_.FullyQualifiedErrorId -notmatch '^NativeCommandErrorMessage') {
                 $lastError=$line
             }
-            if ($line -match '^(INSTALLATION STOPPED|PIXAL3D SETUP STOPPED|HI3D SETUP STOPPED|MULTIVIEW TEXTURE SETUP STOPPED|ULTRATEX SETUP STOPPED|NATIVE WORKFLOWS SETUP STOPPED|Kimodo installation failed)\s*:') {
+            if ($line -match '^(INSTALLATION STOPPED|PIXAL3D SETUP STOPPED|TOPOS SETUP STOPPED|HI3D SETUP STOPPED|MULTIVIEW TEXTURE SETUP STOPPED|ULTRATEX SETUP STOPPED|NATIVE WORKFLOWS SETUP STOPPED|Kimodo installation failed)\s*:') {
                 $lastError=$line
             }
             Write-Host $line
@@ -88,13 +88,14 @@ function Invoke-GuidedSetup {
         [switch]$SkipMultiviewTexture,
         [switch]$AcceptUltraTexModelLicenses,
         [switch]$SkipUltraTex,
+        [switch]$SkipTopos,
         [switch]$AcceptNativeWorkflowModelLicenses,
         [switch]$SkipNativeWorkflows
     )
     $env:UV_LINK_MODE='copy'
     $env:UV_NO_CACHE='1'
     . (Join-Path $PSScriptRoot 'Setup-Preflight.ps1')
-    $setupOrder=@('trellis','native-workflows','pixal3d','hi3d','multiview-texture','ultratex','unirig','kimodo')
+    $setupOrder=@('trellis','topos','native-workflows','pixal3d','hi3d','multiview-texture','ultratex','unirig','kimodo')
     $setupStatePath=Join-Path $InstallRoot 'config\component-install.json'
     $setupState=Read-GuidedSetupJson $setupStatePath
     if ($setupState.Count -and $setupState.schema -ne 1) { throw 'Unsupported component setup receipt. Existing settings were preserved.' }
@@ -109,6 +110,10 @@ function Invoke-GuidedSetup {
     $requested=@($RequestedComponents -split ',' | ForEach-Object {$_.Trim().ToLowerInvariant()} | Where-Object {$_})
     if ($Retry -and -not $requested.Count) { $requested=@($setupState.requested | Where-Object {$_}) }
     if ($WithKimodo) { $requested+=@('kimodo') }
+    if ($SkipTopos) {
+        $requested=@($requested | Where-Object { $_ -ne 'topos' })
+        $setupState.requested=@($setupState.requested | Where-Object { $_ -ne 'topos' })
+    }
     if ($SkipNativeWorkflows) {
         $requested=@($requested | Where-Object { $_ -ne 'native-workflows' })
         $setupState.requested=@($setupState.requested | Where-Object { $_ -ne 'native-workflows' })
@@ -128,7 +133,7 @@ function Invoke-GuidedSetup {
     foreach ($name in $requested) {
         if ($name -notin $setupOrder) { throw "Unknown setup component: $name." }
     }
-    if (@($requested | Where-Object { $_ -in @('native-workflows','pixal3d','hi3d','multiview-texture','ultratex') }).Count) { $requested+=@('trellis') }
+    if (@($requested | Where-Object { $_ -in @('native-workflows','pixal3d','hi3d','multiview-texture','ultratex','topos') }).Count) { $requested+=@('trellis') }
     $selected=@($setupOrder | Where-Object {$_ -in $requested})
     $setupState.requested=@($setupOrder | Where-Object {$_ -in $selected -or $_ -in $setupState.requested})
     Save-GuidedSetupJson $setupStatePath $setupState
@@ -224,6 +229,16 @@ function Invoke-GuidedSetup {
         $nativeInstall={Invoke-GuidedSetupCommand $windowsPowerShell ($bootstrapArgs+@('-SkipRig','-AcceptDinoV3License'))}
         $nativeVerify={Invoke-GuidedSetupCommand $windowsPowerShell ($bootstrapArgs+@('-SkipRig','-VerifyOnly'))}
         Invoke-GuidedComponent 'trellis' $nativeInstall $nativeVerify $nativeReason
+    }
+    if ('topos' -in $selected) {
+        $toposReason=$gpuReason
+        if (-not $toposReason -and $setupState.components.trellis.status -ne 'ready') {
+            $toposReason='Verify TRELLIS.2 generation on the selected GPU first.'
+        }
+        $toposSetup=Join-Path $InstallRoot 'installer\install_topos.py'
+        $toposInstall={Invoke-GuidedSetupCommand $nativePython @('-B','-u',$toposSetup)}
+        $toposVerify={Invoke-GuidedSetupCommand $nativePython @('-B','-u',$toposSetup,'--verify-only')}
+        Invoke-GuidedComponent 'topos' $toposInstall $toposVerify $toposReason
     }
     if ('native-workflows' -in $selected) {
         Write-Host 'Preparing the standalone High Detail and Game Asset workflows with native UltraTex. The optional six-view UltraTex preview is a separate component.'

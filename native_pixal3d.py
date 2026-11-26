@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, wait
+from contextlib import contextmanager
 from pathlib import Path
 import json
 import os
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
+from time import perf_counter
 
 from studio_model_assets import model_asset_path
 
@@ -86,8 +89,13 @@ def _activate_dependencies(paths):
         sys.path.insert(0, str(folder))
 
 
-def prepare_texture_mask(image_path, output_path):
-    """Prepare the UltraTex foreground mask without loading any shape weights or using CUDA."""
+@contextmanager
+def pending_texture_mask(image_path, output_path):
+    """Start the CPU mask worker and publish the NPY atomically on success.
+
+    The future returns the monotonic start and completion times, even when
+    the caller joins it much later after GPU geometry has finished.
+    """
     image_path = Path(image_path).resolve(strict=True)
     output = Path(output_path).resolve()
     if output.suffix.lower() != '.npy' or output == image_path:
@@ -99,16 +107,35 @@ def prepare_texture_mask(image_path, output_path):
         command = [str(paths['python']), '-B', '-u', str(ROOT / 'native_pixal3d.py'), str(image_path),
                    str(scratch), '--mask-only']
         env = dict(_offline_environment(), CUDA_VISIBLE_DEVICES='-1')
-        process = subprocess.run(command, cwd=directory, env=env,
-                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                 encoding='utf-8', errors='replace',
-                                 creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-        if process.stdout:
-            print(process.stdout, end='', flush=True)
-        if process.returncode or not scratch.is_file():
-            raise RuntimeError('UltraTex foreground preparation failed. See the generation log.')
-        scratch.replace(output)
-    return output
+        started = perf_counter()
+        with subprocess.Popen(command, cwd=directory, env=env,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                              encoding='utf-8', errors='replace',
+                              creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)) as process:
+            def collect():
+                log, _ = process.communicate()
+                if log:
+                    print(log, end='', flush=True)
+                if process.returncode or not scratch.is_file():
+                    raise RuntimeError('UltraTex foreground preparation failed. See the generation log.')
+                scratch.replace(output)
+                return started, perf_counter()
+
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(collect)
+                try:
+                    yield future
+                finally:
+                    if process.poll() is None:
+                        process.kill()
+                    wait([future])
+
+
+def prepare_texture_mask(image_path, output_path):
+    """Prepare the UltraTex foreground mask without loading any shape weights or using CUDA."""
+    with pending_texture_mask(image_path, output_path) as future:
+        future.result()
+    return Path(output_path).resolve()
 
 
 def generate_pixal3d_geometry(image_path, options=None, progress=None, *, backend='pixal3d', job_dir=None,
@@ -332,6 +359,7 @@ def _compute(image_path, paths, backend, options, report, mask_output=None, trac
                             input=torch.from_numpy(reference.conditioning_rgb.copy()).div(255).unsqueeze(0),
                             angle=fov, structure={'samples': latent.cpu()}), trace / 'structure.pt')
         release()
+        report('Decoding the sparse structure', 44)
         decoder = vae_load('struct_dec')
         voxel_size = int(options.get('119', {}).get('resolution', 32))
         occupancy = decoder.decode_structure(latent[:, :8].half()) > 0

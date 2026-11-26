@@ -14,7 +14,6 @@ from pixal3d_runtime import (
     source_path, validate_views, weight_path,
 )
 from gpu_runtime import configure_attention, probe, select_gpu
-from studio_workspace import write
 
 ROOT = Path(__file__).resolve().parent
 RUNTIME = runtime_root(ROOT)
@@ -283,6 +282,7 @@ def run_job():
 
     single_image = settings.get('view_mode') == 'single'
     try:
+        status('running', 'Starting generation', 1)
         if single_image:
             if not runtime_status(ROOT)['single_image']['ready']:
                 raise RuntimeError(SINGLE_IMAGE_SETUP_HINT)
@@ -322,6 +322,7 @@ def run_job():
         texture_method = resolve_texture_method(settings.get('texture_method'), settings.get('multiview_texture_refinement'))
         if multiview_report is not None and texture_method == 'multiview':
             finishing['multiview_texture_refinement'] = multiview_report
+        status('running', 'Finalizing model', 99)
         with (JOB / 'model.glb').open('rb') as model_file:
             finishing['model_sha256'] = hashlib.file_digest(model_file, 'sha256').hexdigest()
         from generation_view_projection import save_generation_views
@@ -356,7 +357,6 @@ def run_job():
             stats['adaptive_finishing'] = result.metadata['adaptive_finishing']
         if 'surface_repair' in result.metadata:
             stats['surface_repair'] = result.metadata['surface_repair']
-        write(JOB / 'result.json', stats)
         ready = 'Pixal3D model ready'
         if multiview_report and multiview_report['state'] == 'skipped':
             ready += ' · multiview texture pass skipped'

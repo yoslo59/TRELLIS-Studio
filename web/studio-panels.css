@@ -262,6 +262,13 @@ body:not(.library-mode) #creationPanel:has(> #form:not([hidden])),
 }
 #form .output-budget .ui-icon { flex-shrink: 0; width: 15px; height: 15px; color: #b5cfaa; }
 #form #profileSummary { margin: 0; color: #dbe5d8; font-size: 10px; line-height: 1.45; }
+#form #profilePurpose, #form #profileHistory { margin: 5px 0 0; line-height: 1.4; }
+#form #profileHistory { color: #c0d8af; font-variant-numeric: tabular-nums; }
+#faceSource { display: block; max-width: min(70vw, 40ch); overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; margin: 4px 0 0; padding: 3px 0; border: 0; background: none;
+  color: #c1d5b2; text-align: left; font-size: 12px; text-decoration: underline; }
+#faceSource[hidden] { display: none; }
+#faceSource:disabled { text-decoration: none; }
 #form .texture-method-choice { margin-top: 9px; }
 #form .texture-method-choice .option-help-heading { margin-top: 0; }
 #form .texture-method-choice .field { margin: 4px 0 0; }
@@ -510,7 +517,58 @@ dialog p, .studio-dialog .field, .studio-dialog-head p { color: var(--control-mu
   background: var(--panel-card);
 }
 .workflow-graph-header h2 { margin: 0; font-size: clamp(16px, 2.1cqi, 21px); font-weight: 620; }
-.workflow-graph-header p { margin: 4px 0 0; color: var(--control-muted); }
+.workflow-graph-header > div:first-child { flex: 1 1 160px; min-width: 0; }
+.workflow-graph-header p { margin: 4px 0 0; color: var(--control-muted); overflow-wrap: anywhere; }
+.workflow-graph-overview { background: var(--panel-card); }
+.workflow-graph-phases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--panel-line);
+}
+.workflow-graph-phases button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+  min-height: 26px;
+  border: 0;
+  background: transparent;
+  color: var(--control-muted);
+  font-size: 11px;
+}
+.workflow-graph-phases button:hover { color: var(--control-text); }
+.workflow-graph-phases .workflow-graph-stage::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--node-color, #b0ca89);
+}
+.workflow-run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--panel-line);
+  padding: 8px 16px;
+  background: var(--panel-inset);
+}
+.workflow-run-state { color: var(--control-muted); font-size: 12px; }
+.workflow-run[data-state=running] .workflow-run-state,
+.workflow-run[data-state=done] .workflow-run-state { color: var(--accent); }
+.workflow-run[data-state=error] .workflow-run-state { color: #ffb69e; }
+.workflow-run-stage { flex: 1 1 170px; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.workflow-run-percent { font: 12px var(--mono, monospace); }
+.workflow-follow { padding: 4px 9px; font-size: 12px; }
+.workflow-follow[aria-pressed=true] { color: var(--accent); border-color: var(--accent); }
+.generation-wait .workflow-graph-open { pointer-events: auto; width: auto; margin: 10px 0 0; }
+.generation-footer { flex: 0 0 auto; position: relative; }
+.generation-footer:has(#savedGenerationGraph:not([hidden])) .journal > summary { padding-inline-end: 128px; min-height: 18px; }
+#savedGenerationGraph { position: absolute; inset: 6px 12px auto auto; padding: 5px 8px; gap: 5px; color: var(--control-text); font-size: 11px; }
+#savedGenerationGraph:hover { background: var(--control-hover); }
+#savedGenerationGraph .ui-icon { width: 13px; height: 13px; color: var(--accent); }
 .workflow-graph-tools { display: flex; align-items: center; gap: 6px; }
 .workflow-graph-tools button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; }
 .workflow-graph-zoom { min-width: 4ch; color: var(--control-muted); font-variant-numeric: tabular-nums; text-align: center; }
@@ -542,6 +600,7 @@ dialog p, .studio-dialog .field, .studio-dialog-head p { color: var(--control-mu
   gap: 22px;
   width: 222px;
 }
+.workflow-graph-panel[data-monitor] .workflow-graph-flow { align-items: center; }
 .workflow-graph-lines {
   position: absolute;
   inset: 0;
@@ -572,11 +631,56 @@ dialog p, .studio-dialog .field, .studio-dialog-head p { color: var(--control-mu
   box-shadow: 0 5px 14px #0006;
   cursor: auto;
 }
-.workflow-graph-node[data-type=reference] { --node-color: #8ecbd8; }
-.workflow-graph-node[data-type=geometry] { --node-color: #beaae0; }
-.workflow-graph-node[data-type=texture] { --node-color: #dfa883; }
-.workflow-graph-node[data-type=output] { --node-color: var(--accent); }
+.workflow-graph-panel [data-type=reference] { --node-color: #8ecbd8; }
+.workflow-graph-panel [data-type=geometry] { --node-color: #beaae0; }
+.workflow-graph-panel [data-type=texture] { --node-color: #dfa883; }
+.workflow-graph-panel [data-type=output] { --node-color: var(--accent); }
 .workflow-graph-node.is-inactive { opacity: .48; }
+.workflow-graph-panel[data-compact] :is(.is-inactive, .workflow-graph-lane:not(:has(> .workflow-graph-node:not(.is-inactive)))) { display: none; }
+.workflow-graph-node-label { min-width: 0; overflow-wrap: anywhere; }
+.workflow-graph-panel[data-monitor] {
+  grid-template-rows: minmax(0, max-content) minmax(100px, 1fr);
+}
+.workflow-graph-panel[data-monitor] .workflow-graph-overview { overflow: auto; overscroll-behavior: contain; }
+.workflow-graph-phases .workflow-branches { margin-inline-start: auto; padding: 3px 8px; border: 1px solid var(--panel-line); }
+.workflow-branches[aria-pressed=true] { color: var(--accent); border-color: var(--panel-selection); }
+.workflow-run-timer, .workflow-time-stamp, .workflow-time-total { font: 11px/1.5 var(--mono, monospace); font-variant-numeric: tabular-nums; }
+.workflow-run-timer { color: var(--accent); white-space: nowrap; }
+.workflow-time-stamp { color: var(--control-muted); white-space: nowrap; }
+.workflow-time-stamp[data-state=running] { color: var(--accent); }
+.workflow-time-stamp[data-state=done]::before { content: '✓ '; color: #aad294; }
+.workflow-time-stamp[data-state=running]::before { content: '● '; }
+.workflow-time-stamp[data-state=stopped]::before { content: '■ '; color: #efb092; }
+.workflow-graph-node-label > .workflow-time-stamp { display: block; margin-top: 2px; }
+.workflow-timings { border-bottom: 1px solid var(--panel-line); }
+.workflow-timings > summary { padding: 7px 16px; color: var(--control-text); font-weight: 600; cursor: pointer; }
+.workflow-time-total { margin-inline-start: 12px; color: var(--control-muted); }
+.workflow-time-list { max-height: clamp(90px, 22vh, 210px); overflow: auto; margin: 0; padding: 0 16px 8px; list-style: none; }
+.workflow-time-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 5px 2px; border-top: 1px solid var(--panel-line); overflow-wrap: anywhere; font-size: 12px; }
+.workflow-time-note { margin: 0; padding: 0 16px 8px; font-size: 12px; color: var(--control-muted); }
+.workflow-graph-node[aria-current=step] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 18px #b9fb5930;
+}
+.workflow-graph-node[aria-current=step] .workflow-graph-node-title { background: #334630; }
+.workflow-graph-node[aria-current=step] .workflow-graph-node-title > span:first-of-type::before {
+  content: 'Current stage';
+  display: block;
+  font: 10px/1.5 var(--mono, monospace);
+  color: var(--accent);
+}
+.workflow-graph-lines path.is-current { stroke: var(--accent); stroke-width: 3; opacity: 1; }
+.workflow-saved-values {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 10px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.workflow-saved-values dt { color: var(--control-muted); }
+.workflow-saved-values dd { margin: 0 0 6px; }
 .workflow-graph-node-title {
   position: relative;
   display: flex;
@@ -646,4 +750,8 @@ summary.workflow-graph-node-title::after {
 @container (max-width: 540px) {
   .workflow-graph-header { padding: 10px 12px; }
   .workflow-graph-flow { gap: 56px; padding: 17px 24px; }
+  .workflow-graph-panel[data-monitor] .workflow-graph-phases { gap: 4px 10px; padding: 5px 12px; }
+  .workflow-graph-panel[data-monitor] .workflow-run { gap: 5px 10px; padding: 7px 12px; }
+  .workflow-run-stage { flex: 1 1 calc(100% - 68px); }
+  .workflow-follow { margin-inline-start: auto; }
 }

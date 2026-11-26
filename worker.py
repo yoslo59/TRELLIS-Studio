@@ -28,14 +28,25 @@ from generation_options import (options_for_job, sampler_options, export_options
                                 validate_post_refinement_texturing, resolve_texture_method, validate_texture_method)
 from gpu_runtime import configure_attention, select_gpu
 from hi3d_runtime import HI3D_METHODS, hi3d_source_status
+from generation_timings import GenerationTimings
 from studio_workspace import write
 
 select_gpu(ROOT)
 options = options_for_job(settings)
 started = time.time()
+timings = None if settings.get('source_kind') else GenerationTimings()
 
 def status(state, stage, progress, **extra):
     record = dict(state=state, stage=stage, progress=progress, elapsed=round(time.time()-started, 1), **extra)
+    if timings is not None:
+        record.update(timings.record(state, stage, progress))
+    if state == 'done' and 'result' in record:
+        # Subsequent model operations may replace status.json. Keep the original
+        # measurement with the generation result and bind it to its source job.
+        result = record['result']
+        if timings is not None:
+            result = dict(result, generation_timing=dict(job_id=JOB.name, **record['stage_timings']))
+        write(JOB / 'result.json', result)
     write(JOB / 'status.json', record)
     print(f'STAGE {progress}% {stage}', flush=True)
 
@@ -76,6 +87,7 @@ def generate_source(torch):
         ('get_cond', 'Analysing image', 16),
         ('sample_sparse_structure', 'Building volume', 24),
         ('sample_shape_slat', 'Generating geometry', 39),
+        ('sample_shape_slat_cascade', 'Generating geometry', 39),
         ('sample_tex_slat', 'Generating materials', 58),
         ('decode_and_cleanup', 'Extracting mesh', 73),
     ]:
@@ -557,6 +569,7 @@ def generate_standalone_workflow():
         native = Path(scratch) / 'native.glb'
         receipt = run_profile(image_path, native, JOB, recipe,
                               progress=lambda label, percent: status('running', label, percent))
+        status('running', 'Writing the Studio GLB', 98)
         document, binary = read(native)
         low, high = posed_bounds(document, binary)
         del binary
@@ -598,11 +611,12 @@ def generate_standalone_workflow():
                   seed=summary['seed'], resolution=summary['resolution'], triangles=triangles, vertices=vertices,
                   texture_size=summary['texture_size'], texture_method=summary['texture_method'],
                   seconds=round(time.time() - started, 1))
-    write(JOB / 'result.json', result)
     status('done', 'Model ready', 100, result=result)
 
 
 def main():
+    if timings is not None:
+        status('running', 'Starting generation', 1)
     if settings.get('workflow_id') and not settings.get('source_kind'):
         return generate_standalone_workflow()
     source_id = settings.get('finish_source_id') if settings.get('source_kind') == 'refinish' else None
@@ -633,6 +647,7 @@ def main():
     face_report = project_requested_face()
     if source_id and settings.get('master_finishing'):
         preserve_master_generation_views(source_id, result)
+    status('running', 'Finalizing model', 99)
     with (JOB / 'model.glb').open('rb') as model_file:
         result.metadata['finishing']['model_sha256'] = hashlib.file_digest(model_file, 'sha256').hexdigest()
     stats = dict(name=settings['name'], height_m=settings['height_m'], seed=settings['seed'],
@@ -665,7 +680,6 @@ def main():
         report = result.metadata['normal_bake']
         stats['normal_bake'] = report
         stats['vertices'] += report['tangent_vertex_splits']
-    write(JOB / 'result.json', stats)
     ready = 'Finishing variant ready' if source_id else 'Model ready'
     if multiview_report and multiview_report['state'] == 'skipped':
         ready = 'Model ready · multiview texture pass skipped'
