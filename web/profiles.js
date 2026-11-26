@@ -1,7 +1,8 @@
 // Recipes are persisted by the local server, independently from object history.
 import {detailRefinements} from './hd-master-finishing.js?v=detail-refinement-native';
-import {createWorkflowFields, optionHelp} from './advanced-controls.js?v=standard-profiles';
-import {createStandardWorkflowGraph} from './standard-workflow-graph.js?v=1';
+import {createProfileHistory} from './profile-history.js';
+import {createWorkflowFields, optionHelp} from './advanced-controls.js?v=studio-timing';
+import {createStandardWorkflowGraph} from './standard-workflow-graph.js?v=studio-timing';
 import {textureMethodChoices,textureMethodHelp,textureMethodOf,textureMethodRestriction} from './texture-methods.js?v=figure-master-ultratex';
 
 const $=id=>document.getElementById(id);
@@ -9,6 +10,12 @@ const steps={game_d:20,high_detail:20,humanoid_experimental:20,dense_master:20,f
 const figureSteps={structure_steps:30,shape_steps:35,texture_steps:12};
 const startupKey='trellis.studio.startup-profile.v2';
 const profileNames={game_d:'Game Asset (Standard)',dense_master:'HD Master'};
+const profilePurposes={
+  high_detail_native:'For close-ups and high-density geometry.',
+  game_asset_native:'For real-time characters and lightweight assets.',
+  high_detail:'For props with fine surface detail.',
+  figure_master:'For figures and sculpted surface detail.',
+};
 const restoredWorkflows={game_asset_comfy:'game_asset_native',high_detail_comfy:'high_detail_native'};
 const finishingNames={
   none:'None',
@@ -34,6 +41,7 @@ const detailRefinementLimit=1000000;
 const detailSourceResolutions=[512,1024,1536];
 const retextureHelp='Generates new PBR materials from the reference on the refined geometry. Uses the texture settings below and adds processing time.';
 export async function createProfileControls(advanced,{changed=()=>{},usePixal=()=>false,isMultiview=()=>false,describeMethod=()=>'',useNativeMethod=()=>{},setWorkflow=()=>{}}={}){
+  const history=createProfileHistory($('profileHistory'));
   let profiles=[],selected=null,saving=false,edit=false,sourceRequired=false,previousKeep=false;
   let deletingProfile=null,deleting=false,serverStartup='';
   let repairSupported=false, hdSupported=false, masterSupport={};
@@ -188,6 +196,8 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     $('profileState').hidden=!dirty;
     $('profileState').classList.toggle('dirty',dirty);
     const {resolution,texture_size,triangles}=budget(undefined,values);
+    history.select({profile:selected, preset:selected.settings.preset, workflow_id:selected.settings.preset,
+      engine:'studio_workflow',workflow_options:values});
     const meshSummary=triangles>0?`${number.format(triangles)} target triangles`:'Dense mesh';
     $('profileSummary').textContent=`${resolution}³ · ${meshSummary} · ${texture_size ? `${texture} ${texture_size/1024}K` : 'Vertex colours'}`;
     $('generationSummary').textContent=`${selected.name} · ${$('profileSummary').textContent}`;
@@ -330,6 +340,14 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     unavailable.textContent=unavailable.hidden?'':detailOptions[0].title;
     $('finishingSourceHelp').hidden=requiresSource;
     const dirty=Boolean(override.value&&!selected.variant)||!equal(profileRecipe(recipe),selected.settings);
+    const purpose=selected.variant?'':profilePurposes[recipe.preset]||selected.description||'';
+    $('profilePurpose').textContent=[purpose, $('keepFinishingSource').checked?'Keeps the source for later finishing.':''].filter(Boolean).join(' ');
+    $('profilePurpose').hidden=!$('profilePurpose').textContent;
+    const effective=resolved(profileRecipe(recipe));
+    history.select(!selected.variant && !isMultiview() ? {...effective, ...actual, profile:selected,
+      engine:usePixal()?'pixal3d':'trellis2', generation_options:effective.advanced,
+      keep_finishing_source:$('keepFinishingSource').checked, repair_surface:override.value==='repair',
+      hd_reconstruction:selectedFinish==='studio_768'&&!masterSupport.studio_768?.available} : null);
     $('profileId').value=recipe.preset===selected.settings.preset?selected.id||selected.sourceProfile||'':'';
     $('profileState').textContent=dirty?'MODIFIED':selected.variant?'VARIANT':selected.experimental?'EXPERIMENTAL':'';
     $('profileState').hidden=!$('profileState').textContent;
@@ -373,6 +391,8 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     selected=profile;
     $('profileChoice').querySelector('[data-variant]')?.remove();
     const s=selected.settings;
+    $('profilePurpose').textContent=profilePurposes[s.preset]||selected.description||'';
+    $('profilePurpose').hidden=!$('profilePurpose').textContent;
     if(selected.workflow){
       const values={...s.workflow_options};
       for(const [stage,fields] of Object.entries(currentValues||{})){
@@ -423,7 +443,15 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     $('profileChoice').replaceChildren();
     for(const builtin of [true,false]){
       const group=document.createElement('optgroup');group.label=builtin?'Built-in profiles':'My profiles';
-      for(const p of selectableProfiles().filter(x=>x.builtin===builtin)){const o=document.createElement('option');o.value=p.id;o.textContent=p.builtin?profileNames[p.id]||p.name:p.name;group.append(o);}
+      for(const p of selectableProfiles().filter(x=>x.builtin===builtin)){
+        const name=(p.builtin&&profileNames[p.id])||p.name;
+        const count=p.workflow?.target_faces??p.settings.triangles;
+        const target=p.settings.master_finishing==='none'?'Full mesh':count>0
+          ? new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:2}).format(count)+' tris':'Dense mesh';
+        const option=new Option(name+' · '+target,p.id);
+        option.title=profilePurposes[p.settings.preset]||p.description||name;
+        group.append(option);
+      }
       if(group.children.length)$('profileChoice').append(group);
     }
   }
@@ -526,7 +554,7 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
     }catch(e){$('profileDialogError').textContent=e.message;}
     finally{saving=false;$('confirmProfile').disabled=false;}
   };
-  return {sync,reset:()=>apply(selected?.id||startupProfile),
+  return {sync,updateHistory:history.update,reset:()=>apply(selected?.id||startupProfile),
     setFinishingCapabilities(available, hdAvailable, methods, texturing, textureMethods){
       const supported=methods||{};
       const texturingSupport=texturing||{};

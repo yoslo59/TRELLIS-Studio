@@ -63,6 +63,8 @@ def texture_mesh(source, image, mask, output, work, progress=None, *, options=No
     # Keep Triton's hashed compilation paths out of the deeply nested Server job directory.
     env = os.environ.copy()
     env.setdefault('TRITON_CACHE_DIR', str(TEXTURE / 'triton-cache'))
+    if progress is not None:
+        progress('Starting the UltraTex runtime')
     with subprocess.Popen(command, cwd=TEXTURE, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                           text=True, encoding='utf-8', errors='replace',
                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)) as process:

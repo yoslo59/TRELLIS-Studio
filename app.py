@@ -1,6 +1,7 @@
 """Loopback-only local asset studio. No remote inference or hosted dependencies."""
 from pathlib import Path
 from studio_workspace import ID, finishing_source, read as read_workspace_json
+from generation_timings import project_timings, stopped_generation
 from studio_version import VERSION
 from studio_release import UI_REVISION, release_status, render_studio_version
 from contextlib import asynccontextmanager
@@ -208,6 +209,13 @@ def job_record(folder):
                     data.update(state='done',stage='Model preserved after interruption',progress=100,operation_error='Animation editing was interrupted; the previous version has been preserved.')
                     write_json(status_path,{k:v for k,v in data.items() if k not in ('id','settings','metadata')})
                 else:data.update(state='error', stage='Generation interrupted', error='The process stopped. Check the log and try again.')
+        if isinstance(data.get('result'), dict):
+            original = data['result'].pop('generation_timing', None)
+            if (isinstance(original, dict) and original.get('job_id') == folder.name
+                    and data['state'] == 'done' and not data.get('operation')):
+                original.pop('job_id')
+                data.setdefault('stage_timings', original)
+        project_timings(data, at=time.monotonic() if data['state'] == 'running' else None)
         return data
     except (OSError, ValueError): return None
 
@@ -1865,6 +1873,7 @@ async def cancel(identifier: str):
             if entry['id']==identifier:entry['cancelled']=True
         STUDIO.workspace.save_queue();write_json(folder/'status.json',dict(state='cancelled',stage='Removed from generation queue',progress=0));return {'ok':True}
     if ACTIVE == identifier and PROCESS is not None and PROCESS.poll() is None:
+        cancelled_at = time.monotonic()
         await asyncio.to_thread(stop_worker)
         if LOG_HANDLE:
             LOG_HANDLE.close()
@@ -1880,7 +1889,8 @@ async def cancel(identifier: str):
                     if (re.fullmatch(r'\.workflow-result-[a-z0-9_]{8}', child.name)
                             and child.is_dir() and child.resolve() == child):
                         await asyncio.to_thread(shutil.rmtree, child, ignore_errors=True)
-            write_json(folder / 'status.json', dict(state='cancelled', stage='Generation cancelled', progress=0))
+            previous = read_workspace_json(folder / 'status.json', {})
+            write_json(folder / 'status.json', stopped_generation(previous, 'cancelled', 'Generation cancelled', at=cancelled_at))
     return {'ok':True}
 
 @app.post('/api/terrain')

@@ -1,8 +1,8 @@
 import {button, dialog, el, field, input} from './workbench-ui.js?v=3.4.0';
 import {createFaceCrop} from './face-crop.js?v=face-refine';
-import {createFaceReliefPreview} from './face-relief-preview.js?v=face-refine';
+import {createFaceReliefPreview} from './face-relief-preview.js?v=studio-timing';
 
-export function createFaceRefinement({api, startJob}) {
+export function createFaceRefinement({api, startJob, getMaterialAdjustment}) {
     const ui = dialog('faceRefineDialog', 'Refine face', 'Prepare', '', 'face-refine-dialog');
     let session;
     const current = s => s === session && !s.controller.signal.aborted && ui.element.open;
@@ -157,6 +157,8 @@ export function createFaceRefinement({api, startJob}) {
     async function showResult(s, status, active) {
         const scene = el('div', 'face-result-view');
         const tools = el('div', 'face-result-tools');
+        tools.setAttribute('role', 'group');
+        tools.setAttribute('aria-label', 'Face geometry');
         const before = button('Original', 'cube', 'secondary');
         const after = button('Refined', 'layers', 'secondary');
         const frame = button('Frame face', 'fit', 'secondary', () => s.viewer?.frame());
@@ -176,7 +178,7 @@ export function createFaceRefinement({api, startJob}) {
         const modelURL = '/api/jobs/' + encodeURIComponent(s.model.id) + '/files/model.glb?v=' +
             encodeURIComponent(s.model.result?.revision || 0);
         s.renderController = new AbortController();
-        const viewer = await createFaceReliefPreview(scene, modelURL, status, s.renderController.signal);
+        const viewer = await createFaceReliefPreview(scene, modelURL, status, s.renderController.signal, getMaterialAdjustment?.(s.model.id));
         if (!active()) { viewer.dispose(); return; }
         s.viewer = viewer;
         for (const control of [before, after, frame, strength, save]) control.disabled = false;

@@ -1,5 +1,5 @@
-import {optionHelp} from './advanced-controls.js?v=standard-profiles';
-import {createWorkflowGraph} from './workflow-graph.js?v=standard-profiles';
+import {optionHelp} from './advanced-controls.js?v=studio-timing';
+import {createWorkflowGraph} from './workflow-graph.js?v=studio-timing';
 
 const byId = id => document.getElementById(id);
 
@@ -73,9 +73,12 @@ export function standardWorkflowDefinition(preset, fields) {
     stage('export', 'Model GLB', 'output', [['height', 'Height (m)'], ['keepFinishingSource', 'Keep finishing source']]),
   ];
   const topology = {
-    columns: [['reference'], ['structure', 'pixal3d'], ['shape'], ['finish'], ['uv'], ['texture'], ['export']],
-    stages: figureMaster ? {} : {pixal3d: {title: 'PiXal3D generation', type: 'geometry', geometry_backend: 'pixal3d'}},
-    links: [['reference', 'structure', 'image'], ['structure', 'shape', 'latent'],
+    columns: [['reference', 'weights'], ['structure', 'pixal3d'], ['shape'], ['finish'], ['uv'], ['texture'], ['export']],
+    stages: {
+      weights: {title: 'TRELLIS.2 model loading', type: 'geometry', geometry_backend: 'trellis2'},
+      ...(!figureMaster && {pixal3d: {title: 'PiXal3D generation', type: 'geometry', geometry_backend: 'pixal3d'}}),
+    },
+    links: [['reference', 'structure', 'image'], ['weights', 'structure', 'model'], ['structure', 'shape', 'latent'],
       ['shape', 'finish', 'mesh'], ['reference', 'pixal3d', 'image'], ['pixal3d', 'finish', 'mesh'],
       ['finish', 'uv', 'mesh'], ['uv', 'texture', 'mesh'], ['texture', 'export', 'texture']],
   };

@@ -1,5 +1,6 @@
 import {button, dialog, el, field, input, select, action} from './workbench-ui.js?v=3.4.0';
-import {createWorkflowFields, optionHelp} from './advanced-controls.js?v=standard-profiles';
+import {faceSource, refinedFaceLabel} from './face-lineage.js';
+import {createWorkflowFields, optionHelp} from './advanced-controls.js?v=studio-timing';
 import {textureMethodAvailability,textureMethodChoices,textureMethodHelp,textureMethodOf,textureMethodRestriction} from './texture-methods.js?v=figure-master-ultratex';
 
 const PRIORITIES = [['2', 'Highest'], ['1', 'High'], ['0', 'Normal'], ['-1', 'Low'], ['-2', 'Lowest']];
@@ -26,7 +27,7 @@ const checkbox = checked => {
   return control;
 };
 
-export function createQueueStudio({api, refresh, canViewGraph, viewJobGraph}) {
+export function createQueueStudio({api, refresh, canViewGraph, viewJobGraph, getRecords, refineFace}) {
   const ui = dialog('queueDialog', 'Generation queue', 'LOCAL COMPUTE',
     'Prepare a batch, then let the studio process one calculation at a time.', 'queue-dialog');
   const tabs = el('div', 'wb-tabs');
@@ -503,7 +504,8 @@ export function createQueueStudio({api, refresh, canViewGraph, viewJobGraph}) {
     img.alt = item.name;
     const copy = el('div', 'queue-job-copy');
     const progress = item.progress || 0;
-    const recipeSummary = [
+    const face = refinedFaceLabel(item.settings);
+    const recipeSummary = face ? face + ' · ' + progress + '%' : [
       generatedMotion ? 'Motion generation' : motionTransfer ? 'Saved motion transfer' : animation ? 'Animation update' : null,
       item.settings.workflow_id ? item.settings.profile?.name || 'ComfyUI' : null,
       generatedMotion && Number.isFinite(item.duration) ? item.duration + ' s' : null,
@@ -557,7 +559,15 @@ export function createQueueStudio({api, refresh, canViewGraph, viewJobGraph}) {
       });
       controls.append(cancel);
     }
-    if (!animation && ['error', 'cancelled'].includes(item.state)) {
+    if (face && ['error', 'cancelled'].includes(item.state)) {
+      const source = faceSource(item.settings, getRecords());
+      if (source) {
+        controls.append(button('Refine face on source', 'fit', 'secondary', () => {
+          ui.close();
+          refineFace(source);
+        }));
+      } else copy.append(el('small', '', 'Source model unavailable in this collection.'));
+    } else if (!animation && ['error', 'cancelled'].includes(item.state)) {
       const edit = button('Edit and retry', 'rotate', 'secondary');
       edit.onclick = () => action(ui, edit, () => editRetry(item));
       controls.append(edit);
@@ -582,7 +592,7 @@ export function createQueueStudio({api, refresh, canViewGraph, viewJobGraph}) {
     }
     queue.querySelector('.wb-empty')?.remove();
     ordered.forEach((item, index) => {
-      const key = JSON.stringify(item);
+      const key = JSON.stringify([item, faceSource(item.settings, getRecords())?.id]);
       let row = renderedJobs.get(item.id);
       if (!row || row.key !== key) {
         const node = jobRow(item);

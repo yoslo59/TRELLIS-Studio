@@ -31,6 +31,43 @@ float adjustSurface(float source, float adjustment) {
       .replace('#include <metalnessmap_fragment>',
         '#include <metalnessmap_fragment>\nmetalnessFactor = adjustSurface(metalnessFactor, previewMetalness);');
   };
+  material.needsUpdate = true;
+}
+
+// Inspection scenes own their GLB instances. The switch affects only this view.
+export function addInspectionMaterials(container, root, adjustment = {}) {
+  const materials = new Set();
+  root.traverse(object => {
+    if (!object.isMesh) return;
+    for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+      if (material?.isMeshStandardMaterial) materials.add(material);
+    }
+  });
+  const uniforms = {roughness: {value: 0}, metalness: {value: 0}};
+  const saved = {
+    roughness: adjustment.roughness || 0,
+    metalness: adjustment.metalness || 0,
+  };
+  const adjusted = materials.size > 0 && channels.some(channel => saved[channel] !== 0);
+  const label = document.createElement('label');
+  label.className = 'check inspection-material-toggle';
+  const toggle = document.createElement('input');
+  toggle.type = 'checkbox';
+  toggle.checked = !adjusted;
+  toggle.disabled = !adjusted;
+  label.title = adjusted ? 'Switch between the saved adjustments and the original materials in this view.'
+    : 'This model is displayed with its original materials.';
+  label.append(toggle, document.createTextNode('Original materials'));
+  if (adjusted) {
+    function update() {
+      for (const channel of channels) uniforms[channel].value = toggle.checked ? 0 : saved[channel];
+    }
+    update();
+    for (const material of materials) adjustMaterial(material, uniforms);
+    toggle.addEventListener('change', update);
+  }
+  container.append(label);
+  return label;
 }
 
 export function createMaterialPreview(anchor, showPbr) {

@@ -1,10 +1,11 @@
-import {createStudioWorkbench} from './studio-workbench.js?v=face-refine';
+import {faceSource, refinedFaceLabel} from './face-lineage.js';
+import {createStudioWorkbench} from './studio-workbench.js?v=studio-timing';
 import {createViewerLighting,createViewerStage} from './viewer-lighting.js?v=visual-refresh-2';
-import {createMaterialPreview} from './material-preview.js?v=inline-controls';
+import {createMaterialPreview} from './material-preview.js?v=studio-timing';
 import {createHologramViewer} from './hologram-viewer.js?v=visual-refresh-2';
 import {createGenerationWait} from './generation-wait.js?v=studio-visual-refinement';
-import {createGenerationMonitor} from './workflow-run.js';
-import {createStudioTools} from './studio-tools.js?v=option-help';
+import {createGenerationMonitor} from './workflow-run.js?v=studio-timing';
+import {createStudioTools} from './studio-tools.js?v=studio-timing';
 import {createAssetDetails,assetTypeName} from './asset-details.js?v=detail-study';
 import {createPrintCopy} from './print-copy.js?v=3.4.0';
 import {createAnimationStudio} from './animation-studio.js?v=creature-bell';
@@ -18,8 +19,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createAdvancedControls } from './advanced-controls.js?v=standard-profiles';
-import { createProfileControls } from './profiles.js?v=profile-catalogue';
+import { createAdvancedControls } from './advanced-controls.js?v=studio-timing';
+import { createProfileControls } from './profiles.js?v=studio-timing';
 import { textureMethodAvailability, textureMethodChoices } from './texture-methods.js?v=figure-master-ultratex';
 import {createCardMenu,updateCardStatus,icon} from './card-menu.js?v=texture-variant';
 import {createCardTurntables} from './card-turntable.js?v=figure-master-ultratex';
@@ -335,13 +336,30 @@ function renderRigJobNotice(job) {
   button.onclick = source ? () => selectJob(source.id) : null;
 }
 
+function renderFaceSource(job) {
+  const button=$('faceSource');
+  const label=refinedFaceLabel(job?.settings);
+  button.hidden=!label;
+  if (!label) return;
+  const parent=faceSource(job.settings,records);
+  button.disabled=!parent;
+  button.textContent=parent?'Source · '+nameOf(parent):'Source unavailable';
+  button.onclick=parent?()=>selectJob(parent.id):null;
+}
+
 function renderSelected(){
+  renderFaceSource(jobOf());
   materialPreview?.select(selectedId);
   const j=jobOf(),draft=isCreatureRigDraft(j),workflow=!!j?.settings.workflow_id,workflowEngine=j?.result?.engine||(j?.settings.engine==='comfyui'?'ComfyUI':'TRELLIS.2 GGUF');generationMonitor.update(j);generationWait.update(j,{hasModel:!!model&&loadedId===j?.id,referenceUrl:j?`/api/jobs/${j.id}/files/${workflow?'input.png':'prepared.png'}`:''});studioTools?.update(draft?null:j,records,trashMode);workbench?.update(draft?null:j);detailControls.update(j);animationStudio?.update();$('animateModel').disabled=!j||(j.state!=='done'&&j.operation!=='animation'&&!draft);downloads(j);fillMetadata(j);renderRigJobNotice(j);settingsDownload.hidden=!j;if(j)settingsDownload.href=`/api/jobs/${j.id}/files/settings.json`;$('favorite').disabled=!j||!features;$('favorite').textContent=j?.metadata?.favorite?'★':'☆';$('favorite').setAttribute('aria-pressed',!!j?.metadata?.favorite);$('saveMetadata').disabled=!j||!features;$('viewTextures').disabled=!j||j.state!=='done'||!features||draft;
   if(!j){$('modelTitle').textContent='Your next model';$('stats').textContent='';$('sourceThumb').hidden=true;$('assetDetails').replaceChildren(node('dt','','Model'),node('dd','','No model selected'));$('textureSummary').textContent='Select a completed model.';$('textureGallery').replaceChildren();if(model||loadingId){++loadVersion;clearModel();}$('empty').hidden=false;return;}
   $('modelTitle').textContent=nameOf(j);const terrain=j.settings.asset_type==='terrain_unity',external=['imported','rigged','print'].includes(j.settings.asset_type),pixal=j.settings.engine==='pixal3d';
   const pixalSingle=pixal&&(j.settings.view_mode==='single'||j.settings.pipeline_type==='pixal3d_1024_monoview');
-  $('engineLabel').textContent=external?(j.settings.asset_type==='print'?'3D PRINT COPY':j.settings.asset_type==='rigged'?'RIG & ANIMATION':'IMPORTED MODEL'):terrain?'PROCEDURAL TERRAIN':workflow?`${workflowEngine} · ${resolutionOf(j)}³`:pixalSingle?'PIXAL3D · SINGLE IMAGE':pixal?`PIXAL3D · ${j.settings.views?.length||0} VIEWS`:`TRELLIS.2 · ${resolutionOf(j)}³`;$('downloadGlb').title=j.settings.asset_type==='print'?'Download print preview GLB in metres':terrain?'Download terrain GLB':'Download PBR GLB with all animations';$('sourceThumb').hidden=terrain||external;if(!terrain&&!external&&$('sourcePreview').dataset.id!==j.id){$('sourcePreview').src=`/api/jobs/${j.id}/files/input.png`;$('sourcePreview').dataset.id=j.id;}
+  const faceLabel=refinedFaceLabel(j.settings);
+  const externalLabel={print:'3D PRINT COPY',rigged:'RIG & ANIMATION',imported:'IMPORTED MODEL'}[j.settings.asset_type];
+  const engineLabel=faceLabel || externalLabel || (terrain?'PROCEDURAL TERRAIN':workflow?`${workflowEngine} · ${resolutionOf(j)}³`
+    :pixalSingle?'PIXAL3D · SINGLE IMAGE':pixal?`PIXAL3D · ${j.settings.views?.length||0} VIEWS`:`TRELLIS.2 · ${resolutionOf(j)}³`);
+  $('engineLabel').textContent=engineLabel;
+  $('downloadGlb').title=j.settings.asset_type==='print'?'Download print preview GLB in metres':terrain?'Download terrain GLB':'Download PBR GLB with all animations';$('sourceThumb').hidden=terrain||external;if(!terrain&&!external&&$('sourcePreview').dataset.id!==j.id){$('sourcePreview').src=`/api/jobs/${j.id}/files/input.png`;$('sourcePreview').dataset.id=j.id;}
   $('exportHint').textContent=j.settings.asset_type==='print'?'The STL uses millimetres. The Blender package includes the static source and the topology report.':terrain?'The Blender package contains the terrain mesh; the Unity export keeps a native Terrain.':'GLB includes UVs and materials. The Blender package also provides separate textures and UV layouts.';const r=j.result;$('stats').textContent=j.state==='done'||(j.operation==='animation'&&r)?(r?(terrain?`${r.dimensions_m?.[0]||j.settings.size_m} m square · elevation ${r.height_m} m · ${r.resolution}² map`:`${Number(r.triangles||0).toLocaleString('en-US')} triangles${r.bones?' · '+r.bones+' bones':''} · ${Number(r.height_m||0).toLocaleString('en-US',{maximumFractionDigits:2})} m`):'Completed model · ready to inspect'):'';
   const rigPreview = usesRigPreview(j);
   const previewLoaded = loadedId === j.id && previewRevision(loadedRevision);
@@ -360,7 +378,8 @@ function renderSelected(){
     clearModel();
     $('empty').hidden = false;
   }
-  const entries=[['Asset type',assetTypeName(j.metadata?.asset_type||j.settings.asset_type)],['Engine',external?(j.settings.asset_type==='print'?'Blender voxel remesh':j.result?.rig_engine||'Local import'):terrain?'Procedural':workflow?`${workflowEngine} / ${resolutionOf(j)}³`:pixal?`Pixal3D / ${resolutionOf(j)}³`:`TRELLIS.2 / ${resolutionOf(j)}³`],['Height',j.settings.height_m+' m'],['Texture',j.settings.texture_size+' px'],['Seed',j.settings.seed??'—'],['Status',labels[j.state]||j.state],['Created',new Date(j.settings.created*1000).toLocaleDateString('en-US')]];const o=j.generation_options;
+  const assetLabel=faceLabel&&!j.metadata?.asset_type?'Refined face copy':assetTypeName(j.metadata?.asset_type||j.settings.asset_type);
+  const entries=[['Asset type',assetLabel],['Engine',faceLabel?'TOPOS face refinement':external?(j.settings.asset_type==='print'?'Blender voxel remesh':j.result?.rig_engine||'Local import'):terrain?'Procedural':workflow?`${workflowEngine} / ${resolutionOf(j)}³`:pixal?`Pixal3D / ${resolutionOf(j)}³`:`TRELLIS.2 / ${resolutionOf(j)}³`],['Height',j.settings.height_m+' m'],['Texture',j.settings.texture_size+' px'],['Seed',j.settings.seed??'—'],['Status',labels[j.state]||j.state],['Created',new Date(j.settings.created*1000).toLocaleDateString('en-US')]];const o=j.generation_options;
   const textureMethod=r?.texture_method||j.settings.texture_method;
   const textureLabel=textureMethodChoices.find(([method])=>method===textureMethod)?.[1];
   const refinement=r?.finishing?.multiview_texture_refinement;
@@ -829,7 +848,7 @@ refinishForm.onsubmit = async event => {
 };
 
 async function refreshLog(){if(!selectedId)return;try{const d=await api(`/api/jobs/${selectedId}/log`);$('log').textContent=d.text||'No log entries yet.';}catch{}}
-async function refresh(){if(shutDown||refreshing)return;refreshing=true;try{const[status,jobs]=await Promise.all([api('/api/status'),api('/api/jobs')]);features=!!status.studio_version;cardTurntablesAvailable=status.features?.includes('library_turntable')===true;syncCapabilities(status);ready=status.ready;activeId=status.active;busy=!!activeId;records=jobs;if(pendingSelection){const pending=records.find(j=>j.id===pendingSelection);if(pending?.state==='done'){if(pending.operation_error)errorAt('animationNotice',pending.operation_error);selectedId=pendingSelection;pendingSelection=null;metadataId=null;inspectId=null;}else if(pending&&['error','cancelled'].includes(pending.state)){errorAt('animationNotice',isStoppedRig(pending)?rigJobError(pending):pending.error||pending.stage);pendingSelection=null;}}if(selectedId&&!records.some(j=>j.id===selectedId)){selectedId=null;metadataId=null;inspectId=null;++inspectVersion;}syncVersionNotice(status);$('runtime').textContent=ready?`LOCAL · ${status.ram_free_gib} GB RAM available`:'WORKSHOP · generation engine not installed';$('hardware').textContent=status.gpu||'Local compute';updateButtons();renderNavigation();renderSelected();renderLibrary();if(document.querySelector('.journal').open)refreshLog();refreshRigPreview();}catch(error){console.error('Studio refresh failed:',error);$('runtime').textContent='Disconnected · restart TRELLIS';ready=false;multiview.setCapabilities({message:'Studio is disconnected. Restart TRELLIS Studio.'});updateButtons();}finally{refreshing=false;}}
+async function refresh(){if(shutDown||refreshing)return;refreshing=true;try{const[status,jobs]=await Promise.all([api('/api/status'),api('/api/jobs')]);features=!!status.studio_version;cardTurntablesAvailable=status.features?.includes('library_turntable')===true;syncCapabilities(status);ready=status.ready;activeId=status.active;busy=!!activeId;records=jobs;profileControls?.updateHistory(jobs);if(pendingSelection){const pending=records.find(j=>j.id===pendingSelection);if(pending?.state==='done'){if(pending.operation_error)errorAt('animationNotice',pending.operation_error);selectedId=pendingSelection;pendingSelection=null;metadataId=null;inspectId=null;}else if(pending&&['error','cancelled'].includes(pending.state)){errorAt('animationNotice',isStoppedRig(pending)?rigJobError(pending):pending.error||pending.stage);pendingSelection=null;}}if(selectedId&&!records.some(j=>j.id===selectedId)){selectedId=null;metadataId=null;inspectId=null;++inspectVersion;}syncVersionNotice(status);$('runtime').textContent=ready?`LOCAL · ${status.ram_free_gib} GB RAM available`:'WORKSHOP · generation engine not installed';$('hardware').textContent=status.gpu||'Local compute';updateButtons();renderNavigation();renderSelected();renderLibrary();if(document.querySelector('.journal').open)refreshLog();refreshRigPreview();}catch(error){console.error('Studio refresh failed:',error);$('runtime').textContent='Disconnected · restart TRELLIS';ready=false;multiview.setCapabilities({message:'Studio is disconnected. Restart TRELLIS Studio.'});updateButtons();}finally{refreshing=false;}}
 $('shutdown').onclick=async()=>{try{await api('/api/shutdown',{method:'POST'});shutDown=true;ready=false;busy=false;renderer?.setAnimationLoop(null);generationWait.dispose();clearModel();hologramViewer?.dispose();renderer?.dispose();$('notice').textContent='Run Open TRELLIS.cmd to restart the studio.';$('runtime').textContent='STUDIO STOPPED';$('shutdown').disabled=true;downloads(null);$('downloadHeight').hidden=true;updateButtons();}catch(e){errorAt('notice',e);}};
 function showCollection(details){$('libraryView').hidden=details;$('inspectorPanel').hidden=!details;$('collectionPanel').classList.toggle('details-open',details);}
 function openDetails(j) {
@@ -865,7 +884,7 @@ document.addEventListener('paste',event=>{
 });
 async function startStudioJob(id,options={}){if(options.rig){selectedId=id;metadataId=null;}busy=true;pendingSelection=id;revealNewCreation();updateButtons();await refresh();}
 animationStudio=await createAnimationStudio({api,getJob:jobOf,isBusy:()=>busy,startJob:startStudioJob,refresh,rigSetup:rigSetupViewer,creatureViewer:creatureRigViewer,getClips:loadedAnimationClips,playClip:playAnimationClip});createModelImport({api,startJob:startStudioJob});
-workbench=await createStudioWorkbench({api,canViewGraph:generationMonitor.available,viewJobGraph,getRecords:()=>records,getJob:jobOf,refresh,startJob:startStudioJob,renderLibrary,tools:studioTools,canUseCardTurntables:()=>cardTurntablesAvailable,labelAnimation:name=>animationStudio?.label(name)||name,getViewer:()=>({scene,renderer,camera,controls,model,loadedId,lighting:viewerLighting})});
+workbench=await createStudioWorkbench({api,getMaterialAdjustment:id=>materialPreview?.getAdjustment(id),canViewGraph:generationMonitor.available,viewJobGraph,getRecords:()=>records,getJob:jobOf,refresh,startJob:startStudioJob,renderLibrary,tools:studioTools,canUseCardTurntables:()=>cardTurntablesAvailable,labelAnimation:name=>animationStudio?.label(name)||name,getViewer:()=>({scene,renderer,camera,controls,model,loadedId,lighting:viewerLighting})});
 materialPreview = createMaterialPreview($('prepareModel'), () => {
   setView(false);
   if ($('materialMode').value !== 'pbr') viewport.querySelector('[data-material="pbr"]').click();

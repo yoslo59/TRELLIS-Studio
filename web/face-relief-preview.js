@@ -1,4 +1,4 @@
-import {createPreparationPreview} from './preparation-preview.js?v=face-refine';
+import {createPreparationPreview} from './preparation-preview.js?v=studio-timing';
 
 function readPatch(buffer, info) {
     const header = new DataView(buffer);
@@ -14,12 +14,12 @@ function readPatch(buffer, info) {
     };
 }
 
-export async function createFaceReliefPreview(container, sourceURL, info, signal) {
+export async function createFaceReliefPreview(container, sourceURL, info, signal, materialAdjustment = {}) {
     const response = await fetch(info.patch_url, {signal});
     if (!response.ok) throw Error('The face preview expired. Preview the face again.');
     const patch = readPatch(await response.arrayBuffer(), info);
     signal.throwIfAborted();
-    const scene = await createPreparationPreview(container, sourceURL, signal);
+    const scene = await createPreparationPreview(container, sourceURL, signal, materialAdjustment);
     try {
         signal.throwIfAborted();
         const meshes = [];

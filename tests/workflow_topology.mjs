@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {test} from 'node:test';
 import {workflowTopology} from '../web/workflow-topology.js';
-import {hasGenerationGraph, runningNode} from '../web/workflow-run.js';
+import {standardWorkflowDefinition} from '../web/standard-workflow-graph.js';
+import {hasGenerationGraph, runningNode, runTimings} from '../web/workflow-run.js';
+import {formatRunTime, readableStage, timingTotals} from '../web/workflow-timings.js';
 
 for (const profile of ['game_asset_native', 'high_detail_native']) {
   test(`${profile} displays every configurable stage once`, async () => {
@@ -55,4 +57,51 @@ test('standard recipes, terminal states and other operations stay separate', () 
     stage: 'Reconstructing Pixal3D geometry'}), 'pixal3d');
   assert.equal(hasGenerationGraph({...job, operation: 'animation'}), false);
   assert.equal(hasGenerationGraph({...job, settings: {preset: 'figure_master', source_kind: 'refinish'}}), false);
+  for (const preset of ['figure_master', 'high_detail']) {
+    const {stages, topology} = standardWorkflowDefinition(preset, []);
+    const node = runningNode({...job, settings: {preset}, stage: 'Loading model weights'});
+    const graph = workflowTopology(stages, topology);
+    assert.equal(graph.nodes.get(node).title, 'TRELLIS.2 model loading');
+    assert.ok(graph.links.some(([from, to]) => from === node && to === 'structure'));
+  }
+});
+
+test('recorded intervals survive reopening and accumulate repeated visits to a node', () => {
+  const settings = {workflow_id: 'game_asset_native', geometry_backend: 'trellis2'};
+  const job = {state: 'running', settings, stage_timings: {version: 1, elapsed_s: 40, entries: [
+    {stage: 'Starting generation', start_s: 0, duration_s: 1},
+    {stage: 'Preparing albedo at 0 degrees', start_s: 1, duration_s: 4},
+    {stage: 'Loading the UltraTex albedo diffusion model', start_s: 5, duration_s: 10},
+    {stage: 'Preparing albedo at 0 degrees', start_s: 15, duration_s: 15},
+    {stage: 'Preparing mr at 45 degrees', start_s: 30, duration_s: null},
+  ]}};
+  const snapshot = runTimings(job);
+  const values = timingTotals(snapshot.entries, snapshot.elapsed + 2, entry => entry.node);
+  assert.deepEqual(values.get('354'), {seconds: 10, state: 'done'});
+  assert.deepEqual(values.get('358'), {seconds: 19, state: 'done'});
+  assert.deepEqual(values.get('364'), {seconds: 12, state: 'running'});
+  assert.equal(values.size, 3);
+  assert.equal(snapshot.entries[4].label, 'UltraTex · Metallic & roughness · 45°');
+  assert.equal(readableStage('mr 45 degrees, step 2/6'), 'UltraTex · Metallic & roughness · 45° · Step 2/6');
+  assert.deepEqual(runTimings(structuredClone(job)), snapshot);
+});
+
+test('a failed or cancelled phase displays the recorded time and remains stopped', () => {
+  const settings = {workflow_id: 'high_detail_native', texture_method: 'ultratex'};
+  for (const state of ['error', 'cancelled']) {
+    const job = {state, settings, stage_timings: {version: 1, partial: true, elapsed_s: 80, entries: [
+      {stage: 'Unwrapping and baking TRELLIS.2 materials', start_s: 0, duration_s: 57},
+      {stage: 'Loading the UltraTex mr diffusion model', start_s: 57, duration_s: 23, incomplete: true},
+    ]}};
+    const {entries, partial} = runTimings(job);
+    assert.equal(partial, true);
+    assert.deepEqual([...timingTotals(entries, 999, entry => entry.node)], [
+      ['25', {seconds: 57, state: 'done'}], ['hd-ultratex', {seconds: 23, state: 'stopped'}],
+    ]);
+  }
+  assert.equal(runTimings({settings, state: 'done'}), null);
+  assert.equal(runTimings({settings, stage_timings: {version: 2}}), null);
+  assert.equal(formatRunTime(0.4), '<1s');
+  assert.equal(formatRunTime(71), '1m 11s');
+  assert.equal(formatRunTime(3661), '1h 01m 01s');
 });

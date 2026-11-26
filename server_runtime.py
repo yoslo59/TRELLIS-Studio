@@ -9,6 +9,7 @@ import re
 import shutil
 import stat
 import sys
+import time
 import uuid
 
 from fastapi import HTTPException
@@ -18,6 +19,7 @@ from animation_edits import publish_operation, recover as recover_animation
 from collection_preview import CollectionPreviews, save_preview
 from generation_options import GENERATION_PRESETS
 from generation_profiles import COMFY_INPUT_FILES, STANDALONE_PROFILES
+from generation_timings import stopped_generation
 from server_store import StoreError
 from studio_workspace import ID, finishing_source, read, write
 
@@ -486,17 +488,22 @@ class ServerRuntime:
                 continue
             export = (workspace.exports / job_id).is_dir()
             folder = workspace.exports/job_id if export else workspace.job_folder(job_id)
-            state = read(folder / 'status.json', {})
             process = workspace.studio.EXPORT_PROCESS if export else workspace.studio.PROCESS
             active = (workspace.studio.EXPORT_TASK if export else workspace.studio.ACTIVE) == job_id and process and process.poll() is None
+            # A worker writes its terminal status before exiting. Read after poll
+            # so a successful final report cannot be replaced by an interruption.
+            state = read(folder / 'status.json', {})
             used = await self.usage(workspace.user_id) if active or state.get('state') in TERMINAL else user['disk_used_bytes']
             limit = user['disk_limit_bytes']
             over = limit is not None and used + max(0, user['storage_reserved_bytes'] - row['reserve_bytes']) > limit
             if active and not over:
                 continue
+            stopped_at = None
             if active:
+                stopped_at = time.monotonic()
                 stop = workspace.studio.stop_export if export else workspace.studio.stop_worker
                 await asyncio.to_thread(stop)
+                state = read(folder / 'status.json', {})
             elif not over and state.get('state') == 'queued' and not export:
                 continue
             if export:
@@ -515,7 +522,7 @@ class ServerRuntime:
             if over or terminal not in TERMINAL:
                 if folder.is_dir():
                     error = 'Disk quota reached. Free space before retrying.' if over else 'Server stopped during the operation.'
-                    write(folder / 'status.json', dict(state='error', stage='Operation interrupted', progress=0, error=error))
+                    write(folder / 'status.json', stopped_generation(state, 'error', 'Operation interrupted', at=stopped_at, error=error))
                     if not export and settings.get('creature_phase') == 'final':
                         for name in ('model.glb', 'model.blend'):
                             await asyncio.to_thread(remove_child, folder, folder / name)

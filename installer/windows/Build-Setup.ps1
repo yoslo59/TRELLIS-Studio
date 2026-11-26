@@ -58,7 +58,7 @@ $taskRequired+=@('hi3d_runtime.py','hi3d_worker.py','hi3d_attention.py','docs/HI
 $taskRequired+=@('multiview_texture_runtime.py','multiview_texture_views.py','multiview_texture_fusion.py',
     'installer/install_multiview_texture.py','installer/multiview-texture-manifest.json',
     'installer/requirements-multiview-texture.txt','licenses/Stable-Diffusion-2.1-OpenRAIL++-M.txt')
-$taskRequired+=@('web/material-preview.js')
+$taskRequired+=@('web/material-preview.js','web/profile-history.js','web/face-lineage.js','web/workflow-timings.js','generation_timings.py')
 $taskRequired+=@('studio_release.py','web/release-notification.css','web/release-notification.js')
 $taskRequired+=@('native_high_detail.py','native_high_detail_quant.py','native_high_detail_portable.py',
     'native_workflow_options.py','native_workflows/high_detail_native.json','native_workflows/game_asset_native.json',

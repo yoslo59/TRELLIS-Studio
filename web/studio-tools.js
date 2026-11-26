@@ -1,11 +1,11 @@
-import {createComparison} from './compare-studio.js?v=3.4.0';
+import {createComparison} from './compare-studio.js?v=studio-timing';
 import {createDiagnostics} from './diagnostics.js?v=3.4.0';
 import {createExportStudio} from './export-studio.js?v=3.4.0';
 import {createLibrarySelection} from './library-selection.js?v=3.4.0';
 import {installButtonIcons} from './button-icons.js?v=option-help';
 import {icon} from './card-menu.js?v=3.4.0';
 export function createStudioTools({api,getRecords,getJob,refresh,printCopy,labelAnimation,openPreparation,getMaterialAdjustment}){
- const compare=createComparison({getRecords,labelAnimation}),diagnostics=createDiagnostics({api});
+ const compare=createComparison({getRecords,labelAnimation,getMaterialAdjustment}),diagnostics=createDiagnostics({api});
  const exports=createExportStudio({api,printCopy,getMaterialAdjustment,openAction(action,job){
   if(action==='diagnostics')diagnostics.open(job);
   else if(action==='print')printCopy.open(job);

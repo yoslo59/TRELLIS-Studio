@@ -1,5 +1,6 @@
-import {createWorkflowGraph, groupWorkflowStages} from './workflow-graph.js?v=standard-profiles';
-import {standardWorkflowDefinition} from './standard-workflow-graph.js?v=1';
+import {createWorkflowGraph, groupWorkflowStages} from './workflow-graph.js?v=studio-timing';
+import {standardWorkflowDefinition} from './standard-workflow-graph.js?v=studio-timing';
+import {timingSnapshot} from './workflow-timings.js';
 import {icon} from './card-menu.js';
 
 const nativeProfiles = ['game_asset_native', 'high_detail_native'];
@@ -23,13 +24,15 @@ const gameStages = [
   [/^Reducing the game mesh/, '335'], [/^Preparing the (Character 05 )?UV layout/, '337'],
   [/^Smoothing the unwrapped/, '338'], [/^Baking the (Character 05 )?(normal map|surface maps)/, '341'],
   [/^Merging (vertices|the textured Character 05 surface)/, '342'],
-  [/^Verifying six pinned UltraTex/, '354'], [/^Loading native UltraTex reference/, '375'],
-  [/^Encoding the UltraTex text prompts/, '356'], [/^(Preparing albedo at|albedo )/, '358'],
+  [/^(Verifying six pinned UltraTex|Starting the UltraTex runtime|Loading the UltraTex (albedo|mr) diffusion model)/, '354'],
+  [/^Loading native UltraTex reference/, '375'], [/^Loading the UltraTex VAE/, '355'],
+  [/^(Encoding the UltraTex text prompts|Loading the UltraTex text encoder)/, '356'], [/^(Preparing albedo at|albedo )/, '358'],
   [/^(Preparing mr at|mr )/, '364'], [/^UltraTex memory estimate/, '387'],
   [/^Baking the \d+px UltraTex/, '377'], [/^Assembling the UltraTex material/, '384'],
 ];
 
 const standardStages = [
+  [/^Loading model weights$/, 'weights'],
   [/^(Preparing image|Analysing image|Preparing Pixal3D reference|Estimating a single camera|Encoding Pixal3D reference)/, 'reference'],
   [/^Building volume/, 'structure'], [/^Generating geometry/, 'shape'],
   [/^(Loading Pixal3D model|Building Pixal3D volume|Reconstructing Pixal3D geometry)/, 'pixal3d'],
@@ -39,12 +42,20 @@ const standardStages = [
 ];
 const match = (rules, stage) => rules.find(([pattern]) => pattern.test(stage))?.[1];
 
-export function runningNode(job) {
-  if (job?.state !== 'running' || !hasGenerationGraph(job)) return null;
-  const {stage = '', settings} = job;
+function geometryBackend(settings) {
+  if (settings.geometry_backend) return settings.geometry_backend;
+  if (!settings.workflow_id) return settings.engine || 'trellis2';
+  if (settings.workflow_id === 'high_detail_native') return settings.workflow_options?.['44']?.geometry_backend;
+  const trellis = settings.workflow_options?.['316']?.value;
+  if (typeof trellis === 'boolean') return trellis ? 'trellis2' : 'pixal3d';
+}
+
+const textureMethod = settings => settings.texture_method || settings.workflow_options?.['25']?.texture_method;
+
+function reportNode(settings, {stage = '', progress}) {
   if (/^(Finalizing model|Writing the Studio GLB)/.test(stage)) return 'export';
   if (settings.workflow_id === 'game_asset_native') {
-    if (/^Loading native (structure_model|img2shape)/.test(stage)) return settings.geometry_backend === 'pixal3d' ? '319' : '40';
+    if (/^Loading native (structure_model|img2shape)/.test(stage)) return {pixal3d: '319', trellis2: '40'}[geometryBackend(settings)];
     return match(gameStages, stage);
   }
   if (settings.workflow_id === 'high_detail_native') {
@@ -56,19 +67,29 @@ export function runningNode(job) {
     if (stage === 'Reducing triangles and repairing holes · first pass') return '11';
     if (stage === 'Reducing triangles and repairing holes · second pass') return '22';
     // Workers started before this update report the same text for the two passes.
-    if (stage === 'Reconstructing the surface with QuadDC') return ({43: '41', 72: '42'})[job.progress];
-    if (stage === 'Reducing triangles and repairing holes') return ({48: '11', 77: '22'})[job.progress];
+    if (stage === 'Reconstructing the surface with QuadDC') return ({43: '41', 72: '42'})[progress];
+    if (stage === 'Reducing triangles and repairing holes') return ({48: '11', 77: '22'})[progress];
     if (stage === 'Orienting the mesh · first pass') return '14';
     if (stage === 'Orienting the mesh · second pass') return '23';
     if (stage === 'Refining the TRELLIS.2 mesh') return '20';
-    if (stage === 'Generating TRELLIS.2 materials') return '25';
-    if (stage === 'Packaging the mesh and its UV atlas') return settings.texture_method === 'ultratex' ? '25' : 'export';
-    if (settings.texture_method === 'ultratex' && /UltraTex|^(Preparing (mr|albedo) at|mr |albedo )/.test(stage)) return 'hd-ultratex';
-    if (settings.geometry_backend === 'pixal3d' && (stage === 'Preparing the Pixal3D reference' ||
+    if (['Generating TRELLIS.2 materials', 'Unwrapping and baking TRELLIS.2 materials',
+      'Baking TRELLIS.2 vertex materials'].includes(stage)) return '25';
+    if (stage === 'Packaging the mesh and its UV atlas') return textureMethod(settings) === 'ultratex' ? '25' : 'export';
+    if (/UltraTex|^(Preparing (mr|albedo) at|mr |albedo )/.test(stage)) return 'hd-ultratex';
+    if (geometryBackend(settings) === 'pixal3d' && (stage === 'Preparing the Pixal3D reference' ||
         /^Loading native (structure_model|img2shape)/.test(stage) || match(gameStages, stage))) return 'pixal';
     return null;
   }
   return match(standardStages, stage);
+}
+
+export function runningNode(job) {
+  if (job?.state !== 'running' || !hasGenerationGraph(job)) return null;
+  return reportNode(job.settings, job);
+}
+
+export function runTimings(job) {
+  return timingSnapshot(job, entry => reportNode(job.settings, entry));
 }
 
 const settingKeys = {
@@ -117,7 +138,7 @@ export function createRunGraph(workspace, job, nativeStages, fields) {
     return {...stage, fields: entries, open: false};
   })}));
   const graph = createWorkflowGraph(workspace, groups, name, stage => savedValues(stage.fields), topology, {monitor: true});
-  graph.sync(settings.geometry_backend || settings.engine || 'trellis2', settings.texture_method);
+  graph.sync(geometryBackend(settings), textureMethod(settings));
   return graph;
 }
 
@@ -130,6 +151,7 @@ export function createGenerationMonitor(workspace, {getStages, fields}) {
   button.prepend(icon('grid'));
   button.setAttribute('aria-expanded', 'false');
   workspace.querySelector('.generation-wait-card').append(button);
+  const saved = workspace.querySelector('#savedGenerationGraph');
   let current, graph;
 
   function close() {
@@ -142,16 +164,20 @@ export function createGenerationMonitor(workspace, {getStages, fields}) {
   function update(job) {
     if (current?.id !== job?.id || !available(job)) close();
     current = job;
-    button.hidden = !available(job) || !['queued', 'running'].includes(job.state);
-    if (graph?.visible) graph.setRun(job, runningNode(job));
+    const enabled = available(job);
+    const inProgress = job?.state === 'queued' || job?.state === 'running';
+    button.hidden = !enabled || !inProgress;
+    if (saved) saved.hidden = !enabled || inProgress;
+    if (graph?.visible) graph.setRun(job, runningNode(job), runTimings(job));
   }
   function open(trigger = button) {
     if (!available(current)) return;
     graph = createRunGraph(workspace, current, getStages(current.settings.workflow_id), fields);
-    graph.setRun(current, runningNode(current));
+    graph.setRun(current, runningNode(current), runTimings(current));
     graph.open(trigger);
   }
   button.onclick = () => open();
+  if (saved) saved.onclick = () => open(saved);
   button.hidden = true;
   return {available, close, open, update};
 }

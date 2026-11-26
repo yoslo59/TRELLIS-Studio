@@ -323,6 +323,12 @@ def _load_model(torch, runtime, settings):
 
     class NativePipeline(Trellis2ImageTo3DPipeline):
         stage_settings = None
+        material_atlas_progress = None
+
+        def postprocess_mesh(self, *args, **kwargs):
+            if self.material_atlas_progress is not None:
+                self.material_atlas_progress()
+            return super().postprocess_mesh(*args, **kwargs)
 
         def sample_sparse_structure(self, cond, resolution, *args, **kwargs):
             coordinates = super().sample_sparse_structure(cond, resolution, *args, **kwargs)
@@ -599,6 +605,9 @@ def run_profile(image_path, output_path, job_dir, options=None, progress=None, *
         surface = _repair(torch, refined, stages['42'], stages['22'], stages['23'], progress, start=72, pass_name='second pass')
         del refined
         progress('Generating TRELLIS.2 materials', 87)
+        atlas_stage = ('Baking TRELLIS.2 vertex materials' if material['bake_on_vertices']
+                       else 'Unwrapping and baking TRELLIS.2 materials')
+        pipeline.material_atlas_progress = lambda: progress(atlas_stage, 90)
         textured = _texture(pipeline, reference, surface, stages['25'])
         del surface, pipeline
 

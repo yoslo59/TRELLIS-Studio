@@ -7,6 +7,7 @@ from fastapi import HTTPException,Request,UploadFile,File,Form
 from fastapi.responses import FileResponse
 from PIL import Image
 from studio_workspace import Workspace,read,write,name,checkpoint,revisions,ID,SNAPSHOT_FILES,SNAPSHOT_DIRS,finishing_source
+from generation_timings import stopped_generation
 from library_actions import validate_ids
 from glb_data import read as read_glb,animation_info
 from generation_options import (DENSE_MASTER, DENSE_MASTER_TRIANGLES, GENERATION_PRESETS,
@@ -191,7 +192,10 @@ class StudioServices:
                               error='Open Refine face on the original model to start again.'))
                         interrupted=True
                     continue
-            if state.get('state')=='running':write(folder/'status.json',dict(state='error',stage='Interrupted · retry available',progress=0,error='The studio stopped during this calculation. Retry starts it from its saved recipe.'));interrupted=True
+            if state.get('state') == 'running':
+                write(folder / 'status.json', stopped_generation(state, 'error', 'Interrupted · retry available',
+                      error='The studio stopped during this calculation. Retry starts it from its saved recipe.'))
+                interrupted = True
         if interrupted:self.workspace.queue['paused']=True;self.workspace.save_queue()
         self.face_gc=asyncio.create_task(self.expire_face_previews())
         if not self.g.get('WORKSPACE_CONFIG'):

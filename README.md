@@ -61,6 +61,8 @@ skeleton before skinning and add procedural clips to compatible rigs.
 
 In the 3D preview, open **Material** next to **Prepare** to adjust roughness and metallic response. Studio remembers the sliders for each model in this browser. GLB, Blender, Unity and Unreal exports apply the adjustments by default. Check **Use original materials** in Export to use the authored material for that package.
 
+Compare, LOD inspection, Game preparation, Motion workshop and the Refine face 3D view use the same adjustments. Switch on **Original materials** in an inspection to see the source surface.
+
 Move the pointer across a model card to compare its textured and clay renders at the same angle. When the card has keyboard focus, use the left and right arrow keys. Studio saves two WebP images per model revision. It builds missing pairs for existing models while compute jobs are idle, using Edge, Chrome or Chromium on the host. The card displays its reference image while the renders are pending or unavailable. Opening the model loads the GLB in the 3D viewer. [Browser requirements](docs/WINDOWS_SETUP.md)
 
 In **Present your model**, **Save card turntable** records a compact six-second video for the selected model. A previous recording can be used if it fits the 6 MiB limit. Use the card's play control to watch a saved turntable.
@@ -68,6 +70,8 @@ In **Present your model**, **Save card turntable** records a compact six-second 
 ### Try another finish
 
 Choose **Prepare → Refine face** on a textured character before rigging. Check the portrait crop, preview the facial relief and adjust its intensity before saving a copy with the original textures. This optional step runs on demand. [Face refinement and component installation](docs/FACE_REFINEMENT.md)
+
+Refined copies show the saved intensity and provide a shortcut to their source model. If a copy fails, open **Refine face on source** in the queue to try again.
 
 Select **HD Master** in single-image or multi-view mode to retain the full decoded geometry and material volume. Its working GLB has a default ceiling of 1.2 million triangles. Studio measures surface deviation after simplification and keeps a lighter mesh when it meets the tolerance. Increase the ceiling in the generation settings to allow more geometry when needed. Use **Keep source for finishing variants** with other profiles and **Preview reference** to check how thin parts, hands and feet survive the cutout.
 
@@ -109,6 +113,10 @@ Hi3D runtime to refine a native TRELLIS.2 single-image source and bake the
 resulting master. The generation profile keeps its source resolution. Both
 options are also available from **Finishing board**
 on a compatible saved source. [Runtime setup](docs/HI3D.md)
+
+The profile chooser shows each recipe’s triangle target. Once your collection has three completed original generations with matching settings, it also shows the observed time range.
+
+During generation, open **View generation graph** to see the active stage, its elapsed time and the total. Expand **Stage timings** for individual operations, including the UltraTex views. The saved graph is available beside the generation log. Stage timings begin with jobs run on this version.
 
 **High Detail** and **Game Asset** offer editable workflow graphs and a choice of
 geometry engine. High Detail builds a dense mesh with two geometry passes and

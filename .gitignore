@@ -486,6 +486,12 @@
 !/web/workflow-topology.js
 !/web/standard-workflow-graph.js
 !/web/workflow-run.js
+!/web/workflow-timings.js
+!/web/profile-history.js
+!/web/face-lineage.js
+!/generation_timings.py
+!/tests/generation_timings.py
+!/tests/profile_history.mjs
 !/native_ultratex/
 /native_ultratex/*
 !/native_ultratex/dependencies.py
