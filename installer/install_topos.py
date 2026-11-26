@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 from installer.native_workflow_install_common import fetch_asset, safe_path, verify_asset, verify_packages
 from installer.kimodo_install_common import lock
 from installer.setup import extract
+from gpu_runtime import select_gpu
 from pixal3d_runtime import load_manifest, runtime_root
 
 TOOL = ROOT / '.tools/topos'
@@ -125,6 +126,7 @@ def main():
         parser.error('This provisioner targets Windows x64.')
     if Path(sys.executable).resolve() != safe_path(ROOT, '.venv/Scripts/python.exe'):
         parser.error(r"Run this command with Studio's .\.venv\Scripts\python.exe.")
+    select_gpu(ROOT)
     with nullcontext() if args.verify_only else lock(safe_path(ROOT, TOOL / '.installation.lock')):
         sources(args.verify_only)
         python_environment(args.verify_only)

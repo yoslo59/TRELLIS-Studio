@@ -427,6 +427,7 @@ function Get-SetupInstallPlan([string]$Root) {
         NativeWorkflows='native-workflows' -in $requested
         NativeWorkflowsLicenseAccepted=$nativeWorkflowsAccepted
         Trellis='trellis' -in $requested
+        Topos='topos' -in $requested
         Pixal3D='pixal3d' -in $requested
         UniRig='unirig' -in $requested
         Hi3D='hi3d' -in $requested

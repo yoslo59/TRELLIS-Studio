@@ -29,10 +29,10 @@ One local generation produced two finishes from the same saved source. The high-
 
 Use **Repair or resume components** after an interrupted download. Setup verifies downloads with SHA-256. The uninstaller can stop its own idle local services and keeps the library. [Repair and uninstall](docs/WINDOWS_SETUP.md)
 
-**New in 3.14.0** — Choose **Advanced** for humanoid rigs with twist bones
-and optional articulated fingers. Use **Creature** to edit a predicted
-skeleton before skinning and add procedural clips to compatible rigs.
-[Release notes](docs/RELEASE_3.14.0.md)
+**New in 3.15.3** — Adjust a model’s roughness and metallic response before export,
+follow generation timings in the workflow graph, and refine a character’s face
+on a separate copy. High Detail with UltraTex skips a redundant material pass.
+[Release notes](docs/RELEASE_3.15.3.md)
 
 ### Install from source
 

@@ -130,6 +130,7 @@
 !/tests/model_finishing_api.py
 !/tests/face_refine_api.py
 !/tests/face_refine_geometry.py
+!/tests/topos_setup.ps1
 !/tests/wtivo_runtime.py
 !/tests/hi3d_api.py
 !/tests/hi3d_weights.py
@@ -512,3 +513,4 @@
 !/docs/RELEASE_3.15.0.md
 !/docs/RELEASE_3.15.1.md
 !/docs/RELEASE_3.15.2.md
+!/docs/RELEASE_3.15.3.md

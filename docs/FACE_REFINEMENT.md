@@ -4,7 +4,9 @@
 
 ## Install the geometry component on the Studio host
 
-Start with a working Windows x64 Studio generation environment and its CUDA-enabled PyTorch installation. From the Studio directory, run the following command once. For Server, run it on the machine that processes the jobs.
+In Windows Setup, select **TOPOS face refinement** on the **Choose the components** page. This selects the TRELLIS.2 GPU runtime that TOPOS uses. The option is available in both Desktop and Server editions. On Server, install it on the machine that processes the jobs. To continue an interrupted download, open **Repair or resume components** from the Start menu.
+
+For a source installation with a working Studio CUDA environment, run the following command from the Studio directory.
 
 ```powershell
 .\.venv\Scripts\python.exe installer\install_topos.py

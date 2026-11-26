@@ -11,6 +11,7 @@ param(
     [switch]$SkipMultiviewTexture,
     [switch]$AcceptUltraTexModelLicenses,
     [switch]$SkipUltraTex,
+    [switch]$SkipTopos,
     [switch]$AcceptNativeWorkflowModelLicenses,
     [switch]$SkipNativeWorkflows,
     [switch]$Guided,
@@ -103,6 +104,7 @@ if ($Mode -ne 'Workshop' -or $taskNeedsWorkshop -or $WithKimodo) {
                 AcceptMultiviewTextureModelLicenses=$AcceptMultiviewTextureModelLicenses
                 SkipMultiviewTexture=$SkipMultiviewTexture
                 AcceptUltraTexModelLicenses=$AcceptUltraTexModelLicenses; SkipUltraTex=$SkipUltraTex
+                SkipTopos=$SkipTopos
                 AcceptNativeWorkflowModelLicenses=$AcceptNativeWorkflowModelLicenses
                 SkipNativeWorkflows=$SkipNativeWorkflows
             }
