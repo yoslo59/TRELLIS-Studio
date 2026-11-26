@@ -25,7 +25,7 @@ from studio_workspace import ID, finishing_source, read, write
 ROOT = Path(__file__).resolve().parent
 MIB = 1024**2
 LOG = logging.getLogger('trellis.server')
-SAFE_SCRIPTS = {'worker.py', 'pixal3d_worker.py', 'import_worker.py', 'rig_worker.py', 'print_worker.py', 'asset_work.py', 'animation_worker.py', 'generated_animation_worker.py', 'model_finishing_worker.py'}
+SAFE_SCRIPTS = {'worker.py', 'pixal3d_worker.py', 'import_worker.py', 'rig_worker.py', 'print_worker.py', 'asset_work.py', 'animation_worker.py', 'generated_animation_worker.py', 'model_finishing_worker.py', 'face_refine_worker.py'}
 REFERENCE_FILES = {'settings.json', 'metadata.json', 'status.json', 'generation.log', 'server-work.json',
                    *COMFY_INPUT_FILES,
                    'input.png', 'left.png', 'right.png', 'back.png', 'conditioning.png', 'prepared.png',
@@ -71,6 +71,10 @@ def children(folder):
 
 
 def reserve_bytes(settings, script, folder):
+    if script == 'face_refine_worker.py':
+        if settings.get('source_kind') == 'face_refinement':
+            return 16 * MIB + read(folder/'face-request.json')['source_bytes']
+        return 48 * MIB
     if settings.get('workflow_id') in STANDALONE_PROFILES:
         return (256 if settings['workflow_id'] == 'high_detail_native' else 64) * MIB
     if script == 'rig_worker.py' and (settings.get('creature_phase') or
@@ -112,6 +116,7 @@ class PrivateStudio:
         self.exports = directory / 'exports'
         self.state = directory / 'state'
         self.animation_operations = self.state / 'animation-ops'
+        self.face_previews = self.state / 'face-previews'
         self.generated_animations = self.state / 'generated-animations'
         self.trash = directory / 'trash'
         self.active = None
@@ -183,6 +188,9 @@ class PrivateStudio:
         generated=self.generated_animations/identifier
         if ID.fullmatch(identifier) and generated.is_dir() and generated.resolve()==generated:
             return generated
+        preview = self.face_previews / identifier
+        if ID.fullmatch(identifier) and preview.is_dir() and preview.resolve() == preview:
+            return preview
         if self.is_animation_operation(identifier):
             return self.animation_operations / identifier
         return self.outputs / identifier
@@ -192,7 +200,7 @@ class PrivateStudio:
 
     def snapshot(self, path):
         folders = [self.outputs, self.exports, self.state / 'uploads', self.state / 'imports',
-                   self.animation_operations, self.generated_animations]
+                   self.animation_operations, self.generated_animations, self.face_previews]
         for identifier in set(path.split('/')):
             if ID.fullmatch(identifier):
                 model = self.outputs / identifier
@@ -397,6 +405,9 @@ class ServerRuntime:
             return response
 
     async def trim_failed(self, workspace, folder):
+        if folder.parent == workspace.face_previews and ID.fullmatch(folder.name):
+            from face_refine_api import remove_draft_data
+            await asyncio.to_thread(remove_draft_data, folder)
         if folder.parent == workspace.generated_animations and ID.fullmatch(folder.name):
             for path in children(folder):
                 if path.name not in ('manifest.json','settings.json','status.json','generation.log','server-work.json'):
@@ -500,7 +511,7 @@ class ServerRuntime:
             trim = False
             if not export and folder.is_dir():
                 script, _, settings = workspace.job_spec(folder)
-                trim = script in ('worker.py', 'pixal3d_worker.py', 'generated_animation_worker.py', 'model_finishing_worker.py') or settings.get('source_kind') == 'animation_copy'
+                trim = script in ('worker.py', 'pixal3d_worker.py', 'generated_animation_worker.py', 'model_finishing_worker.py', 'face_refine_worker.py') or settings.get('source_kind') == 'animation_copy'
             if over or terminal not in TERMINAL:
                 if folder.is_dir():
                     error = 'Disk quota reached. Free space before retrying.' if over else 'Server stopped during the operation.'

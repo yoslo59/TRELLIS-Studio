@@ -1,4 +1,4 @@
-import {createStudioWorkbench} from './studio-workbench.js?v=profile-catalogue';
+import {createStudioWorkbench} from './studio-workbench.js?v=face-refine';
 import {createViewerLighting,createViewerStage} from './viewer-lighting.js?v=visual-refresh-2';
 import {createMaterialPreview} from './material-preview.js?v=inline-controls';
 import {createHologramViewer} from './hologram-viewer.js?v=visual-refresh-2';

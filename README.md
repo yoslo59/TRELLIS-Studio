@@ -67,6 +67,8 @@ In **Present your model**, **Save card turntable** records a compact six-second 
 
 ### Try another finish
 
+Choose **Prepare → Refine face** on a textured character before rigging. Check the portrait crop, preview the facial relief and adjust its intensity before saving a copy with the original textures. This optional step runs on demand. [Face refinement and component installation](docs/FACE_REFINEMENT.md)
+
 Select **HD Master** in single-image or multi-view mode to retain the full decoded geometry and material volume. Its working GLB has a default ceiling of 1.2 million triangles. Studio measures surface deviation after simplification and keeps a lighter mesh when it meets the tolerance. Increase the ceiling in the generation settings to allow more geometry when needed. Use **Keep source for finishing variants** with other profiles and **Preview reference** to check how thin parts, hands and feet survive the cutout.
 
 Choose **Repair Holes** under **Advanced Settings → Finishing override** with HD Master to rebuild the surface before the first GLB export. Remesh displays the triangle counts of the current GLB and the cached source when known. Each variant is generated from that cache, which can contain many more triangles than the working GLB.

@@ -32,7 +32,7 @@ OPERATION_LABELS = {
     MULTIVIEW_OPERATION: 'Multiview texture',
 }
 REFERENCE_LINEAGE = {'refinish', 'baked_game_copy', 'texture_projection', MULTIVIEW_OPERATION,
-                     'restored', 'game', 'lod'}
+                     'restored', 'game', 'lod', 'face_refinement'}
 REFERENCE_LINEAGE_LIMIT = 16
 
 
@@ -83,6 +83,27 @@ def readable_workflow_image(path, max_pixels):
     except (OSError, ValueError, Image.DecompressionBombError):
         return False
 
+
+def reference_lineage(output, services, folder, record):
+    output = output.resolve()
+    visited = set()
+    for _ in range(REFERENCE_LINEAGE_LIMIT):
+        if folder.resolve() != output / folder.name or folder.name in visited:
+            break
+        visited.add(folder.name)
+        settings = record['settings']
+        yield folder, settings
+        if settings.get('source_kind') not in REFERENCE_LINEAGE:
+            break
+        parent = settings.get('parent_id')
+        if not isinstance(parent, str) or not ID.fullmatch(parent) or parent in visited:
+            break
+        try:
+            folder, record = services.available(parent)
+        except HTTPException as error:
+            if error.status_code not in (403, 404, 409):
+                raise
+            break
 
 def install(router, app, upload):
     services = app['STUDIO']
@@ -263,34 +284,13 @@ def install(router, app, upload):
             return await prepare_copy(folder, record, source, 'texture_projection',
                                       projections=list(zip(paths, options, strict=True)))
 
-    def reference_lineage(folder, record):
-        output = app['OUTPUT'].resolve()
-        visited = set()
-        for _ in range(REFERENCE_LINEAGE_LIMIT):
-            if folder.resolve() != output / folder.name or folder.name in visited:
-                break
-            visited.add(folder.name)
-            settings = record['settings']
-            yield folder, settings
-            if settings.get('source_kind') not in REFERENCE_LINEAGE:
-                break
-            parent = settings.get('parent_id')
-            if not isinstance(parent, str) or not ID.fullmatch(parent) or parent in visited:
-                break
-            try:
-                folder, record = services.available(parent)
-            except HTTPException as error:
-                if error.status_code not in (403, 404, 409):
-                    raise
-                break
-
     def single_reference(settings):
         views = settings.get('views')
         return (settings.get('view_mode') in (None, 'single')
                 and not (settings.get('engine') == 'pixal3d' and isinstance(views, list) and len(views) > 1))
 
     async def multiview_cutout(folder, record, max_pixels):
-        for folder, settings in reference_lineage(folder, record):
+        for folder, settings in reference_lineage(app['OUTPUT'], services, folder, record):
             if not single_reference(settings):
                 return None, 'Choose a model from a single reference for multiview texture refinement.'
             path = existing_file(folder, 'prepared.png')
@@ -300,7 +300,7 @@ def install(router, app, upload):
 
     async def native_workflow_reference(folder, record, max_pixels):
         native = False
-        for folder, settings in reference_lineage(folder, record):
+        for folder, settings in reference_lineage(app['OUTPUT'], services, folder, record):
             if not single_reference(settings):
                 break
             if settings.get('workflow_id') not in STANDALONE_PROFILES:

@@ -155,7 +155,7 @@ def install(app,g):
 
 class StudioServices:
     def __init__(self,app,g):
-        self.g=g;self.output=g['OUTPUT'];self.root=g['ROOT'];self.task=None
+        self.g=g;self.output=g['OUTPUT'];self.root=g['ROOT'];self.task=None;self.face_gc=None
         default=self.root/'config'/'studio-state' if self.output==self.root/'outputs' else self.output.parent/(self.output.name+'-state')
         environment=g.get('workspace_environment',os.environ)
         self.workspace=Workspace(g.get('WORKSPACE_CONFIG',{}).get('state',environment.get('TRELLIS_STATE_DIR',str(default))))
@@ -165,6 +165,9 @@ class StudioServices:
         generated=(self.workspace.root/'generated-animations').resolve()/identifier
         if ID.fullmatch(identifier) and generated.is_dir() and generated.resolve()==generated:
             return generated
+        preview=(self.workspace.root/'face-previews').resolve()/identifier
+        if ID.fullmatch(identifier) and preview.is_dir() and preview.resolve()==preview:
+            return preview
         return self.output/identifier
     def cancel_pending(self,identifier,folder):
         state=read(folder/'status.json',{})
@@ -179,12 +182,32 @@ class StudioServices:
         interrupted=False
         for entry in self.workspace.queue['items']:
             folder=self.job_folder(entry['id']);state=read(folder/'status.json',{})
+            if state.get('state') in ('running','error','cancelled') and (folder/'face-request.json').is_file():
+                if read(folder/'settings.json', {}).get('source_kind') == 'face_refinement':
+                    from face_refine_api import clear_copy_inputs
+                    clear_copy_inputs(folder)
+                    if state.get('state') == 'running':
+                        write(folder/'status.json', dict(state='error',stage='Face copy interrupted',progress=0,
+                              error='Open Refine face on the original model to start again.'))
+                        interrupted=True
+                    continue
             if state.get('state')=='running':write(folder/'status.json',dict(state='error',stage='Interrupted · retry available',progress=0,error='The studio stopped during this calculation. Retry starts it from its saved recipe.'));interrupted=True
         if interrupted:self.workspace.queue['paused']=True;self.workspace.save_queue()
+        self.face_gc=asyncio.create_task(self.expire_face_previews())
         if not self.g.get('WORKSPACE_CONFIG'):
             self.task=asyncio.create_task(self.scheduler())
+    async def expire_face_previews(self):
+        from face_refine_api import prune
+        while True:
+            async with self.g['LOCK']:
+                try:
+                    prune(self.g, time.time())
+                except (OSError, ValueError):
+                    pass
+            await asyncio.sleep(600)
     async def close(self):
         if self.task:self.task.cancel()
+        if self.face_gc:self.face_gc.cancel()
     async def scheduler(self):
         while True:
             await asyncio.sleep(1)
@@ -208,6 +231,8 @@ class StudioServices:
                     try:
                         if settings.get('generated_animation_action') in ('generate','apply'):
                             self.g['launch_worker'](folder,'generated_animation_worker.py')
+                        elif settings.get('source_kind') in ('face_refine_preview', 'face_refinement'):
+                            self.g['launch_worker'](folder, 'face_refine_worker.py', source_id=settings.get('parent_id'))
                         elif settings.get('source_kind') == 'multiview_texture_refinement':
                             self.g['launch_worker'](folder, 'model_finishing_worker.py', source_id=settings.get('parent_id'))
                         elif settings.get('source_kind') == 'refinish':
@@ -485,6 +510,8 @@ class StudioServices:
         return identifiers
 
     def retry_recipe(self, folder, saved, priority, changes):
+        if saved.get('source_kind') == 'face_refinement':
+            raise ValueError('Open Refine face on the original model to make a new preview.')
         if saved.get('source_kind') == 'multiview_texture_refinement':
             raise ValueError('Open the original model in Finishing board to queue a new multiview texture copy.')
         if not isinstance(changes, dict) or set(changes) - RETRY_FIELDS:
@@ -779,6 +806,13 @@ class StudioServices:
                     operation = self.g['animation_operation'](entry['id'])
                     items.append({**entry, **operation, 'settings': {'source_kind': 'animation_update'}})
                     continue
+                preview=self.workspace.root/'face-previews'/entry['id']
+                if preview.is_dir() and preview.resolve()==preview:
+                    state=read(preview/'status.json', {})
+                    settings=read(preview/'settings.json', {})
+                    if state.get('state') in ('queued','running'):
+                        items.append({**entry, **state, 'name':settings.get('name','Face preview'), 'settings':settings})
+                    continue
                 folder=self.output/entry['id']
                 if not folder.is_dir():continue
                 record=self.g['job_record'](folder)
@@ -807,6 +841,8 @@ class StudioServices:
                     entry['priority']=data['priority']
                 if data.get('retry'):
                     folder=self.g['job_path'](identifier);state=read(folder/'status.json',{})
+                    if read(folder/'settings.json', {}).get('source_kind') == 'face_refinement':
+                        raise HTTPException(409, 'Open Refine face on the original model to start again.')
                     if state.get('state') not in ('error','cancelled'):raise HTTPException(409,'Only interrupted, failed or cancelled jobs can be retried.')
                     entry['cancelled']=False;entry['held']=False;write(folder/'status.json',dict(state='queued',stage='Waiting in queue',progress=0))
                 self.workspace.save_queue();return queue()

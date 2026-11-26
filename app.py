@@ -160,7 +160,7 @@ def job_path(identifier):
     return folder
 
 PREPARED_OUTPUT_KINDS = ('unirig', 'animation_copy', 'texture_projection', 'baked_game_copy',
-                         'multiview_texture_refinement')
+                         'multiview_texture_refinement', 'face_refinement')
 
 
 def prepared_output_ready(settings, status):
@@ -335,7 +335,7 @@ def status():
                 texture_methods=dict(trellis=dict(available=True, reason=''),
                                      multiview=multiview_texture_capability(), ultratex=ultratex_texture_capability()),
                 edition='server' if WORKSPACE_CONFIG else 'desktop',
-                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','rig_landmarks','rig_profiles','creature_rig','creature_motions','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','animation_batch','animation_clip_removal','generated_animations','presentation','library_turntable','collection_transfer','rest_api_v1','mcp','refinish','repair_surface','hd_reconstruction','hd_master_finishing','pixal3d_multiview','pixal3d_face_projection','texture_projection','multiview_texture_refinement','baked_game_copy'], rig_profiles=['advanced'], texture_sizes=textures,supported_resolutions=resolutions)
+                features=['library','metadata','trash','blender_export','uv_preview','resolution_choice','advanced_controls','generation_profiles','model_import','unirig','rig_landmarks','rig_profiles','creature_rig','creature_motions','print_copy','asset_taxonomy','comparison','diagnostics','target_exports','batch_actions','generation_queue','collections','version_history','lods','game_preparation','motion_tools','animation_batch','animation_clip_removal','generated_animations','presentation','library_turntable','collection_transfer','rest_api_v1','mcp','refinish','repair_surface','hd_reconstruction','hd_master_finishing','pixal3d_multiview','pixal3d_face_projection','texture_projection','multiview_texture_refinement','baked_game_copy','face_refinement'], rig_profiles=['advanced'], texture_sizes=textures,supported_resolutions=resolutions)
 
 @app.get('/api/components')
 def components():
@@ -1837,10 +1837,29 @@ async def cancel(identifier: str):
     if ID.fullmatch(identifier) and (generated_animations_root()/identifier).is_dir():
         return await cancel_generated_animation(identifier)
     global LOG_HANDLE
+    face = STUDIO.job_folder(identifier)
+    if face.parent == STUDIO.workspace.root.resolve() / 'face-previews':
+        return await discard_face_preview(read_workspace_json(face/'settings.json')['parent_id'], identifier)
     if WORKSPACE_CONFIG and ID.fullmatch(identifier) and (animation_operations_root()/identifier).is_dir():
         return await cancel_animation_operation(identifier)
     folder = job_path(identifier)
     record=job_record(folder)
+    if record['settings'].get('source_kind') == 'face_refinement':
+        from face_refine_api import clear_copy_inputs
+        async with LOCK:
+            state = read_workspace_json(folder/'status.json', {}).get('state')
+            if state == 'queued':
+                STUDIO.cancel_pending(identifier, folder)
+            elif state == 'running':
+                if ACTIVE == identifier and PROCESS is not None and PROCESS.poll() is None:
+                    await asyncio.to_thread(stop_worker)
+                    if LOG_HANDLE:
+                        LOG_HANDLE.close()
+                        LOG_HANDLE = None
+                write_json(folder/'status.json', dict(state='cancelled', stage='Face copy cancelled', progress=0))
+            if read_workspace_json(folder/'status.json', {}).get('state') in ('cancelled', 'error'):
+                clear_copy_inputs(folder)
+        return {'ok':True}
     if record['state']=='queued' and record.get('operation')!='animation' and STUDIO.queued(identifier):
         for entry in STUDIO.workspace.queue['items']:
             if entry['id']==identifier:entry['cancelled']=True
@@ -2000,6 +2019,8 @@ async def shutdown(idle_only:bool=False):
 
 from studio_api import install
 STUDIO=install(app,globals())
+from face_refine_api import install as install_face_refinement
+discard_face_preview = install_face_refinement(app, globals())
 COLLECTION_CACHE = STUDIO.workspace.root.resolve() / 'collection-previews'
 COLLECTION_PREVIEWS = CollectionPreviews(
     lambda: [(None, OUTPUT, TRASH, COLLECTION_CACHE)],

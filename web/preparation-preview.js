@@ -3,12 +3,15 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {createLightingRig} from './viewer-lighting.js?v=3.4.0';
-export async function createPreparationPreview(container,url){
+export async function createPreparationPreview(container,url,signal){
  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.toneMapping=THREE.ACESFilmicToneMapping;container.prepend(renderer.domElement);const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(40,1,.001,1000),controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=false;const room=new RoomEnvironment(),pmrem=new THREE.PMREMGenerator(renderer),env=pmrem.fromScene(room,.04);scene.environment=env.texture;room.dispose();pmrem.dispose();const grid=new THREE.GridHelper(10,40,0x63765b,0x3b4735);grid.material.transparent=true;grid.material.opacity=.2;scene.add(grid);const rig=createLightingRig(scene,renderer),axes=new THREE.AxesHelper(.2);axes.material.depthTest=false;axes.renderOrder=12;scene.add(axes);const box=new THREE.Box3Helper(new THREE.Box3(),0xc4f58a);box.visible=false;scene.add(box);let root=null,closed=false,mixer=null,clip=null,clock=new THREE.Clock(),dots=[],contactReport=null;
  const observer=new ResizeObserver(()=>{const w=Math.max(1,container.clientWidth),h=Math.max(1,container.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();});observer.observe(container);
  function frame(){const b=new THREE.Box3().setFromObject(root,true),s=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3()),d=Math.max(s.x,s.y,s.z,.01)*1.9;camera.position.copy(c).add(new THREE.Vector3(.7,.3,1).multiplyScalar(d));camera.near=Math.max(.00001,d/1000);camera.far=Math.max(100,d*100);camera.updateProjectionMatrix();controls.target.copy(c);controls.update();axes.scale.setScalar(Math.max(s.y,1));rig.fit(root);}
  renderer.setAnimationLoop(()=>{if(closed)return;if(mixer&&clip)mixer.update(Math.min(clock.getDelta(),.1));else clock.getDelta();if(root&&box.visible)box.box.setFromObject(root,true);if(contactReport&&clip){const u=clip.time/clip.getClip().duration;dots.forEach(({mesh,points,contacts})=>{const i=Math.min(points.length-1,Math.round(u*(points.length-1)));mesh.position.fromArray(points[i]);mesh.material.color.set(contacts[i]?0xc4f58a:0x7392b0);});}renderer.render(scene,camera);});
- let gltf;try{gltf=await new GLTFLoader().loadAsync(url);if(closed)return;root=gltf.scene;scene.add(root);frame();}catch(e){observer.disconnect();renderer.setAnimationLoop(null);controls.dispose();rig.dispose();axes.geometry.dispose();axes.material.dispose();grid.geometry.dispose();grid.material.dispose();box.geometry.dispose();box.material.dispose();env.dispose();renderer.dispose();renderer.domElement.remove();throw e;}
+ const loader = new GLTFLoader(signal ? new THREE.LoadingManager() : undefined);
+ const abort = () => loader.manager.abort();
+ signal?.addEventListener('abort', abort, {once:true});
+ let gltf;try{signal?.throwIfAborted();gltf=await loader.loadAsync(url);if(closed)return;root=gltf.scene;scene.add(root);frame();}catch(e){observer.disconnect();renderer.setAnimationLoop(null);controls.dispose();rig.dispose();axes.geometry.dispose();axes.material.dispose();grid.geometry.dispose();grid.material.dispose();box.geometry.dispose();box.material.dispose();env.dispose();renderer.dispose();renderer.domElement.remove();throw e;}finally{signal?.removeEventListener('abort',abort);}
  const edgeLines = [];
  function showEdges(overlay){
   for(const line of edgeLines.splice(0)){scene.remove(line);line.geometry.dispose();line.material.dispose();}
@@ -23,7 +26,23 @@ export async function createPreparationPreview(container,url){
    line.renderOrder=14;scene.add(line);edgeLines.push(line);
   }
  }
- return {get root(){return root;},clips:gltf.animations,frame,showEdges,
+ function frameFace(mesh, center, span) {
+   root.updateWorldMatrix(true, true);
+   const focus = mesh.localToWorld(new THREE.Vector3(...center));
+   const up = new THREE.Vector3(0, 1, 0).transformDirection(mesh.matrixWorld);
+   const front = new THREE.Vector3(0, 0, 1).transformDirection(mesh.matrixWorld);
+   const height = mesh.localToWorld(new THREE.Vector3(center[0], center[1] + span, center[2])).distanceTo(focus);
+   const distance = height * 1.2 / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.min(1, camera.aspect));
+   axes.visible = false;
+   grid.visible = false;
+   camera.position.copy(focus).addScaledVector(front, distance);
+   camera.up.copy(up);
+   camera.near = Math.max(.00001, distance / 1000);
+   controls.target.copy(focus);
+   camera.updateProjectionMatrix();
+   controls.update();
+ }
+ return {get root(){return root;},clips:gltf.animations,frame,frameFace,showEdges,
   game(options){root.position.set(0,0,0);root.scale.setScalar(options.scale);root.rotation.set(...options.rotation.map(THREE.MathUtils.degToRad),'ZYX');root.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(root,true),c=b.getCenter(new THREE.Vector3());if(options.pivot!=='source')root.position.set(-c.x,-(options.pivot==='ground'?b.min.y:c.y),-c.z);root.position.add(new THREE.Vector3(...options.offset));root.updateMatrixWorld(true);box.visible=options.collider!=='none';box.box.setFromObject(root,true);rig.fit(root);},
   play(index){mixer?.stopAllAction();mixer=new THREE.AnimationMixer(root);clip=mixer.clipAction(gltf.animations[index]).play();clock.getDelta();},
   contacts(report){for(const d of dots){scene.remove(d.mesh);d.mesh.geometry.dispose();d.mesh.material.dispose();}dots=[];contactReport=report;for(const foot of Object.values(report?.contacts||{})){const height=new THREE.Box3().setFromObject(root,true).getSize(new THREE.Vector3()).y;const mesh=new THREE.Mesh(new THREE.SphereGeometry(Math.max(.005,height*.013),12,8),new THREE.MeshBasicMaterial({color:0xc4f58a,depthTest:false}));mesh.renderOrder=15;scene.add(mesh);dots.push({mesh,points:foot.positions,contacts:foot.contact});}},
