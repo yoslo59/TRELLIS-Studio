@@ -565,6 +565,7 @@ export async function createProfileControls(advanced,{changed=()=>{},usePixal=()
       preferredTextureMethod=textureMethodOf(settings);
     },
     budget,
+    workflowStages: id => profiles.find(profile => profile.id === id)?.workflow?.advanced,
     get workflow(){return selected?.workflow;},
     appendWorkflow(form){
       if(!workflowFields?.validate())return false;

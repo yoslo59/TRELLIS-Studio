@@ -211,3 +211,23 @@
   #viewport .animation-player input[type=range] { min-width: 45px; }
   #viewport .animation-player output { display: none; }
 }
+
+.material-preview-sliders { padding: 0 16px 14px; }
+.material-preview-sliders .lighting-slider > span { font-size: 12px; }
+.material-preview-sliders .lighting-slider small {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.workspace .view-tabs #materialPreviewToggle.material-adjusted { border-color: var(--shell-active-border); }
+#materialPreviewPanel footer { font: 11px system-ui, sans-serif; letter-spacing: normal; }
+#materialPreviewPanel footer button { padding: 6px; }
+#materialPreviewPanel footer button:disabled { opacity: .45; }
+@media (max-width: 850px) {
+  #materialPreviewPanel { width: min(360px, calc(100vw - 24px)); }
+  #materialPreviewPanel .lighting-head { padding: 8px 12px; }
+  .material-preview-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 12px 10px; }
+  #materialPreviewPanel footer { padding: 4px 10px; }
+}

@@ -1216,12 +1216,16 @@ async def export_preflight(request: Request):
 @app.post('/api/exports',status_code=202)
 async def create_export(request: Request):
     global EXPORT_PROCESS,EXPORT_TASK,EXPORT_LOG
+    from api_contract import Export
     from export_preflight import options, verified_hashes
     from target_export import TARGETS
     async with LOCK:
         try:
             data=await request.json();target=data.get('target');ids=validate_ids(data.get('ids'),500 if target=='library' else 50)
             if target not in TARGETS:raise ValueError('Unknown export target.')
+            export = Export(ids=ids, target=target, material_adjustments=data.get('material_adjustments', {}))
+            material_adjustments = {key: value.model_dump() for key, value in export.material_adjustments.items()
+                                    if value.roughness or value.metalness}
             preflight = data.get('preflight')
             if preflight is not None:
                 if target == 'library' or not isinstance(preflight, dict):
@@ -1262,7 +1266,7 @@ async def create_export(request: Request):
                     if (folder/child).is_dir():shutil.copytree(folder/child,snapshot/child)
                 for filename in ('lod-manifest.json','physics.json','motion-report.json'):
                     if (folder/filename).is_file():shutil.copy2(folder/filename,snapshot/filename)
-        write_json(task/'request.json',dict(ids=ids,target=target,created=time.time(),include_revisions=bool(data.get('include_revisions')),workspace=STUDIO.workspace.data,profiles=PROFILES.list(),preflight=preflight))
+        write_json(task/'request.json',dict(ids=ids,target=target,created=time.time(),include_revisions=bool(data.get('include_revisions')),workspace=STUDIO.workspace.data,profiles=PROFILES.list(),preflight=preflight,material_adjustments=material_adjustments))
         write_json(task/'status.json',dict(state='queued',progress=0,stage='Preparing export',target=target,count=len(ids)))
         if EXPORT_LOG:EXPORT_LOG.close()
         EXPORT_LOG=(task/'export.log').open('w',encoding='utf-8');env=os.environ.copy();env['PYTHONUTF8']='1'

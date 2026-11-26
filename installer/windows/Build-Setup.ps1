@@ -58,6 +58,7 @@ $taskRequired+=@('hi3d_runtime.py','hi3d_worker.py','hi3d_attention.py','docs/HI
 $taskRequired+=@('multiview_texture_runtime.py','multiview_texture_views.py','multiview_texture_fusion.py',
     'installer/install_multiview_texture.py','installer/multiview-texture-manifest.json',
     'installer/requirements-multiview-texture.txt','licenses/Stable-Diffusion-2.1-OpenRAIL++-M.txt')
+$taskRequired+=@('web/material-preview.js')
 $taskRequired+=@('studio_release.py','web/release-notification.css','web/release-notification.js')
 $taskRequired+=@('native_high_detail.py','native_high_detail_quant.py','native_high_detail_portable.py',
     'native_workflow_options.py','native_workflows/high_detail_native.json','native_workflows/game_asset_native.json',
@@ -66,7 +67,7 @@ $taskRequired+=@('native_pixal3d.py','native_pixal_layers.py','native_pixal_prep
     'native_game_conditioning.py','native_game_sampling.py','native_game_finish.py','native_game_geometry.py','native_game_profile.py')
 $taskRequired+=@('native_ultratex/dependencies.py','native_ultratex/options.py','native_ultratex/existing_mesh.py','native_ultratex/native_ultratex_models.py',
     'native_ultratex/native_ultratex_recipe.py','native_ultratex/prepare_character05.py','native_ultratex/run_character05_texture.py',
-    'web/workflow-graph.js','web/workflow-topology.js','web/standard-workflow-graph.js')
+    'web/workflow-graph.js','web/workflow-topology.js','web/standard-workflow-graph.js','web/workflow-run.js')
 $taskRequired+=@('rig_profiles_blender.py','creature_rig.py','creature_motion.py','creature_verification.py',
     'UniRig/apply-creature.py','web/creature-rig-editor.js','web/creature-rig-viewer.js',
     'creature_motion_edit.py','web/creature-motions.js')

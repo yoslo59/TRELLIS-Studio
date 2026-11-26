@@ -49,7 +49,7 @@ skeleton before skinning and add procedural clips to compatible rigs.
 | **Create** | Local TRELLIS.2 and Pixal3D generation with shared profiles, selectable texture methods and master finishing. Preview the cutout and framing, then crop or correct the mask while keeping the original. |
 | **Queue** | Schedule batches of up to 30 images. Correct the recipe of a failed job and create a linked retry with the same references and seed. The original failure remains available for review. |
 | **Collection** | Textured and clay card previews, search, category/type/review filters, favourites, tags, notes, nested folders, saved views, multiple selection and restorable trash. |
-| **Review** | PBR/clay/normals/wireframe views, camera presets, adjustable preview lighting, synchronised before/after comparison, topology/UV/material/dimension diagnostics. |
+| **Review** | PBR/clay/normals/wireframe views, camera presets, adjustable lighting, roughness and metallic controls, synchronised before/after comparison, topology/UV/material/dimension diagnostics. |
 | **Animate** | UniRig skeleton and skin-weight prediction, editable frontal joint markers, visible skeleton inspection, 84 authored humanoid motions, a library of generated motions and procedural motion on compatible creature rigs. |
 | **Prepare** | Reference-based color projection, HD-to-game reduction and material baking, linked LOD copies, pivot and collision tools, and dedicated printing copies. |
 | **History** | Parent/child lineage, recipes, comments, recoverable checkpoints and restoration as a new card. |
@@ -58,6 +58,8 @@ skeleton before skinning and add procedural clips to compatible rigs.
 | **Automate** | Typed REST API v1, interactive OpenAPI reference and MCP tools over STDIO. Desktop also provides a local Streamable HTTP bridge. |
 
 ### Collection previews
+
+In the 3D preview, open **Material** next to **Prepare** to adjust roughness and metallic response. Studio remembers the sliders for each model in this browser. GLB, Blender, Unity and Unreal exports apply the adjustments by default. Check **Use original materials** in Export to use the authored material for that package.
 
 Move the pointer across a model card to compare its textured and clay renders at the same angle. When the card has keyboard focus, use the left and right arrow keys. Studio saves two WebP images per model revision. It builds missing pairs for existing models while compute jobs are idle, using Edge, Chrome or Chromium on the host. The card displays its reference image while the renders are pending or unavailable. Opening the model loads the GLB in the 3D viewer. [Browser requirements](docs/WINDOWS_SETUP.md)
 
@@ -257,8 +259,8 @@ frontal T-pose humanoid. Inspect faces, hands, thin parts and materials in
 
 | Destination | Contents | Convention |
 | --- | --- | --- |
-| **Portable GLB** | Original self-contained geometry, PBR, rig and embedded clips | Metres, Y up |
-| **Blender** | Editable packed `.blend`, original GLB and material maps | Metres, Z up |
+| **Portable GLB** | Self-contained geometry, selected PBR materials, rig and embedded clips | Metres, Y up |
+| **Blender** | Editable packed `.blend`, GLB and material maps | Metres, Z up |
 | **Unity** | Animated FBX, PBR maps, optional Editor importer; prepared LOD/collision resources | Metres, Y up |
 | **Unreal Engine** | Animated FBX, ORM maps and DirectX normal maps | Centimetres, Z up |
 | **3D printing** | Dedicated STL and topology report; create a print copy first | Millimetres, Z up |

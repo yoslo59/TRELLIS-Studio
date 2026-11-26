@@ -332,6 +332,7 @@ def _compute(image_path, paths, backend, options, report, mask_output=None, trac
                             input=torch.from_numpy(reference.conditioning_rgb.copy()).div(255).unsqueeze(0),
                             angle=fov, structure={'samples': latent.cpu()}), trace / 'structure.pt')
         release()
+        report('Decoding the sparse structure', 44)
         decoder = vae_load('struct_dec')
         voxel_size = int(options.get('119', {}).get('resolution', 32))
         occupancy = decoder.decode_structure(latent[:, :8].half()) > 0

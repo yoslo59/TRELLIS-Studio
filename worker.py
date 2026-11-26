@@ -76,6 +76,7 @@ def generate_source(torch):
         ('get_cond', 'Analysing image', 16),
         ('sample_sparse_structure', 'Building volume', 24),
         ('sample_shape_slat', 'Generating geometry', 39),
+        ('sample_shape_slat_cascade', 'Generating geometry', 39),
         ('sample_tex_slat', 'Generating materials', 58),
         ('decode_and_cleanup', 'Extracting mesh', 73),
     ]:
@@ -557,6 +558,7 @@ def generate_standalone_workflow():
         native = Path(scratch) / 'native.glb'
         receipt = run_profile(image_path, native, JOB, recipe,
                               progress=lambda label, percent: status('running', label, percent))
+        status('running', 'Writing the Studio GLB', 98)
         document, binary = read(native)
         low, high = posed_bounds(document, binary)
         del binary
@@ -633,6 +635,7 @@ def main():
     face_report = project_requested_face()
     if source_id and settings.get('master_finishing'):
         preserve_master_generation_views(source_id, result)
+    status('running', 'Finalizing model', 99)
     with (JOB / 'model.glb').open('rb') as model_file:
         result.metadata['finishing']['model_sha256'] = hashlib.file_digest(model_file, 'sha256').hexdigest()
     stats = dict(name=settings['name'], height_m=settings['height_m'], seed=settings['seed'],

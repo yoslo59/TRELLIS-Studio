@@ -43,6 +43,8 @@ function tool(label, glyph, action) {
 
 const glyphs = {reference: 'image', geometry: 'cube', mesh: 'wire', texture: 'layers', output: 'download'};
 const svg = name => document.createElementNS('http://www.w3.org/2000/svg', name);
+const openGraphs = new WeakMap();
+const phaseNames = {reference: 'Reference', geometry: 'Geometry', mesh: 'Mesh finishing', texture: 'Texturing', output: 'Output'};
 
 function graphNode(stage, type, renderFields) {
   const editable = stage.fields?.length > 0;
@@ -64,7 +66,7 @@ function graphNode(stage, type, renderFields) {
   return {stage, card, inlet, outlet};
 }
 
-export function createWorkflowGraph(workspace, groups, profileName, renderFields, topology) {
+export function createWorkflowGraph(workspace, groups, profileName, renderFields, topology, {monitor = false} = {}) {
   const graph = workflowTopology(groups.flatMap(group => group.stages), topology);
   const groupTypes = new Map(groups.flatMap(group => group.stages.map(stage => [stage.id, group.type])));
   const opener = el('button', 'secondary workflow-graph-open');
@@ -76,11 +78,12 @@ export function createWorkflowGraph(workspace, groups, profileName, renderFields
   panel.setAttribute('aria-label', 'Workflow graph');
   const header = el('header', 'workflow-graph-header');
   const title = el('div');
-  title.append(el('h2', '', 'Workflow graph'), el('p', '', profileName));
+  title.append(el('h2', '', monitor ? 'Generation graph' : 'Workflow graph'), el('p', '', profileName));
   const viewport = el('div', 'workflow-graph-viewport');
   viewport.tabIndex = 0;
   viewport.setAttribute('aria-label', 'Workflow stages');
-  viewport.setAttribute('aria-description', 'Drag to pan, scroll to zoom, and expand a node to edit its values.');
+  viewport.setAttribute('aria-description', monitor ? 'Drag to pan, scroll to zoom, and expand a node to inspect its saved settings.' :
+    'Drag to pan, scroll to zoom, and expand a node to edit its values.');
   const flow = el('div', 'workflow-graph-flow');
   const lines = svg('svg');
   lines.classList.add('workflow-graph-lines');
@@ -92,6 +95,9 @@ export function createWorkflowGraph(workspace, groups, profileName, renderFields
   const underlying = new Map();
   let zoom = 1;
   let drag;
+  let trigger = opener;
+  let activeNode = null;
+  let follow = true;
 
   for (const column of graph.columns) {
     const lane = el('div', 'workflow-graph-lane');
@@ -163,6 +169,65 @@ export function createWorkflowGraph(workspace, groups, profileName, renderFields
     viewport.scrollTo(0, 0);
   }
 
+  function center(card) {
+    if (!card || !panel.isConnected) return;
+    const box = card.getBoundingClientRect(), view = viewport.getBoundingClientRect();
+    viewport.scrollBy(box.left - view.left - (view.width - box.width) / 2,
+      box.top - view.top - Math.max(16, (view.height - Math.min(view.height, box.height)) / 2));
+  }
+
+  const phaseNav = el('nav', 'workflow-graph-phases');
+  phaseNav.setAttribute('aria-label', 'Find workflow phase');
+  for (const [type, name] of Object.entries(phaseNames)) {
+    const cards = [...nodes.values()].filter(node => node.card.dataset.type === type);
+    if (!cards.length) continue;
+    const link = el('button', 'workflow-graph-stage', name);
+    link.dataset.type = type;
+    link.type = 'button';
+    link.title = 'Show ' + name.toLowerCase();
+    link.addEventListener('click', () => center(cards.find(node => !node.card.classList.contains('is-inactive'))?.card));
+    phaseNav.append(link);
+  }
+  const run = el('div', 'workflow-run');
+  const stateLabel = el('strong', 'workflow-run-state');
+  const stageLabel = el('span', 'workflow-run-stage');
+  stageLabel.setAttribute('role', 'status');
+  const percentLabel = el('span', 'workflow-run-percent');
+  const followButton = el('button', 'quiet workflow-follow', 'Follow stage');
+  followButton.prepend(icon('compass'));
+  followButton.type = 'button';
+  followButton.setAttribute('aria-pressed', 'true');
+  followButton.addEventListener('click', () => {
+    follow = !follow;
+    followButton.setAttribute('aria-pressed', String(follow));
+    if (follow) center(activeNode?.card);
+  });
+  if (monitor) {
+    panel.dataset.monitor = 'true';
+    run.append(stateLabel, stageLabel, percentLabel, followButton);
+  }
+
+  function setRun(job, nodeId) {
+    const state = {queued: 'Queued', running: 'Running', done: 'Complete', error: 'Failed', cancelled: 'Cancelled'}[job.state] || job.state;
+    stateLabel.textContent = state;
+    run.dataset.state = job.state;
+    const label = job.state === 'error' ? job.error || job.stage : job.stage;
+    if (stageLabel.textContent !== (label || state)) stageLabel.textContent = label || state;
+    percentLabel.textContent = ['running', 'done'].includes(job.state) && Number.isFinite(job.progress) ? job.progress + '%' : '';
+    const next = job.state === 'running' ? nodes.get(nodeId) : null;
+    if (!['queued', 'running'].includes(job.state) && document.activeElement === followButton) {
+      closer.focus({preventScroll: true});
+    }
+    followButton.hidden = !['queued', 'running'].includes(job.state);
+    if (next === activeNode) return;
+    activeNode?.card.removeAttribute('aria-current');
+    activeNode = next;
+    activeNode?.card.setAttribute('aria-current', 'step');
+    for (const cable of cables) cable.path.classList.toggle('is-current',
+      Boolean(next && cable.to === next && !cable.path.classList.contains('is-inactive')));
+    if (follow) center(activeNode?.card);
+  }
+
   viewport.addEventListener('wheel', event => {
     if (event.ctrlKey || event.metaKey || event.shiftKey || event.deltaY === 0 ||
         event.target.closest('input, select, textarea')) return;
@@ -198,8 +263,12 @@ export function createWorkflowGraph(workspace, groups, profileName, renderFields
     panel.remove();
     for (const [node, inert] of underlying) node.inert = inert;
     underlying.clear();
-    opener.setAttribute('aria-expanded', 'false');
-    if (restoreFocus) opener.focus({preventScroll: true});
+    openGraphs.delete(workspace);
+    trigger.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) {
+      const focusTarget = trigger.isConnected && !trigger.closest('[hidden]') ? trigger : workspace.querySelector('#view3d');
+      focusTarget?.focus({preventScroll: true});
+    }
   }
 
   const tools = el('div', 'workflow-graph-tools');
@@ -207,23 +276,32 @@ export function createWorkflowGraph(workspace, groups, profileName, renderFields
   tools.append(tool('Zoom out', 'minus', () => setZoom(zoom / 1.1)), zoomReadout,
     tool('Zoom in', 'plus', () => setZoom(zoom * 1.1)), tool('Fit graph', 'fit', fitView), closer);
   header.append(title, tools);
-  panel.append(header, viewport);
+  const overview = el('div', 'workflow-graph-overview');
+  overview.append(header, phaseNav);
+  if (monitor) overview.append(run);
+  panel.append(overview, viewport);
   panel.addEventListener('keydown', event => {
     if (event.key !== 'Escape' || panel.querySelector(':popover-open')) return;
     event.preventDefault();
     close();
   });
-  opener.addEventListener('click', () => {
+  function open(button = opener) {
     if (panel.isConnected) { close(); return; }
+    openGraphs.get(workspace)?.(false);
+    trigger = button;
+    openGraphs.set(workspace, close);
     for (const node of workspace.children) {
       underlying.set(node, node.inert);
       node.inert = true;
     }
     workspace.append(panel);
+    layout.observe(viewport);
     for (const node of nodes.values()) layout.observe(node.card);
     draw();
-    opener.setAttribute('aria-expanded', 'true');
+    trigger.setAttribute('aria-expanded', 'true');
+    if (monitor && follow) center(activeNode?.card);
     closer.focus({preventScroll: true});
-  });
-  return {opener, sync, close};
+  }
+  opener.addEventListener('click', () => open());
+  return {opener, sync, close, open, setRun, get visible() { return panel.isConnected; }};
 }

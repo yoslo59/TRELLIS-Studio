@@ -116,6 +116,7 @@
 !/tests/rig_landmarks_api.py
 !/tests/rig_landmarks_blender.py
 !/tests/texture_projection.py
+!/tests/material_export.py
 !/tests/studio_release.py
 !/tests/texture-projection-geometry.mjs
 !/tests/texture-projection-auto-align.mjs
@@ -218,6 +219,7 @@
 !/web/validation-en.js
 !/web/version-history.js
 !/web/viewer-lighting.js
+!/web/material-preview.js
 !/web/workbench-ui.js
 !/web/workbench.css
 !/web/workspace-library.js
@@ -469,6 +471,7 @@
 !/web/workflow-graph.js
 !/web/workflow-topology.js
 !/web/standard-workflow-graph.js
+!/web/workflow-run.js
 !/native_ultratex/
 /native_ultratex/*
 !/native_ultratex/dependencies.py

@@ -105,7 +105,7 @@ def run_profile(image_path, output_path, job_dir, options=None, progress=None):
         del vertices, faces
         quad_percent = 55
         wtivo_percent = 61
-        milestones = iter((quad_percent, wtivo_percent, 67, 74, 78, 81))
+        milestones = iter((quad_percent, wtivo_percent, 67, 70, 74, 76, 78, 81))
         normal_mesh, finish = finish_geometry(raw_mesh, scratch / 'finishing',
                                               lambda label: progress(label, next(milestones, 81)), options=options,
                                               quad_progress=lambda label: progress(label, quad_percent),

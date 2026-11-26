@@ -322,6 +322,7 @@ def run_job():
         texture_method = resolve_texture_method(settings.get('texture_method'), settings.get('multiview_texture_refinement'))
         if multiview_report is not None and texture_method == 'multiview':
             finishing['multiview_texture_refinement'] = multiview_report
+        status('running', 'Finalizing model', 99)
         with (JOB / 'model.glb').open('rb') as model_file:
             finishing['model_sha256'] = hashlib.file_digest(model_file, 'sha256').hexdigest()
         from generation_view_projection import save_generation_views

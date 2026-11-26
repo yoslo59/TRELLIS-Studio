@@ -52,7 +52,7 @@ function enginePicker(grid, figureMaster) {
   };
 }
 
-export function createStandardWorkflowGraph(workspace, profileName, preset, fields) {
+export function standardWorkflowDefinition(preset, fields) {
   const figureMaster = preset === 'figure_master';
   const advancedFields = predicate => fields.filter(predicate).map(field => [
     `option_${field.key}`, field.label.replace(/^(Structure|Shape|Texture) · /, ''), field.hint,
@@ -79,6 +79,12 @@ export function createStandardWorkflowGraph(workspace, profileName, preset, fiel
       ['shape', 'finish', 'mesh'], ['reference', 'pixal3d', 'image'], ['pixal3d', 'finish', 'mesh'],
       ['finish', 'uv', 'mesh'], ['uv', 'texture', 'mesh'], ['texture', 'export', 'texture']],
   };
+  return {stages, topology};
+}
+
+export function createStandardWorkflowGraph(workspace, profileName, preset, fields) {
+  const figureMaster = preset === 'figure_master';
+  const {stages, topology} = standardWorkflowDefinition(preset, fields);
   const update = [];
   const graph = createWorkflowGraph(workspace, [{stages}], profileName, node => {
     const grid = document.createElement('div');

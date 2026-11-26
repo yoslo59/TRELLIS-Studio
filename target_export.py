@@ -1,6 +1,6 @@
 """Target recipes and PBR maps. Export staging never writes into an asset directory."""
 from pathlib import Path
-import copy,json,shutil,struct,subprocess,sys
+import base64,copy,io,json,shutil,struct,subprocess,sys
 import numpy as np
 from PIL import Image
 from glb_data import read,image,animation_info
@@ -17,9 +17,20 @@ TARGETS={
  'glb':dict(label='Portable GLB',units='metres',up='Y',forward='Z',format='GLB'),
 }
 
+def texture_source(texture):
+    # GLTFLoader prefers supported WebP/AVIF alternatives over the core image.
+    extensions = texture.get('extensions', {})
+    for name in ('EXT_texture_webp', 'EXT_texture_avif'):
+        if name in extensions:
+            return extensions[name]['source']
+    if 'source' not in texture:
+        raise ValueError('This material needs a PNG, JPEG, WebP or AVIF image for texture export.')
+    return texture['source']
+
+
 def material_maps(data,binary,destination):
     target=destination/'Textures';target.mkdir(exist_ok=True);materials=[]
-    def texture(info):return image(data,binary,data['textures'][info['index']]['source'])
+    def texture(info):return image(data,binary,texture_source(data['textures'][info['index']]))
     for i,entry in enumerate(data.get('materials',[])):
         prefix=f'TS_Mat_{i:03d}';pbr=entry.get('pbrMetallicRoughness',{});maps={}
         for key,label in [('baseColorTexture','BaseColor'),('metallicRoughnessTexture','MetallicRoughness'),('normalTexture','NormalOpenGL'),('occlusionTexture','Occlusion'),('emissiveTexture','Emissive')]:
@@ -42,13 +53,122 @@ def material_maps(data,binary,destination):
             normal_scale=entry.get('normalTexture',{}).get('scale',1),alpha_mode=entry.get('alphaMode','OPAQUE'),double_sided=entry.get('doubleSided',False),maps=maps))
     return materials
 
+def write_glb(data, binary, path):
+    text = json.dumps(data, separators=(',', ':')).encode()
+    text += b' ' * (-len(text) % 4)
+    padding = b'\0' * (-len(binary) % 4)
+    binary_length = len(binary) + len(padding)
+    length = 20 + len(text) + (8 + binary_length if binary_length else 0)
+    with path.open('wb') as out:
+        out.write(struct.pack('<4sIIII', b'glTF', 2, length, len(text), 0x4e4f534a))
+        out.write(text)
+        if binary_length:
+            out.write(struct.pack('<II', binary_length, 0x004e4942))
+            out.write(binary)
+            out.write(padding)
+
+
 def conversion_glb(data,binary,path):
     clone=copy.deepcopy(data)
     for i,material in enumerate(clone.get('materials',[])):material['name']=f'TS_Mat_{i:03d}'
-    text=json.dumps(clone,separators=(',',':')).encode();text+=b' '*((-len(text))%4);binary+=b'\0'*((-len(binary))%4)
-    path.write_bytes(struct.pack('<4sII',b'glTF',2,28+len(text)+len(binary))+struct.pack('<II',len(text),0x4e4f534a)+text+struct.pack('<II',len(binary),0x004e4942)+binary)
+    write_glb(clone, binary, path)
 
-def export_asset(source,destination,target,notify=lambda fraction,stage:None,*,preflight_budget=None,expected_hash=None):
+
+def append_surface_texture(data, binary, texture_index, transforms):
+    texture = data['textures'][texture_index]
+    original = image(data, binary, texture_source(texture))
+    channels = list(original.convert('RGBA').split())
+    for channel, transform in enumerate(transforms, 1):
+        if transform is not None:
+            scale, offset = transform
+            channels[channel] = channels[channel].point([round(i * scale + 255 * offset) for i in range(256)])
+    encoded = io.BytesIO()
+    Image.merge('RGBA', channels).save(encoded, format='PNG')
+    png = encoded.getbuffer()
+
+    # Some imported GLBs have an embedded data URI for their first buffer.
+    # Put it in the BIN chunk before appending so existing offsets still work.
+    buffer = data['buffers'][0]
+    if 'uri' in buffer:
+        binary[:] = base64.b64decode(buffer.pop('uri').split(',', 1)[1])
+    binary.extend(b'\0' * (-len(binary) % 4))
+    view = len(data.setdefault('bufferViews', []))
+    data['bufferViews'].append({'buffer': 0, 'byteOffset': len(binary), 'byteLength': len(png)})
+    binary.extend(png)
+    buffer['byteLength'] = len(binary)
+
+    # Occlusion, colour and other materials can share the original image.
+    new_texture = copy.deepcopy(texture)
+    extensions = new_texture.get('extensions', {})
+    for name in ('EXT_texture_webp', 'EXT_texture_avif', 'KHR_texture_basisu', 'MSFT_texture_dds'):
+        extensions.pop(name, None)
+    if not extensions:
+        new_texture.pop('extensions', None)
+    new_texture['source'] = len(data['images'])
+    data['images'].append({'bufferView': view, 'mimeType': 'image/png'})
+    data['textures'].append(new_texture)
+    return len(data['textures']) - 1
+
+
+def prepare_material_glb(source, destination, adjustment=None):
+    """Apply the viewer's adjustment after each authored factor and texture sample."""
+    source, destination = Path(source), Path(destination)
+    if source.resolve() == destination.resolve():
+        raise ValueError('Choose a separate file for the exported model.')
+    data, binary = read(source)
+    if adjustment is None:
+        adjustment = {}
+    if not isinstance(adjustment, dict) or set(adjustment) - {'roughness', 'metalness'}:
+        raise ValueError('Invalid material adjustment.')
+    roughness, metalness = (adjustment.get(key, 0) for key in ('roughness', 'metalness'))
+    if any(type(v) not in (int, float) or not -1 <= v <= 1 for v in (roughness, metalness)):
+        raise ValueError('Material adjustments must be numbers between -1 and 1.')
+    if not (roughness or metalness):
+        shutil.copy2(source, destination)
+        return data, binary
+
+    materials = data.setdefault('materials', [])
+    default = len(materials)
+    for mesh in data['meshes']:
+        for primitive in mesh['primitives']:
+            if 'material' not in primitive and primitive.get('mode', 4) >= 4:
+                if len(materials) == default:
+                    materials.append({})
+                primitive['material'] = default
+
+    replacements = {}
+    for material in materials:
+        if 'KHR_materials_unlit' in material.get('extensions', {}):
+            continue
+        pbr = material.setdefault('pbrMetallicRoughness', {})
+        info = pbr.get('metallicRoughnessTexture')
+        transforms = []
+        for key, amount in (('roughnessFactor', roughness), ('metallicFactor', metalness)):
+            factor = pbr.get(key, 1)
+            if info is None or amount <= 0:
+                # A decrease is a simple multiplier, even with a texture.
+                if amount:
+                    pbr[key] = factor * (1 - abs(amount)) + max(0, amount)
+                transforms.append(None)
+            else:
+                # A positive offset must also lift black texels and zero factors.
+                pbr[key] = 1
+                transforms.append((factor * (1 - amount), amount))
+        if not any(transforms):
+            continue
+
+        original = info['index']
+        signature = (original, *transforms)
+        if signature not in replacements:
+            if not isinstance(binary, bytearray):
+                binary = bytearray(binary)
+            replacements[signature] = append_surface_texture(data, binary, original, transforms)
+        info['index'] = replacements[signature]
+
+    write_glb(data, binary, destination)
+    return data, binary
+
+def export_asset(source,destination,target,notify=lambda fraction,stage:None,*,preflight_budget=None,expected_hash=None,material_adjustment=None):
     source=Path(source);destination=Path(destination);destination.mkdir(parents=True,exist_ok=True)
     digest=source_sha256(source/'model.glb')
     if expected_hash is not None and digest != expected_hash:
@@ -58,15 +178,18 @@ def export_asset(source,destination,target,notify=lambda fraction,stage:None,*,p
         from export_preflight import asset_report
         notify(.03,'Checking the export snapshot')
         preflight=asset_report(source,target,preflight_budget,digest=digest,staged_cache=source/'diagnostics.json')
-    data,binary=read(source/'model.glb');settings=json.loads((source/'settings.json').read_text(encoding='utf-8'))
+    data,binary=prepare_material_glb(source/'model.glb',destination/'model.glb',material_adjustment)
+    settings=json.loads((source/'settings.json').read_text(encoding='utf-8'))
     metadata=json.loads((source/'metadata.json').read_text(encoding='utf-8'))
     recipe=TARGETS[target];clips=animation_info(data,binary)
-    shutil.copy2(source/'model.glb',destination/'model.glb')
     notify(.1,'Extracting PBR maps')
     materials=material_maps(data,binary,destination) if target in ('blender','unity','unreal') else []
     manifest=dict(version=1,target=target,name=metadata.get('display_name',settings['name']),id=source.name,coordinates=recipe,
         source_glb_sha256=digest,height_m=settings.get('height_m'),animations=clips,
         bones=len({j for skin in data.get('skins',[]) for j in skin.get('joints',[])}),materials=materials)
+    adjusted = bool(material_adjustment and any(material_adjustment.values()))
+    if adjusted:
+        manifest['material_adjustment'] = material_adjustment
     if preflight is not None:
         manifest['preflight']=preflight
     if target=='unity':
@@ -94,7 +217,7 @@ def export_asset(source,destination,target,notify=lambda fraction,stage:None,*,p
             shutil.copy2(source/'LODs'/level['file'],temporary/'model.glb')
             for file in ('settings.json','metadata.json'):shutil.copy2(source/file,temporary/file)
             level['export_path']='LODs/LOD'+str(level['level'])
-            export_asset(temporary,destination/level['export_path'],target,lambda *_:None);shutil.rmtree(temporary)
+            export_asset(temporary,destination/level['export_path'],target,lambda *_:None,material_adjustment=material_adjustment);shutil.rmtree(temporary)
     if (source/'motion-report.json').is_file():
         motion=json.loads((source/'motion-report.json').read_text(encoding='utf-8'));manifest['motion_root']=motion.get('root_bone','') if motion.get('root_motion') else '';shutil.copy2(source/'motion-report.json',destination/'motion-report.json')
     if target=='print':
@@ -109,7 +232,8 @@ def export_asset(source,destination,target,notify=lambda fraction,stage:None,*,p
         (destination/'diagnostics.json').write_text(json.dumps(diagnostic,indent=2),encoding='utf-8')
     (destination/'studio-export.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     lines=[f'TRELLIS Studio — {recipe["label"]} export','',f'Units: {recipe["units"]}; up: {recipe["up"]}; forward: {recipe["forward"]}.',
-      'The original GLB is included byte-for-byte. Its own coordinates are always Y up / metres.',
+      ('The GLB includes the selected preview material adjustments. Its coordinates are Y up / metres.' if adjusted else
+       'The original GLB is included byte-for-byte. Its own coordinates are always Y up / metres.'),
       f'Embedded source clips: {len(clips)}. Skeleton joints: {manifest["bones"]}.','']
     if target=='unity':
         lines+=['FIRST IMPORT: Copy this model folder into Assets/TrellisStudioExports. Copy the supplied Editor folder into Assets.',

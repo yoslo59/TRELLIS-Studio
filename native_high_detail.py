@@ -429,14 +429,14 @@ def _pixal_mesh_in_trellis_frame(torch, result):
     return Mesh(torch.from_numpy(positions), torch.from_numpy(np.ascontiguousarray(faces, dtype=np.int32)))
 
 
-def _repair(torch, mesh, quad, reduction, orientation, progress, *, start):
+def _repair(torch, mesh, quad, reduction, orientation, progress, *, start, pass_name='first pass'):
     import cumesh
     import pymeshlab
     import trimesh
     from meshlib import mrmeshnumpy, mrmeshpy
 
     _reset_cuda(torch)
-    progress('Reconstructing the surface with QuadDC', start)
+    progress(f'Reconstructing the surface with QuadDC · {pass_name}', start)
     vertices, faces = cumesh.remeshing.reconstruct_mesh_dc_quad(
         mesh.vertices.cuda(), mesh.faces.cuda(), quad['resolution'], verbose=True,
         band=quad['remesh_band'], remove_inner_faces=quad['remove_inner_faces'],
@@ -453,7 +453,7 @@ def _repair(torch, mesh, quad, reduction, orientation, progress, *, start):
     mesh.vertices = vertices.to(mesh.device)
     mesh.faces = faces.to(mesh.device)
     del vertices, faces
-    progress('Reducing triangles and repairing holes', start + 5)
+    progress(f'Reducing triangles and repairing holes · {pass_name}', start + 5)
     if reduction['method'] == 'Cumesh':
         mesh.simplify_with_cumesh(target=reduction['target_face_num'])
     elif reduction['method'] == 'Meshlib':
@@ -470,6 +470,7 @@ def _repair(torch, mesh, quad, reduction, orientation, progress, *, start):
     vertices = torch.from_numpy(mrmeshnumpy.getNumpyVerts(surface)).float().numpy()
     faces = torch.from_numpy(mrmeshnumpy.getNumpyFaces(surface.topology)).int().numpy()
     del surface
+    progress(f'Orienting the mesh · {pass_name}', start + 8)
     direction = orientation['reorient_vertices']
     if direction == '90 degrees':
         vertices[:, 1], vertices[:, 2] = vertices[:, 2].copy(), -vertices[:, 1]
@@ -590,12 +591,12 @@ def run_profile(image_path, output_path, job_dir, options=None, progress=None, *
             del pixal_result
         else:
             raw = _generate(torch, pipeline, reference, stages['17'], progress)
-        first = _repair(torch, raw, stages['41'], stages['11'], stages['14'], progress, start=43)
+        first = _repair(torch, raw, stages['41'], stages['11'], stages['14'], progress, start=43, pass_name='first pass')
         del raw
         progress('Refining the TRELLIS.2 mesh', 56)
         refined = _refine(torch, pipeline, reference, first, stages['20'])
         del first
-        surface = _repair(torch, refined, stages['42'], stages['22'], stages['23'], progress, start=72)
+        surface = _repair(torch, refined, stages['42'], stages['22'], stages['23'], progress, start=72, pass_name='second pass')
         del refined
         progress('Generating TRELLIS.2 materials', 87)
         textured = _texture(pipeline, reference, surface, stages['25'])

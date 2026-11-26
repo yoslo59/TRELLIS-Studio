@@ -26,7 +26,7 @@ const checkbox = checked => {
   return control;
 };
 
-export function createQueueStudio({api, refresh}) {
+export function createQueueStudio({api, refresh, canViewGraph, viewJobGraph}) {
   const ui = dialog('queueDialog', 'Generation queue', 'LOCAL COMPUTE',
     'Prepare a batch, then let the studio process one calculation at a time.', 'queue-dialog');
   const tabs = el('div', 'wb-tabs');
@@ -542,6 +542,12 @@ export function createQueueStudio({api, refresh}) {
     });
     const controls = el('div', 'queue-job-actions');
     controls.append(priority);
+    if (canViewGraph?.(item)) {
+      const graph = button('View graph', 'grid', 'secondary', () => action(ui, graph, async () => {
+        await viewJobGraph(item.id, () => ui.close());
+      }));
+      controls.append(graph);
+    }
     if (['queued', 'running'].includes(item.state)) {
       const cancel = button('Cancel', 'close', 'quiet');
       cancel.onclick = () => action(ui, cancel, async () => {

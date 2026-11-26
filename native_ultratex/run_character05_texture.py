@@ -436,6 +436,7 @@ def run_character05_texture(source_glb, source_image, foreground_mask, output_gl
                                            setups['mr'], ViewCollection(tuple(rendered['mr'])), **texture_bake_options(bake))
         check_cancel(cancelled)
         assert_native_imports()
+        emit('Assembling the UltraTex material')
         write_texture_copy(source_glb, output_glb, maps, prompt['384']['inputs'])
     with output_glb.open('rb') as stream:
         checksum = file_digest(stream, 'sha256').hexdigest()

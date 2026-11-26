@@ -290,10 +290,29 @@ class PrintCopy(Contract):
     height_mm:float=Field(default=150,ge=20,le=500)
     voxel_mm:float=Field(default=1,ge=.15,le=2)
 
+class MaterialAdjustment(Contract):
+    roughness: float = Field(default=0, ge=-1, le=1, strict=True)
+    metalness: float = Field(default=0, ge=-1, le=1, strict=True)
+
+
 class Export(Contract):
     ids:list[Identifier]=Field(min_length=1,max_length=500)
     target:Literal['blender','unity','unreal','glb','print','library']='glb'
     include_revisions:bool=False
+    material_adjustments: dict[Identifier, MaterialAdjustment] = Field(
+        default_factory=dict, max_length=50,
+        description='Per-model roughness and metallic adjustments from -1 to 1. Zero preserves the authored channel.',
+    )
+
+    @model_validator(mode='after')
+    def check_material_selection(self):
+        if self.material_adjustments:
+            if self.target in ('print', 'library'):
+                raise ValueError('Material adjustments require an export with materials.')
+            if not self.material_adjustments.keys() <= set(self.ids):
+                raise ValueError('Material adjustments must belong to the selected models.')
+        return self
+
 
 class QueueControl(Contract):
     paused:bool
