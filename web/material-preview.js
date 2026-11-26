@@ -39,9 +39,8 @@ export function createMaterialPreview(anchor, showPbr) {
   toggle.id = 'materialPreviewToggle';
   toggle.disabled = true;
   toggle.title = 'Adjust preview roughness and metallicity';
-  toggle.setAttribute('aria-haspopup', 'dialog');
+  toggle.setAttribute('aria-expanded', 'false');
   toggle.setAttribute('aria-controls', panel.id);
-  toggle.popoverTargetElement = panel;
   anchor.after(toggle);
 
   const uniforms = {roughness: {value: 0}, metalness: {value: 0}};
@@ -65,7 +64,7 @@ export function createMaterialPreview(anchor, showPbr) {
     reset.disabled = channels.every(channel => uniforms[channel].value === 0);
     toggle.classList.toggle('material-adjusted', !reset.disabled && modelId === selectedId);
     toggle.disabled = !modelId || modelId !== selectedId;
-    if (toggle.disabled && panel.matches(':popover-open')) panel.hidePopover();
+    if (toggle.disabled) close();
   }
   function save() {
     if (toggle.disabled) return;
@@ -87,36 +86,36 @@ export function createMaterialPreview(anchor, showPbr) {
     for (const channel of channels) uniforms[channel].value = 0;
     sync();
     save();
+    sliders[0].input.focus({preventScroll: true});
   };
-  function position() {
-    if (!panel.matches(':popover-open')) return;
-    const anchor = toggle.getBoundingClientRect();
-    const view = document.getElementById('viewport').getBoundingClientRect();
-    const width = panel.offsetWidth, height = panel.offsetHeight, gap = 8;
-    const leftRoom = view.left >= width + 2 * gap;
-    const rightRoom = innerWidth - view.right >= width + 2 * gap;
-    const nearerLeft = anchor.left - view.left <= view.right - anchor.right;
-    let left = anchor.left, top = anchor.top;
-    if (leftRoom && (!rightRoom || nearerLeft)) left = view.left - width - gap;
-    else if (rightRoom) left = view.right + gap;
-    else {
-      // A stacked workspace has no sidebar. Use the free space above or below
-      // the canvas, including when the user has scrolled into the preview.
-      top = view.top - gap >= height || view.top > innerHeight - view.bottom
-        ? view.top - height - gap : view.bottom + gap;
-    }
-    panel.style.left = Math.max(gap, Math.min(innerWidth - width - gap, left)) + 'px';
-    panel.style.top = Math.max(gap, Math.min(innerHeight - height - gap, top)) + 'px';
+  function close() {
+    if (panel.hidden) return;
+    panel.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
   }
-  panel.addEventListener('beforetoggle', event => {
-    if (event.newState === 'open') {
-      showPbr();
-      requestAnimationFrame(position);
+  toggle.onclick = () => {
+    if (!panel.hidden) {
+      close();
+      return;
     }
+    showPbr();
+    panel.hidden = false;
+    toggle.setAttribute('aria-expanded', 'true');
+    sliders[0].input.focus({preventScroll: true});
+  };
+  panel.closest('#workspace').addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || panel.hidden || panel.inert) return;
+    close();
+    toggle.focus({preventScroll: true});
+    event.preventDefault();
   });
-  panel.addEventListener('toggle', position);
-  window.addEventListener('resize', position);
-  window.addEventListener('scroll', position, {capture: true, passive: true});
+  document.getElementById('viewTextures').addEventListener('click', close);
+  for (const mode of document.querySelectorAll('[data-material]:not([data-material="pbr"])')) {
+    mode.addEventListener('click', close);
+  }
+  // The graph temporarily makes the preview controls inert.
+  new MutationObserver(() => { if (panel.inert) close(); })
+    .observe(panel, {attributes: true, attributeFilter: ['inert']});
 
   return {
     getAdjustment(id) {

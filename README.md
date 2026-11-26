@@ -270,7 +270,7 @@ Exports run as separate cancellable jobs and provide downloadable ZIPs. Engine p
 
 For Unity, merge the exported common `Editor` folder into your project, then choose **Tools → TRELLIS Studio → Configure exported models**. It configures materials, Generic animation/avatar settings and, for prepared copies, a prefab with LODGroup and collisions. Skinned LODs follow LOD 0's bones. Humanoid avatar mapping, controllers and gameplay remain project-specific. Unreal imports still require checking material assignment and normal settings.
 
-In Export, choose **Check model** to measure the asset against editable budgets for its destination and intended use. The report distinguishes checks from the review decision; topology diagnostics can show open and non-manifold edges on a static model. Exported reports refer to the exact source GLB in the export.
+In Export, choose **Check model** to measure the asset against editable budgets for its destination and intended use. The report distinguishes checks from the review decision; topology diagnostics can show open and non-manifold edges on a static model. Exported reports identify the GLB measured during preflight by its SHA-256 hash.
 
 To update a Unity asset, extract the new package **outside** `Assets`, select the existing model folder in Unity and choose **Tools → TRELLIS Studio → Preview model update**. Point it to the incoming `studio-export.json`. Review the changes and select the files to update. The importer checks that existing object references still resolve and leaves your materials and prefab edits in place. If the mesh was re-UV-mapped, include its matching textures. Existing projects can install the updated Editor helper without replacing their assets.
 

@@ -212,22 +212,36 @@
   #viewport .animation-player output { display: none; }
 }
 
-.material-preview-sliders { padding: 0 16px 14px; }
-.material-preview-sliders .lighting-slider > span { font-size: 12px; }
+#materialPreviewPanel {
+  flex: none;
+  min-width: 0;
+  container: material-settings / inline-size;
+  background: #18211d;
+  border-bottom: 1px solid var(--shell-line);
+}
+.material-preview-sliders {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 10px clamp(12px, 1.2vw, 22px);
+}
+.material-preview-sliders .lighting-slider { min-width: 0; margin: 0; }
+.material-preview-sliders .lighting-slider > span { align-items: baseline; gap: 4px; margin: 0; font-size: 12px; }
 .material-preview-sliders .lighting-slider small {
   display: flex;
   justify-content: space-between;
-  margin-top: 8px;
-  font-size: 10px;
+  gap: 4px;
   color: var(--muted);
+  font-size: 10px;
 }
+.material-preview-actions { display: grid; justify-items: end; gap: 5px; }
+.material-preview-actions small { color: var(--muted); font-size: 10px; }
+.material-preview-actions button { padding: 4px 10px; border: 1px solid var(--shell-line); border-radius: 6px; font-size: 11px; }
+.material-preview-actions button:disabled { opacity: .45; }
 .workspace .view-tabs #materialPreviewToggle.material-adjusted { border-color: var(--shell-active-border); }
-#materialPreviewPanel footer { font: 11px system-ui, sans-serif; letter-spacing: normal; }
-#materialPreviewPanel footer button { padding: 6px; }
-#materialPreviewPanel footer button:disabled { opacity: .45; }
-@media (max-width: 850px) {
-  #materialPreviewPanel { width: min(360px, calc(100vw - 24px)); }
-  #materialPreviewPanel .lighting-head { padding: 8px 12px; }
-  .material-preview-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 12px 10px; }
-  #materialPreviewPanel footer { padding: 4px 10px; }
+.workspace .view-tabs #materialPreviewToggle[aria-expanded=true] { color: var(--accent); border-color: var(--shell-active-border); background: #243221; }
+@container material-settings (max-width: 520px) {
+  .material-preview-sliders { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; padding: 8px 12px; }
+  .material-preview-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; }
 }
