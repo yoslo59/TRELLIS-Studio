@@ -46,6 +46,8 @@ test('High Detail uses the recorded branch and distinguishes both repeated repai
   assert.equal(node('Reconstructing the surface with QuadDC · second pass', 72), '42');
   assert.equal(node('Reducing triangles and repairing holes', 48), '11');
   assert.equal(node('Reducing triangles and repairing holes', 77), '22');
+  assert.equal(node('Unwrapping the mesh for UltraTex', 90), '25');
+  assert.equal(node('Waiting for the UltraTex reference mask', 94), 'hd-ultratex');
   assert.equal(node('mr 90 degrees, step 2/4', 96), 'hd-ultratex');
 });
 

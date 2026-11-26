@@ -52,6 +52,12 @@ def runtime_status(backend='pixal3d'):
 
 def texture_mesh(source, image, mask, output, work, progress=None, *, options=None):
     """Generate the configured UltraTex albedo and metal/roughness views and bake them."""
+    work = Path(work).resolve()
+    # UltraTex's atomic cache writes append a hash and a UUID to nested job paths.
+    # Use the same private directory with Win32 long-path semantics, including on shares.
+    if os.name == 'nt' and not str(work).startswith('\\\\?\\'):
+        path = str(work)
+        work = Path('\\\\?\\UNC\\' + path[2:] if path.startswith('\\\\') else '\\\\?\\' + path)
     command = [str(TEXTURE_PYTHON), '-I', '-B', '-u', str(TEXTURE_RUNNER), '--source-glb', str(source),
                '--reference', str(image), '--foreground-mask', str(mask), '--output', str(output),
                '--work', str(work), '--models', str(TEXTURE_MODELS)]

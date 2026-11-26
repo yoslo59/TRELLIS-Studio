@@ -72,7 +72,7 @@ function reportNode(settings, {stage = '', progress}) {
     if (stage === 'Orienting the mesh · first pass') return '14';
     if (stage === 'Orienting the mesh · second pass') return '23';
     if (stage === 'Refining the TRELLIS.2 mesh') return '20';
-    if (['Generating TRELLIS.2 materials', 'Unwrapping and baking TRELLIS.2 materials',
+    if (['Generating TRELLIS.2 materials', 'Unwrapping the mesh for UltraTex', 'Unwrapping and baking TRELLIS.2 materials',
       'Baking TRELLIS.2 vertex materials'].includes(stage)) return '25';
     if (stage === 'Packaging the mesh and its UV atlas') return textureMethod(settings) === 'ultratex' ? '25' : 'export';
     if (/UltraTex|^(Preparing (mr|albedo) at|mr |albedo )/.test(stage)) return 'hd-ultratex';
